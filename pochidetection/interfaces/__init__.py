@@ -1,4 +1,4 @@
-"""物体検出コンポーネントのインターフェース (DIP - 依存性逆転の原則)."""
+"""物体検出コンポーネントのインターフェース群を提供."""
 
 from pochidetection.interfaces.dataset import IDetectionDataset
 from pochidetection.interfaces.loss import IDetectionLoss
