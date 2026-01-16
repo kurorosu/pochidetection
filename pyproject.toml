@@ -9,6 +9,7 @@ dependencies = [
     "torchvision",
     "transformers",
     "scipy",
+    "torchmetrics[detection]",
 ]
 
 [[tool.uv.index]]
