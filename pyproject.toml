@@ -8,6 +8,7 @@ dependencies = [
     "torch",
     "torchvision",
     "transformers",
+    "scipy",
 ]
 
 [[tool.uv.index]]
