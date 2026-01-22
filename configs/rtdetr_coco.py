@@ -1,0 +1,33 @@
+"""RT-DETR + COCO形式データセット用設定ファイル.
+
+使用方法:
+    from pochidetection.utils import ConfigLoader
+    config = ConfigLoader.load("configs/rtdetr_coco.py")
+"""
+
+# モデル設定
+architecture = "RTDetr"
+model_name = "PekingU/rtdetr_r50vd"
+num_classes = 2
+pretrained = True
+
+# データ設定
+data_root = "data"
+train_split = "train"
+val_split = "val"
+image_size = 640
+batch_size = 4
+
+# 学習設定
+epochs = 100
+learning_rate = 1e-4
+
+# 損失関数・評価指標
+loss = "DetectionLoss"
+metrics = "DetectionMetrics"
+
+# デバイス設定
+device = "cuda"
+
+# ワークスペース設定
+work_dir = "work_dirs"
