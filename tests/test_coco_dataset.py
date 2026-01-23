@@ -1,8 +1,8 @@
 """CocoDetectionDatasetのテスト."""
 
 import json
-import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -87,48 +87,65 @@ class TestCocoDetectionDataset:
 
         return tmp_path
 
-    def test_implements_interface(self, sample_dataset_dir: Path) -> None:
+    @pytest.fixture
+    def mock_processor(self) -> MagicMock:
+        """モックのRTDetrImageProcessorを作成するfixture."""
+        processor = MagicMock()
+        # processor()の戻り値をモック
+        processor.return_value = {
+            "pixel_values": torch.randn(1, 3, 640, 640),
+        }
+        return processor
+
+    def test_implements_interface(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """IDetectionDatasetを実装していることを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         assert isinstance(dataset, IDetectionDataset)
 
-    def test_len(self, sample_dataset_dir: Path) -> None:
+    def test_len(self, sample_dataset_dir: Path, mock_processor: MagicMock) -> None:
         """__len__が正しい値を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         assert len(dataset) == 3
 
-    def test_getitem_returns_correct_keys(self, sample_dataset_dir: Path) -> None:
+    def test_getitem_returns_correct_keys(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """__getitem__が正しいキーを持つ辞書を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         sample = dataset[0]
 
-        assert "image" in sample
-        assert "boxes" in sample
+        assert "pixel_values" in sample
         assert "labels" in sample
-        assert "image_id" in sample
-        assert "orig_size" in sample
+        assert "boxes" in sample["labels"]
+        assert "class_labels" in sample["labels"]
 
-    def test_getitem_boxes_format(self, sample_dataset_dir: Path) -> None:
+    def test_getitem_boxes_format(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """ボックスが正しい形式で返されることを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         sample = dataset[0]
 
-        boxes = sample["boxes"]
+        boxes = sample["labels"]["boxes"]
         assert isinstance(boxes, torch.Tensor)
         assert boxes.dtype == torch.float32
         assert boxes.shape == (2, 4)  # 2つのボックス
 
-        # COCO形式 [x, y, w, h] から [x_min, y_min, x_max, y_max] に変換されていることを確認
-        # 元: [10, 10, 30, 30] -> [10, 10, 40, 40]
-        expected_first_box = torch.tensor([10, 10, 40, 40], dtype=torch.float32)
+        # 正規化cxcywh形式で返されることを確認
+        # 元: [10, 10, 30, 30] (xywh) -> cx=(10+15)/100=0.25, cy=(10+15)/100=0.25, w=0.3, h=0.3
+        expected_first_box = torch.tensor([0.25, 0.25, 0.3, 0.3], dtype=torch.float32)
         assert torch.allclose(boxes[0], expected_first_box)
 
-    def test_getitem_labels_format(self, sample_dataset_dir: Path) -> None:
+    def test_getitem_labels_format(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """ラベルが正しい形式で返されることを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         sample = dataset[0]
 
-        labels = sample["labels"]
+        labels = sample["labels"]["class_labels"]
         assert isinstance(labels, torch.Tensor)
         assert labels.dtype == torch.int64
         assert labels.shape == (2,)  # 2つのラベル
@@ -138,44 +155,56 @@ class TestCocoDetectionDataset:
         assert labels[0].item() == 0  # cat
         assert labels[1].item() == 1  # dog
 
-    def test_getitem_no_annotations(self, sample_dataset_dir: Path) -> None:
+    def test_getitem_no_annotations(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """アノテーションがない画像でも正しく動作することを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         sample = dataset[2]  # image_2 にはアノテーションなし
 
-        boxes = sample["boxes"]
-        labels = sample["labels"]
+        boxes = sample["labels"]["boxes"]
+        labels = sample["labels"]["class_labels"]
 
         assert boxes.shape == (0, 4)
         assert labels.shape == (0,)
 
-    def test_get_categories(self, sample_dataset_dir: Path) -> None:
+    def test_get_categories(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """get_categoriesが正しいカテゴリ情報を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         categories = dataset.get_categories()
 
         assert len(categories) == 2
         assert categories[0]["name"] == "cat"
         assert categories[1]["name"] == "dog"
 
-    def test_get_num_classes(self, sample_dataset_dir: Path) -> None:
+    def test_get_num_classes(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """get_num_classesが正しいクラス数を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         assert dataset.get_num_classes() == 2
 
-    def test_get_category_names(self, sample_dataset_dir: Path) -> None:
+    def test_get_category_names(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """get_category_namesが正しいカテゴリ名を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir)
+        dataset = CocoDetectionDataset(sample_dataset_dir, mock_processor)
         names = dataset.get_category_names()
 
         assert names == ["cat", "dog"]
 
-    def test_annotation_file_not_found(self, tmp_path: Path) -> None:
+    def test_annotation_file_not_found(
+        self, tmp_path: Path, mock_processor: MagicMock
+    ) -> None:
         """アノテーションファイルが見つからない場合にエラーが発生することを確認."""
         with pytest.raises(FileNotFoundError):
-            CocoDetectionDataset(tmp_path)
+            CocoDetectionDataset(tmp_path, mock_processor)
 
-    def test_custom_annotation_file(self, sample_dataset_dir: Path) -> None:
+    def test_custom_annotation_file(
+        self, sample_dataset_dir: Path, mock_processor: MagicMock
+    ) -> None:
         """カスタムアノテーションファイル名を指定できることを確認."""
         # annotations.json を instances_train.json にリネーム
         (sample_dataset_dir / "annotations.json").rename(
@@ -183,6 +212,6 @@ class TestCocoDetectionDataset:
         )
 
         dataset = CocoDetectionDataset(
-            sample_dataset_dir, annotation_file="instances_train.json"
+            sample_dataset_dir, mock_processor, annotation_file="instances_train.json"
         )
         assert len(dataset) == 3

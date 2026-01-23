@@ -7,121 +7,22 @@ transformersのRT-DETRをCOCO形式データセットでファインチューニ
     uv run python quickstart.py configs/rtdetr_coco.py
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
 
+from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.utils import ConfigLoader
 
 # =============================================================================
 # 設定読み込み
 # =============================================================================
 DEFAULT_CONFIG = "configs/rtdetr_coco.py"
-
-
-# =============================================================================
-# データセット
-# =============================================================================
-class CocoDataset(Dataset):
-    """COCO形式データセット."""
-
-    def __init__(self, root: Path, processor: RTDetrImageProcessor) -> None:
-        """COCO形式データセットを初期化."""
-        self.root = root
-        self.processor = processor
-
-        # アノテーション読み込み (instances_*.json または annotations.json)
-        ann_file: Path | None = None
-        for pattern in ["instances_*.json", "annotations.json"]:
-            matches = list(root.glob(pattern))
-            if matches:
-                ann_file = matches[0]
-                break
-        if ann_file is None:
-            raise FileNotFoundError(f"Annotation file not found in {root}")
-        with open(ann_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        self.images = data["images"]
-        self.categories = [
-            c
-            for c in data["categories"]
-            if c["name"].lower() not in {"_background_", "background"}
-        ]
-
-        # カテゴリIDを0始まりの連続インデックスにマッピング
-        self.cat_id_to_idx = {c["id"]: i for i, c in enumerate(self.categories)}
-
-        # image_id -> annotations のマッピング
-        self.annotations: dict[int, list[dict[str, Any]]] = {}
-        for ann in data["annotations"]:
-            img_id = ann["image_id"]
-            if img_id not in self.annotations:
-                self.annotations[img_id] = []
-            self.annotations[img_id].append(ann)
-
-    def __len__(self) -> int:
-        """データセットのサンプル数を返す."""
-        return len(self.images)
-
-    def __getitem__(self, idx: int) -> dict[str, Any]:
-        """インデックスでサンプルを取得."""
-        img_info = self.images[idx]
-        img_id = img_info["id"]
-        img_path = self.root / img_info["file_name"]
-
-        # 画像読み込み
-        image = Image.open(img_path).convert("RGB")
-        orig_w, orig_h = image.size
-
-        # アノテーション取得
-        anns = self.annotations.get(img_id, [])
-
-        # COCO形式 [x, y, w, h] -> 正規化 [cx, cy, w, h]
-        boxes = []
-        labels = []
-        for ann in anns:
-            cat_id = ann["category_id"]
-            if cat_id not in self.cat_id_to_idx:
-                continue  # 背景クラスはスキップ
-
-            x, y, w, h = ann["bbox"]
-            # 正規化された中心座標形式に変換
-            cx = (x + w / 2) / orig_w
-            cy = (y + h / 2) / orig_h
-            nw = w / orig_w
-            nh = h / orig_h
-            boxes.append([cx, cy, nw, nh])
-            labels.append(self.cat_id_to_idx[cat_id])
-
-        # 前処理
-        encoding = self.processor(images=image, return_tensors="pt")
-        pixel_values = encoding["pixel_values"].squeeze(0)
-
-        # ターゲット (RT-DETRの形式)
-        target = {
-            "boxes": (
-                torch.tensor(boxes, dtype=torch.float32)
-                if boxes
-                else torch.zeros((0, 4))
-            ),
-            "class_labels": (
-                torch.tensor(labels, dtype=torch.int64)
-                if labels
-                else torch.zeros((0,), dtype=torch.int64)
-            ),
-        }
-
-        return {
-            "pixel_values": pixel_values,
-            "labels": target,
-        }
 
 
 def collate_fn(batch: list[dict[str, Any]]) -> dict[str, Any]:
@@ -161,8 +62,8 @@ def train(config: dict[str, Any]) -> None:
     model.to(device)
 
     # データローダー
-    train_dataset = CocoDataset(train_dir, processor)
-    val_dataset = CocoDataset(val_dir, processor)
+    train_dataset = CocoDetectionDataset(train_dir, processor)
+    val_dataset = CocoDetectionDataset(val_dir, processor)
 
     print(f"Train samples: {len(train_dataset)}")
     print(f"Val samples: {len(val_dataset)}")

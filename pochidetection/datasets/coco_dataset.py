@@ -1,13 +1,13 @@
 """COCO形式の物体検出データセット."""
 
 import json
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+from transformers import RTDetrImageProcessor
 
 from pochidetection.interfaces.dataset import IDetectionDataset
 
@@ -17,9 +17,8 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
 
     COCO形式のディレクトリ構造:
         root/
-        ├── JPEGImages/              # 元画像
-        │   ├── image1.jpg
-        │   └── image2.jpg
+        ├── image1.jpg
+        ├── image2.jpg
         └── annotations.json         # COCO形式アノテーション
             または
         └── instances_train2017.json # COCO形式アノテーション
@@ -33,33 +32,33 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
 
     Attributes:
         _root: データセットのルートディレクトリ.
+        _processor: RTDetrImageProcessor.
         _annotation_file: アノテーションファイルのパス.
-        _transform: 画像に適用するtransform.
         _images: 画像情報のリスト.
         _annotations: アノテーション情報 (image_idでグループ化).
-        _categories: カテゴリ情報のリスト.
+        _categories: カテゴリ情報のリスト (背景クラスを除く).
         _category_id_to_idx: カテゴリIDから連続インデックスへのマッピング.
     """
 
     def __init__(
         self,
         root: str | Path,
+        processor: RTDetrImageProcessor,
         annotation_file: str | None = None,
-        transform: Callable[..., Any] | None = None,
     ) -> None:
         """CocoDetectionDatasetを初期化.
 
         Args:
             root: データセットのルートディレクトリパス.
+            processor: RTDetrImageProcessor.
             annotation_file: アノテーションファイル名.
                 指定しない場合, annotations.json または instances_*.json を自動検索.
-            transform: 画像に適用するtransform.
 
         Raises:
             FileNotFoundError: アノテーションファイルが見つからない場合.
         """
         self._root = Path(root)
-        self._transform = transform
+        self._processor = processor
 
         # アノテーションファイルを探す
         self._annotation_file = self._find_annotation_file(annotation_file)
@@ -120,7 +119,12 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
 
         images = data.get("images", [])
         annotations = data.get("annotations", [])
-        categories = data.get("categories", [])
+        # 背景クラスを除外
+        categories = [
+            c
+            for c in data.get("categories", [])
+            if c["name"].lower() not in {"_background_", "background"}
+        ]
 
         # image_idでアノテーションをグループ化
         annotations_by_image_id: dict[int, list[dict[str, Any]]] = {}
@@ -148,11 +152,8 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
 
         Returns:
             以下のキーを含む辞書:
-            - image: 画像テンソル (C, H, W)
-            - boxes: バウンディングボックス (N, 4) [x_min, y_min, x_max, y_max]
-            - labels: クラスラベル (N,)
-            - image_id: 画像ID
-            - orig_size: 元の画像サイズ (height, width)
+            - pixel_values: 前処理済み画像テンソル (C, H, W)
+            - labels: RT-DETR形式のターゲット {"boxes": (N, 4), "class_labels": (N,)}
         """
         image_info = self._images[idx]
         image_id = image_info["id"]
@@ -160,39 +161,49 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
         # 画像を読み込み
         image_path = self._root / image_info["file_name"]
         image = Image.open(image_path).convert("RGB")
-        orig_size = (image_info["height"], image_info["width"])
+        orig_w, orig_h = image.size
 
         # アノテーションを取得
         annotations = self._annotations.get(image_id, [])
 
-        # ボックスとラベルを抽出
+        # ボックスとラベルを抽出 (正規化cxcywh形式)
         boxes = []
         labels = []
         for ann in annotations:
-            # COCO形式: [x, y, width, height] -> [x_min, y_min, x_max, y_max]
+            cat_id = ann["category_id"]
+            if cat_id not in self._category_id_to_idx:
+                continue  # 背景クラスはスキップ
+
+            # COCO形式: [x, y, w, h] -> 正規化 [cx, cy, w, h]
             x, y, w, h = ann["bbox"]
-            boxes.append([x, y, x + w, y + h])
-            # カテゴリIDを連続インデックスに変換
-            labels.append(self._category_id_to_idx[ann["category_id"]])
+            cx = (x + w / 2) / orig_w
+            cy = (y + h / 2) / orig_h
+            nw = w / orig_w
+            nh = h / orig_h
+            boxes.append([cx, cy, nw, nh])
+            labels.append(self._category_id_to_idx[cat_id])
 
-        # テンソルに変換
-        if boxes:
-            boxes_tensor = torch.tensor(boxes, dtype=torch.float32)
-            labels_tensor = torch.tensor(labels, dtype=torch.int64)
-        else:
-            boxes_tensor = torch.zeros((0, 4), dtype=torch.float32)
-            labels_tensor = torch.zeros((0,), dtype=torch.int64)
+        # 前処理
+        encoding = self._processor(images=image, return_tensors="pt")
+        pixel_values = encoding["pixel_values"].squeeze(0)
 
-        # transformを適用
-        if self._transform:
-            image = self._transform(image)
+        # ターゲット (RT-DETRの形式)
+        target = {
+            "boxes": (
+                torch.tensor(boxes, dtype=torch.float32)
+                if boxes
+                else torch.zeros((0, 4))
+            ),
+            "class_labels": (
+                torch.tensor(labels, dtype=torch.int64)
+                if labels
+                else torch.zeros((0,), dtype=torch.int64)
+            ),
+        }
 
         return {
-            "image": image,
-            "boxes": boxes_tensor,
-            "labels": labels_tensor,
-            "image_id": image_id,
-            "orig_size": orig_size,
+            "pixel_values": pixel_values,
+            "labels": target,
         }
 
     def get_categories(self) -> list[dict[str, Any]]:

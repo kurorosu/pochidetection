@@ -67,6 +67,7 @@ class TestComponentFactory:
         """設定からデータセットを生成できることを確認."""
         # テスト用のダミーアノテーションを作成
         import json
+        from unittest.mock import MagicMock
 
         image_dir = tmp_path / "images"  # type: ignore
         image_dir.mkdir()
@@ -84,7 +85,8 @@ class TestComponentFactory:
             "image_dir": str(image_dir),
             "annotation_file": str(annotation_file),
         }
-        dataset = ComponentFactory.create_dataset(config)
+        mock_processor = MagicMock()
+        dataset = ComponentFactory.create_dataset(config, mock_processor)
         assert isinstance(dataset, IDetectionDataset)
 
     def test_create_model_unknown_architecture(self) -> None:
@@ -114,9 +116,12 @@ class TestComponentFactory:
 
     def test_create_dataset_unknown_dataset(self) -> None:
         """未登録のデータセット名でエラーが発生することを確認."""
+        from unittest.mock import MagicMock
+
         config = {
             "dataset": "UnknownDataset",
             "image_dir": "/tmp/images",
         }
+        mock_processor = MagicMock()
         with pytest.raises(ValueError, match="未登録のデータセット"):
-            ComponentFactory.create_dataset(config)
+            ComponentFactory.create_dataset(config, mock_processor)
