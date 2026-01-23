@@ -8,7 +8,7 @@
 # モデル設定
 architecture = "RTDetr"
 model_name = "PekingU/rtdetr_r50vd"
-num_classes = 2
+num_classes = 1
 pretrained = True
 
 # データ設定
@@ -19,7 +19,7 @@ image_size = 640
 batch_size = 4
 
 # 学習設定
-epochs = 100
+epochs = 10
 learning_rate = 1e-4
 
 # 損失関数・評価指標

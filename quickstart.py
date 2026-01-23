@@ -4,9 +4,11 @@ transformersのRT-DETRをCOCO形式データセットでファインチューニ
 
 使用方法:
     uv run python quickstart.py
+    uv run python quickstart.py configs/rtdetr_coco.py
 """
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -15,17 +17,12 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
 
+from pochidetection.utils import ConfigLoader
+
 # =============================================================================
-# 設定
+# 設定読み込み
 # =============================================================================
-DATA_ROOT = Path("data")
-TRAIN_DIR = DATA_ROOT / "train"
-VAL_DIR = DATA_ROOT / "val"
-NUM_CLASSES = 1  # (背景クラスは含まない)
-BATCH_SIZE = 2
-EPOCHS = 50  # 小さいデータセットなので多めに
-LEARNING_RATE = 1e-4
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEFAULT_CONFIG = "configs/rtdetr_coco.py"
 
 
 # =============================================================================
@@ -137,51 +134,63 @@ def collate_fn(batch: list[dict[str, Any]]) -> dict[str, Any]:
 # =============================================================================
 # 学習
 # =============================================================================
-def train() -> None:
+def train(config: dict[str, Any]) -> None:
     """ファインチューニング."""
-    print(f"Device: {DEVICE}")
-    print(f"Num classes: {NUM_CLASSES}")
+    # 設定値を取得
+    device = config["device"]
+    num_classes = config["num_classes"]
+    model_name = config["model_name"]
+    data_root = Path(config["data_root"])
+    train_dir = data_root / config["train_split"]
+    val_dir = data_root / config["val_split"]
+    batch_size = config["batch_size"]
+    epochs = config["epochs"]
+    learning_rate = config["learning_rate"]
+    work_dir = Path(config["work_dir"])
+
+    print(f"Device: {device}")
+    print(f"Num classes: {num_classes}")
 
     # モデルとプロセッサ
-    processor = RTDetrImageProcessor.from_pretrained("PekingU/rtdetr_r50vd")
+    processor = RTDetrImageProcessor.from_pretrained(model_name)
     model = RTDetrForObjectDetection.from_pretrained(
-        "PekingU/rtdetr_r50vd",
-        num_labels=NUM_CLASSES,
+        model_name,
+        num_labels=num_classes,
         ignore_mismatched_sizes=True,
     )
-    model.to(DEVICE)
+    model.to(device)
 
     # データローダー
-    train_dataset = CocoDataset(TRAIN_DIR, processor)
-    val_dataset = CocoDataset(VAL_DIR, processor)
+    train_dataset = CocoDataset(train_dir, processor)
+    val_dataset = CocoDataset(val_dir, processor)
 
     print(f"Train samples: {len(train_dataset)}")
     print(f"Val samples: {len(val_dataset)}")
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=BATCH_SIZE,
+        batch_size=batch_size,
         shuffle=True,
         collate_fn=collate_fn,
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=BATCH_SIZE,
+        batch_size=batch_size,
         shuffle=False,
         collate_fn=collate_fn,
     )
 
     # オプティマイザ
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     # 学習ループ
-    for epoch in range(EPOCHS):
+    for epoch in range(epochs):
         model.train()
         total_loss = 0.0
 
         for batch_idx, batch in enumerate(train_loader):
-            pixel_values = batch["pixel_values"].to(DEVICE)
-            labels = [{k: v.to(DEVICE) for k, v in t.items()} for t in batch["labels"]]
+            pixel_values = batch["pixel_values"].to(device)
+            labels = [{k: v.to(device) for k, v in t.items()} for t in batch["labels"]]
 
             # 順伝播
             outputs = model(pixel_values=pixel_values, labels=labels)
@@ -200,37 +209,38 @@ def train() -> None:
                 )
 
         avg_loss = total_loss / len(train_loader)
-        print(f"Epoch {epoch + 1}/{EPOCHS}, Train Loss: {avg_loss:.4f}")
+        print(f"Epoch {epoch + 1}/{epochs}, Train Loss: {avg_loss:.4f}")
 
         # 検証
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
             for batch in val_loader:
-                pixel_values = batch["pixel_values"].to(DEVICE)
+                pixel_values = batch["pixel_values"].to(device)
                 labels = [
-                    {k: v.to(DEVICE) for k, v in t.items()} for t in batch["labels"]
+                    {k: v.to(device) for k, v in t.items()} for t in batch["labels"]
                 ]
                 outputs = model(pixel_values=pixel_values, labels=labels)
                 val_loss += outputs.loss.item()
 
         avg_val_loss = val_loss / len(val_loader)
-        print(f"Epoch {epoch + 1}/{EPOCHS}, Val Loss: {avg_val_loss:.4f}")
+        print(f"Epoch {epoch + 1}/{epochs}, Val Loss: {avg_val_loss:.4f}")
 
     # モデル保存
-    output_dir = Path("work_dirs")
-    output_dir.mkdir(exist_ok=True)
-    model.save_pretrained(output_dir / "rtdetr_finetuned")
-    processor.save_pretrained(output_dir / "rtdetr_finetuned")
-    print(f"Model saved to {output_dir / 'rtdetr_finetuned'}")
+    work_dir.mkdir(exist_ok=True)
+    model.save_pretrained(work_dir / "rtdetr_finetuned")
+    processor.save_pretrained(work_dir / "rtdetr_finetuned")
+    print(f"Model saved to {work_dir / 'rtdetr_finetuned'}")
 
 
 # =============================================================================
 # 推論
 # =============================================================================
-def infer(image_path: str, threshold: float = 0.5) -> None:
+def infer(config: dict[str, Any], image_path: str, threshold: float = 0.5) -> None:
     """推論."""
-    model_dir = Path("work_dirs/rtdetr_finetuned")
+    device = config["device"]
+    work_dir = Path(config["work_dir"])
+    model_dir = work_dir / "rtdetr_finetuned"
 
     if not model_dir.exists():
         print("Model not found. Please run training first.")
@@ -239,7 +249,7 @@ def infer(image_path: str, threshold: float = 0.5) -> None:
     # モデル読み込み
     processor = RTDetrImageProcessor.from_pretrained(model_dir)
     model = RTDetrForObjectDetection.from_pretrained(model_dir)
-    model.to(DEVICE)
+    model.to(device)
     model.eval()
 
     # 画像読み込み
@@ -247,7 +257,7 @@ def infer(image_path: str, threshold: float = 0.5) -> None:
 
     # 前処理
     inputs = processor(images=image, return_tensors="pt")
-    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+    inputs = {k: v.to(device) for k, v in inputs.items()}
 
     # 推論
     with torch.no_grad():
@@ -274,7 +284,13 @@ def infer(image_path: str, threshold: float = 0.5) -> None:
 # メイン
 # =============================================================================
 if __name__ == "__main__":
-    import sys
+    # 設定ファイルを読み込み
+    config_path = (
+        sys.argv[1]
+        if len(sys.argv) > 1 and not sys.argv[1] == "infer"
+        else DEFAULT_CONFIG
+    )
+    config = ConfigLoader.load(config_path)
 
     if len(sys.argv) > 1 and sys.argv[1] == "infer":
         if len(sys.argv) < 3:
@@ -282,6 +298,6 @@ if __name__ == "__main__":
             sys.exit(1)
         image_path = sys.argv[2]
         threshold = float(sys.argv[3]) if len(sys.argv) > 3 else 0.5
-        infer(image_path, threshold)
+        infer(config, image_path, threshold)
     else:
-        train()
+        train(config)
