@@ -6,25 +6,18 @@
 """
 
 # モデル設定
-architecture = "RTDetr"
 model_name = "PekingU/rtdetr_r50vd"
 num_classes = 1
-pretrained = True
 
 # データ設定
 data_root = "data"
 train_split = "train"
 val_split = "val"
-image_size = 640
 batch_size = 8
 
 # 学習設定
 epochs = 50
 learning_rate = 1e-3
-
-# 損失関数・評価指標
-loss = "DetectionLoss"
-metrics = "DetectionMetrics"
 
 # デバイス設定
 device = "cuda"

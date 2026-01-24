@@ -6,8 +6,6 @@ import torch.nn as nn
 
 from pochidetection.interfaces import (
     IDetectionDataset,
-    IDetectionLoss,
-    IDetectionMetrics,
     IDetectionModel,
 )
 
@@ -42,29 +40,3 @@ class TestIDetectionModel:
         assert hasattr(IDetectionModel, "forward")
         assert hasattr(IDetectionModel, "get_backbone_params")
         assert hasattr(IDetectionModel, "get_head_params")
-
-
-class TestIDetectionLoss:
-    """IDetectionLossのテスト."""
-
-    def test_is_abstract_class(self) -> None:
-        """抽象クラスであることを確認."""
-        assert issubclass(IDetectionLoss, ABC)
-
-    def test_has_required_methods(self) -> None:
-        """必須メソッドが定義されていることを確認."""
-        assert hasattr(IDetectionLoss, "__call__")
-
-
-class TestIDetectionMetrics:
-    """IDetectionMetricsのテスト."""
-
-    def test_is_abstract_class(self) -> None:
-        """抽象クラスであることを確認."""
-        assert issubclass(IDetectionMetrics, ABC)
-
-    def test_has_required_methods(self) -> None:
-        """必須メソッドが定義されていることを確認."""
-        assert hasattr(IDetectionMetrics, "update")
-        assert hasattr(IDetectionMetrics, "compute")
-        assert hasattr(IDetectionMetrics, "reset")
