@@ -154,7 +154,9 @@ class ComponentFactory:
         return cls._metrics_registry[metrics_name](**metrics_params)
 
     @classmethod
-    def create_dataset(cls, config: dict[str, Any]) -> IDetectionDataset:
+    def create_dataset(
+        cls, config: dict[str, Any], processor: Any
+    ) -> IDetectionDataset:
         """設定からデータセットを生成.
 
         Args:
@@ -162,6 +164,7 @@ class ComponentFactory:
                 - dataset: データセット名 (デフォルト: "CocoDetectionDataset").
                 - image_dir: 画像ディレクトリパス (必須).
                 - annotation_file: アノテーションファイルパス (オプション).
+            processor: RTDetrImageProcessor.
 
         Returns:
             生成されたデータセットインスタンス.
@@ -179,6 +182,7 @@ class ComponentFactory:
 
         return cls._dataset_registry[dataset_name](
             root=config["image_dir"],
+            processor=processor,
             annotation_file=config.get("annotation_file"),
         )
 

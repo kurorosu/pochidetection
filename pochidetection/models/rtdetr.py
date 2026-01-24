@@ -3,7 +3,7 @@
 from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 from transformers import RTDetrForObjectDetection
 
 from pochidetection.interfaces.model import IDetectionModel
@@ -36,7 +36,11 @@ class RTDetrModel(IDetectionModel):
         super().__init__()
 
         if pretrained:
-            self._model = RTDetrForObjectDetection.from_pretrained(model_name)
+            kwargs: dict[str, Any] = {}
+            if num_classes is not None:
+                kwargs["num_labels"] = num_classes
+                kwargs["ignore_mismatched_sizes"] = True
+            self._model = RTDetrForObjectDetection.from_pretrained(model_name, **kwargs)
         else:
             from transformers import RTDetrConfig
 
@@ -45,23 +49,7 @@ class RTDetrModel(IDetectionModel):
                 config.num_labels = num_classes
             self._model = RTDetrForObjectDetection(config)
 
-        # クラス数を更新 (事前学習済みモデルの場合も上書き可能)
-        if num_classes is not None and pretrained:
-            self._update_num_classes(num_classes)
-
         self._num_classes = num_classes or self._model.config.num_labels
-
-    def _update_num_classes(self, num_classes: int) -> None:
-        """クラス数を更新し, 分類ヘッドを再初期化.
-
-        Args:
-            num_classes: 新しいクラス数.
-        """
-        self._model.config.num_labels = num_classes
-
-        # 分類ヘッドを再初期化
-        hidden_size = self._model.config.d_model
-        self._model.class_embed = nn.Linear(hidden_size, num_classes)
 
     def forward(
         self,
