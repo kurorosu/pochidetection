@@ -16,11 +16,11 @@ data_root = "data"
 train_split = "train"
 val_split = "val"
 image_size = 640
-batch_size = 4
+batch_size = 8
 
 # 学習設定
-epochs = 10
-learning_rate = 1e-4
+epochs = 50
+learning_rate = 1e-3
 
 # 損失関数・評価指標
 loss = "DetectionLoss"
