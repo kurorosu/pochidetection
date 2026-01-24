@@ -284,20 +284,15 @@ class DetectionTrainer:
 
         Args:
             batch: データローダーからのバッチ.
+                - labels: [{"boxes": tensor, "class_labels": tensor}, ...] 形式
 
         Returns:
-            RT-DETR形式のラベルリスト.
+            RT-DETR形式のラベルリスト (デバイスに転送済み).
         """
-        labels = []
-        batch_size = batch["pixel_values"].shape[0]
-
-        for i in range(batch_size):
-            label = {
-                "boxes": batch["boxes"][i].to(self._device),
-                "class_labels": batch["labels"][i].to(self._device),
-            }
-            labels.append(label)
-
+        labels = [
+            {k: v.to(self._device) for k, v in label.items()}
+            for label in batch["labels"]
+        ]
         return labels
 
     def _postprocess_predictions(

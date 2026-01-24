@@ -16,6 +16,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from transformers import RTDetrImageProcessor
 
+from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.models import RTDetrModel
 from pochidetection.utils import ConfigLoader
@@ -24,13 +25,6 @@ from pochidetection.utils import ConfigLoader
 # 設定読み込み
 # =============================================================================
 DEFAULT_CONFIG = "configs/rtdetr_coco.py"
-
-
-def collate_fn(batch: list[dict[str, Any]]) -> dict[str, Any]:
-    """バッチ化."""
-    pixel_values = torch.stack([item["pixel_values"] for item in batch])
-    labels = [item["labels"] for item in batch]
-    return {"pixel_values": pixel_values, "labels": labels}
 
 
 # =============================================================================
@@ -65,17 +59,18 @@ def train(config: dict[str, Any]) -> None:
     print(f"Train samples: {len(train_dataset)}")
     print(f"Val samples: {len(val_dataset)}")
 
+    collator = DetectionCollator()
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        collate_fn=collate_fn,
+        collate_fn=collator,
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
-        collate_fn=collate_fn,
+        collate_fn=collator,
     )
 
     # オプティマイザ

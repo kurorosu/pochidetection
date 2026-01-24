@@ -87,7 +87,7 @@ class MockMetrics(IDetectionMetrics):
 
 
 class MockDataset(Dataset[dict[str, torch.Tensor]]):
-    """テスト用モックデータセット."""
+    """テスト用モックデータセット (CocoDetectionDataset出力形式)."""
 
     def __init__(self, size: int = 10) -> None:
         """初期化."""
@@ -101,22 +101,20 @@ class MockDataset(Dataset[dict[str, torch.Tensor]]):
         """アイテム取得."""
         return {
             "pixel_values": torch.randn(3, 640, 640),
-            "boxes": torch.tensor([[0.1, 0.1, 0.5, 0.5]]),
-            "labels": torch.tensor([0]),
-            "image_id": idx,
-            "orig_size": (640, 640),
+            "labels": {
+                "boxes": torch.tensor([[0.1, 0.1, 0.5, 0.5]]),
+                "class_labels": torch.tensor([0]),
+            },
         }
 
 
 def mock_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
-    """テスト用collate関数."""
+    """テスト用collate関数 (DetectionCollator形式)."""
     pixel_values = torch.stack([b["pixel_values"] for b in batch])
+    labels = [b["labels"] for b in batch]
     return {
         "pixel_values": pixel_values,
-        "boxes": [b["boxes"] for b in batch],
-        "labels": [b["labels"] for b in batch],
-        "image_ids": [b["image_id"] for b in batch],
-        "orig_sizes": [b["orig_size"] for b in batch],
+        "labels": labels,
     }
 
 
