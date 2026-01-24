@@ -53,11 +53,10 @@ class LoggerManager:
         self._default_level = LogLevel.INFO
         self._format_string = (
             "[%(asctime)s][%(log_color)s%(levelname)s%(reset)s]"
-            "[%(name)s][%(filename)s:%(lineno)d] %(message)s"
+            "[%(filename)s:%(lineno)d] %(message)s"
         )
         self._plain_format_string = (
-            "[%(asctime)s][%(levelname)s]"
-            "[%(name)s][%(filename)s:%(lineno)d] %(message)s"
+            "[%(asctime)s][%(levelname)s]" "[%(filename)s:%(lineno)d] %(message)s"
         )
         self._date_format = "%Y-%m-%d %H:%M:%S"
         self._log_colors = {
