@@ -10,6 +10,7 @@ dependencies = [
     "transformers",
     "scipy",
     "torchmetrics[detection]",
+    "colorlog",
 ]
 
 [[tool.uv.index]]
