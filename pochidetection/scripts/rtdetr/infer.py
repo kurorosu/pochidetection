@@ -55,7 +55,7 @@ def infer(
 
     print(f"Loading model from {model_path}")
 
-    # モデル読み込み
+    # モデル読み込み (保存時の image_size が使用される)
     processor = RTDetrImageProcessor.from_pretrained(model_path)
     model = RTDetrModel(str(model_path))
     model.to(device)
