@@ -19,7 +19,7 @@ image_size = 640
 batch_size = 8
 
 # 学習設定
-epochs = 50
+epochs = 5
 learning_rate = 1e-3
 
 # 損失関数・評価指標
