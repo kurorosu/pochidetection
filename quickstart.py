@@ -14,9 +14,10 @@ from typing import Any
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader
-from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
+from transformers import RTDetrImageProcessor
 
 from pochidetection.datasets import CocoDetectionDataset
+from pochidetection.models import RTDetrModel
 from pochidetection.utils import ConfigLoader
 
 # =============================================================================
@@ -54,11 +55,7 @@ def train(config: dict[str, Any]) -> None:
 
     # モデルとプロセッサ
     processor = RTDetrImageProcessor.from_pretrained(model_name)
-    model = RTDetrForObjectDetection.from_pretrained(
-        model_name,
-        num_labels=num_classes,
-        ignore_mismatched_sizes=True,
-    )
+    model = RTDetrModel(model_name, num_classes=num_classes)
     model.to(device)
 
     # データローダー
@@ -95,7 +92,7 @@ def train(config: dict[str, Any]) -> None:
 
             # 順伝播
             outputs = model(pixel_values=pixel_values, labels=labels)
-            loss = outputs.loss
+            loss = outputs["loss"]
 
             # 逆伝播
             optimizer.zero_grad()
@@ -122,14 +119,14 @@ def train(config: dict[str, Any]) -> None:
                     {k: v.to(device) for k, v in t.items()} for t in batch["labels"]
                 ]
                 outputs = model(pixel_values=pixel_values, labels=labels)
-                val_loss += outputs.loss.item()
+                val_loss += outputs["loss"].item()
 
         avg_val_loss = val_loss / len(val_loader)
         print(f"Epoch {epoch + 1}/{epochs}, Val Loss: {avg_val_loss:.4f}")
 
     # モデル保存
     work_dir.mkdir(exist_ok=True)
-    model.save_pretrained(work_dir / "rtdetr_finetuned")
+    model.model.save_pretrained(work_dir / "rtdetr_finetuned")
     processor.save_pretrained(work_dir / "rtdetr_finetuned")
     print(f"Model saved to {work_dir / 'rtdetr_finetuned'}")
 
@@ -149,7 +146,7 @@ def infer(config: dict[str, Any], image_path: str, threshold: float = 0.5) -> No
 
     # モデル読み込み
     processor = RTDetrImageProcessor.from_pretrained(model_dir)
-    model = RTDetrForObjectDetection.from_pretrained(model_dir)
+    model = RTDetrModel(str(model_dir))
     model.to(device)
     model.eval()
 
@@ -162,7 +159,7 @@ def infer(config: dict[str, Any], image_path: str, threshold: float = 0.5) -> No
 
     # 推論
     with torch.no_grad():
-        outputs = model(**inputs)
+        outputs = model.model(**inputs)
 
     # 後処理 (transformers公式メソッド)
     results = processor.post_process_object_detection(
