@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "pochidetection"
 version = "0.1.0"
@@ -13,6 +17,9 @@ dependencies = [
     "colorlog",
 ]
 
+[project.scripts]
+pochidet-rtdetr = "pochidetection.cli.rtdetr:main"
+
 [[tool.uv.index]]
 name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
@@ -21,6 +28,9 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
+
+[tool.uv]
+package = true
 
 [dependency-groups]
 dev = [
