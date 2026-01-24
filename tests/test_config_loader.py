@@ -69,7 +69,7 @@ class TestConfigLoader:
         assert config["architecture"] == "RTDetr"
         assert config["model_name"] == "PekingU/rtdetr_r50vd"
         assert config["pretrained"] is True
-        assert config["image_size"] == 640
+        assert config["image_size"] == {"height": 640, "width": 640}
         assert config["batch_size"] == 4
         assert config["epochs"] == 100
         assert config["device"] == "cuda"

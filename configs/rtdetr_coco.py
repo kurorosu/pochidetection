@@ -9,6 +9,9 @@
 model_name = "PekingU/rtdetr_r50vd"
 num_classes = 1
 
+# 画像サイズ設定
+image_size = {"height": 640, "width": 640}
+
 # データ設定
 data_root = "data"
 train_split = "train"

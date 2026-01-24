@@ -35,7 +35,7 @@ class ConfigLoader:
         "batch_size": int,
         "epochs": int,
         "learning_rate": (int, float),
-        "image_size": int,
+        "image_size": dict,
         "pretrained": bool,
     }
 
@@ -43,7 +43,7 @@ class ConfigLoader:
         "architecture": "RTDetr",
         "model_name": "PekingU/rtdetr_r50vd",
         "pretrained": True,
-        "image_size": 640,
+        "image_size": {"height": 640, "width": 640},
         "batch_size": 4,
         "epochs": 100,
         "learning_rate": 1e-4,

@@ -33,6 +33,7 @@ def train(config: dict[str, Any], config_path: str) -> None:
     device = config["device"]
     num_classes = config["num_classes"]
     model_name = config["model_name"]
+    image_size = config.get("image_size", {"height": 640, "width": 640})
     data_root = Path(config["data_root"])
     train_dir = data_root / config["train_split"]
     val_dir = data_root / config["val_split"]
@@ -47,10 +48,11 @@ def train(config: dict[str, Any], config_path: str) -> None:
 
     logger.info(f"Device: {device}")
     logger.info(f"Num classes: {num_classes}")
+    logger.info(f"Image size: {image_size}")
     logger.info(f"Workspace: {workspace}")
 
     # モデルとプロセッサ
-    processor = RTDetrImageProcessor.from_pretrained(model_name)
+    processor = RTDetrImageProcessor.from_pretrained(model_name, size=image_size)
     model = RTDetrModel(model_name, num_classes=num_classes)
     model.to(device)
 
