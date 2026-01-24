@@ -775,7 +775,7 @@ wheels = [
 [[package]]
 name = "pochidetection"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "colorlog" },
     { name = "scipy" },

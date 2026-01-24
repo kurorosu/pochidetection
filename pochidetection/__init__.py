@@ -6,55 +6,32 @@ from pochidetection.core import DetectionCollator
 # Concrete implementations
 from pochidetection.datasets import CocoDetectionDataset
 
-# Factory
-from pochidetection.factories import ComponentFactory
-
 # Interfaces
 from pochidetection.interfaces import (
     IDetectionDataset,
-    IDetectionLoss,
-    IDetectionMetrics,
     IDetectionModel,
 )
 
 # Logging
 from pochidetection.logging import LoggerManager, LogLevel
-from pochidetection.losses import DetectionLoss
-from pochidetection.metrics import DetectionMetrics
 from pochidetection.models import RTDetrModel
 
-# Trainer
-from pochidetection.trainer import DetectionTrainer
-
 # Utils
-from pochidetection.utils import ConfigLoader
-
-# コンポーネント登録 (Factory + Registry パターン)
-ComponentFactory.register_model("RTDetr", RTDetrModel)
-ComponentFactory.register_loss("DetectionLoss", DetectionLoss)
-ComponentFactory.register_metrics("DetectionMetrics", DetectionMetrics)
-ComponentFactory.register_dataset("CocoDetectionDataset", CocoDetectionDataset)
+from pochidetection.utils import ConfigLoader, WorkspaceManager
 
 __all__ = [
-    # Factory
-    "ComponentFactory",
     # Interfaces
     "IDetectionModel",
-    "IDetectionLoss",
-    "IDetectionMetrics",
     "IDetectionDataset",
     # Logging
     "LoggerManager",
     "LogLevel",
     # Concrete implementations
     "RTDetrModel",
-    "DetectionLoss",
-    "DetectionMetrics",
     "CocoDetectionDataset",
-    # Trainer
-    "DetectionTrainer",
     # Core
     "DetectionCollator",
     # Utils
     "ConfigLoader",
+    "WorkspaceManager",
 ]
