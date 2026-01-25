@@ -1,6 +1,8 @@
 """推論時間の計測・集計クラス."""
 
 import time
+from collections.abc import Generator
+from contextlib import contextmanager
 
 import torch
 
@@ -31,6 +33,7 @@ class InferenceTimer:
         self._count: int = 0
         self._call_count: int = 0
         self._last_time_ms: float = 0.0
+        self._started: bool = False
 
         # CUDA イベント (GPU 使用時のみ)
         self._start_event: torch.cuda.Event | None = None
@@ -39,8 +42,9 @@ class InferenceTimer:
         # CPU 用タイマー
         self._start_time: float = 0.0
 
-    def start(self) -> None:
-        """計測開始."""
+    def _start(self) -> None:
+        """計測開始 (内部用)."""
+        self._started = True
         if self._use_cuda:
             self._start_event = torch.cuda.Event(enable_timing=True)
             self._end_event = torch.cuda.Event(enable_timing=True)
@@ -48,15 +52,23 @@ class InferenceTimer:
         else:
             self._start_time = time.perf_counter()
 
-    def stop(self) -> float:
-        """計測終了.
+    def _stop(self) -> float:
+        """計測終了 (内部用).
 
         Returns:
             経過時間 (ミリ秒).
+
+        Raises:
+            RuntimeError: _start() が呼ばれていない場合.
         """
+        if not self._started:
+            msg = "_start() must be called before _stop()"
+            raise RuntimeError(msg)
+        self._started = False
+
         if self._use_cuda:
             if self._start_event is None or self._end_event is None:
-                msg = "start() must be called before stop()"
+                msg = "_start() must be called before _stop()"
                 raise RuntimeError(msg)
             self._end_event.record()
             torch.cuda.synchronize()
@@ -101,3 +113,27 @@ class InferenceTimer:
         if self._count == 0:
             return 0.0
         return self._total_time_ms / self._count
+
+    def reset(self) -> None:
+        """累積データをリセット."""
+        self._total_time_ms = 0.0
+        self._count = 0
+        self._call_count = 0
+        self._last_time_ms = 0.0
+
+    @contextmanager
+    def measure(self) -> Generator[None, None, None]:
+        """計測をコンテキストマネージャで実行.
+
+        Yields:
+            None.
+
+        Example:
+            with timer.measure():
+                outputs = model(**inputs)
+        """
+        self._start()
+        try:
+            yield
+        finally:
+            self._stop()
