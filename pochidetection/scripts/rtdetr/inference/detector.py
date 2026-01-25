@@ -60,12 +60,12 @@ class Detector:
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
         # 推論 (時間計測)
-        if self._timer is not None:
-            self._timer.start()
         with torch.no_grad():
-            outputs = self._model.model(**inputs)
-        if self._timer is not None:
-            self._timer.stop()
+            if self._timer is not None:
+                with self._timer.measure():
+                    outputs = self._model.model(**inputs)
+            else:
+                outputs = self._model.model(**inputs)
 
         # 後処理
         results = self._processor.post_process_object_detection(

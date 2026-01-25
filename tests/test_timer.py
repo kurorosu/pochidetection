@@ -14,12 +14,11 @@ class TestInferenceTimer:
         """CPU タイマーが時間を計測することを確認."""
         timer = InferenceTimer(device="cpu")
 
-        timer.start()
-        time.sleep(0.01)  # 10ms
-        elapsed = timer.stop()
+        with timer.measure():
+            time.sleep(0.01)  # 10ms
 
         # 10ms 以上であることを確認 (誤差を考慮)
-        assert elapsed >= 5.0
+        assert timer.last_time_ms >= 5.0
 
     def test_count_increments(self) -> None:
         """計測回数がインクリメントされることを確認 (skip_first=False)."""
@@ -27,12 +26,12 @@ class TestInferenceTimer:
 
         assert timer.count == 0
 
-        timer.start()
-        timer.stop()
+        with timer.measure():
+            pass
         assert timer.count == 1
 
-        timer.start()
-        timer.stop()
+        with timer.measure():
+            pass
         assert timer.count == 2
 
     def test_skip_first_excludes_warmup(self) -> None:
@@ -40,26 +39,24 @@ class TestInferenceTimer:
         timer = InferenceTimer(device="cpu", skip_first=True)
 
         # 1回目 (スキップ)
-        timer.start()
-        timer.stop()
+        with timer.measure():
+            pass
         assert timer.count == 0
 
         # 2回目 (カウント)
-        timer.start()
-        timer.stop()
+        with timer.measure():
+            pass
         assert timer.count == 1
 
     def test_total_time_accumulates(self) -> None:
         """合計時間が累積されることを確認."""
         timer = InferenceTimer(device="cpu", skip_first=False)
 
-        timer.start()
-        time.sleep(0.01)
-        timer.stop()
+        with timer.measure():
+            time.sleep(0.01)
 
-        timer.start()
-        time.sleep(0.01)
-        timer.stop()
+        with timer.measure():
+            time.sleep(0.01)
 
         # 2回分の合計が 10ms 以上
         assert timer.total_time_ms >= 10.0
@@ -68,13 +65,11 @@ class TestInferenceTimer:
         """平均時間が正しく計算されることを確認."""
         timer = InferenceTimer(device="cpu", skip_first=False)
 
-        timer.start()
-        time.sleep(0.01)
-        timer.stop()
+        with timer.measure():
+            time.sleep(0.01)
 
-        timer.start()
-        time.sleep(0.01)
-        timer.stop()
+        with timer.measure():
+            time.sleep(0.01)
 
         # 平均が total / count と一致
         expected = timer.total_time_ms / timer.count
@@ -85,17 +80,15 @@ class TestInferenceTimer:
         timer = InferenceTimer(device="cpu")
         assert timer.average_time_ms == 0.0
 
-    def test_stop_without_start_raises_error_for_cuda(self) -> None:
-        """CUDA モードで start() なしに stop() を呼ぶとエラー."""
-        # CUDA が利用可能な場合のみテスト
-        import torch
+    def test_measure_with_cuda_fallback(self) -> None:
+        """CUDA モードでも measure() が動作することを確認."""
+        timer = InferenceTimer(device="cuda", skip_first=False)
 
-        if not torch.cuda.is_available():
-            pytest.skip("CUDA not available")
+        with timer.measure():
+            time.sleep(0.01)
 
-        timer = InferenceTimer(device="cuda")
-        with pytest.raises(RuntimeError, match="start\\(\\) must be called"):
-            timer.stop()
+        assert timer.count == 1
+        assert timer.last_time_ms >= 5.0
 
     def test_cpu_fallback_when_cuda_unavailable(self) -> None:
         """CUDA が利用不可の場合, CPU にフォールバックすることを確認."""
@@ -108,3 +101,43 @@ class TestInferenceTimer:
             assert timer._use_cuda is False
         else:
             assert timer._use_cuda is True
+
+    def test_reset_clears_accumulated_data(self) -> None:
+        """reset() で累積データがクリアされることを確認."""
+        timer = InferenceTimer(device="cpu", skip_first=False)
+
+        # 計測実行
+        with timer.measure():
+            time.sleep(0.01)
+
+        assert timer.count > 0
+        assert timer.total_time_ms > 0
+
+        # リセット
+        timer.reset()
+
+        assert timer.count == 0
+        assert timer.total_time_ms == 0.0
+        assert timer.last_time_ms == 0.0
+        assert timer.average_time_ms == 0.0
+
+    def test_context_manager_measures_time(self) -> None:
+        """Context Manager で時間を計測できることを確認."""
+        timer = InferenceTimer(device="cpu", skip_first=False)
+
+        with timer.measure():
+            time.sleep(0.01)
+
+        assert timer.count == 1
+        assert timer.last_time_ms >= 5.0
+
+    def test_context_manager_stops_on_exception(self) -> None:
+        """Context Manager が例外時にも stop() を呼ぶことを確認."""
+        timer = InferenceTimer(device="cpu", skip_first=False)
+
+        with pytest.raises(ValueError, match="test error"):
+            with timer.measure():
+                raise ValueError("test error")
+
+        # 例外が発生しても stop() が呼ばれ, カウントされる
+        assert timer.count == 1
