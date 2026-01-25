@@ -3,22 +3,30 @@
 from PIL import Image, ImageDraw, ImageFont
 
 from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.visualization import ColorPalette, LabelMapper
 
 
 class Visualizer:
     """検出結果を画像に描画.
 
     Attributes:
-        _color: バウンディングボックスの色.
+        _palette: カラーパレット.
+        _mapper: ラベルマッパー.
     """
 
-    def __init__(self, color: str = "red") -> None:
+    def __init__(
+        self,
+        color_palette: ColorPalette | None = None,
+        label_mapper: LabelMapper | None = None,
+    ) -> None:
         """Visualizerを初期化.
 
         Args:
-            color: バウンディングボックスの色.
+            color_palette: カラーパレット. Noneの場合はデフォルトを使用.
+            label_mapper: ラベルマッパー. Noneの場合は整数ラベルを表示.
         """
-        self._color = color
+        self._palette = color_palette if color_palette is not None else ColorPalette()
+        self._mapper = label_mapper if label_mapper is not None else LabelMapper()
 
     def draw(
         self,
@@ -53,24 +61,31 @@ class Visualizer:
         for detection in detections:
             x1, y1, x2, y2 = detection.box
 
+            # クラスに応じた色とラベル名を取得
+            color = self._palette.get_color(detection.label)
+            label_name = self._mapper.get_label(detection.label)
+
             # ボックス描画
-            draw.rectangle([x1, y1, x2, y2], outline=self._color, width=line_width)
+            draw.rectangle([x1, y1, x2, y2], outline=color, width=line_width)
 
             # ラベルと信頼度のテキスト
-            text = f"{detection.label}: {detection.score:.2f}"
+            text = f"{label_name}: {detection.score:.2f}"
             text_bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = text_bbox[2] - text_bbox[0]
-            text_height = text_bbox[3] - text_bbox[1]
+            text_left, text_top, text_right, text_bottom = text_bbox
+            text_width = text_right - text_left
+            text_height = text_bottom - text_top
 
-            # テキスト背景 (ボックス左上)
-            padding = 2
+            # テキスト背景 (ボックス内側左上)
+            padding = 4
             bg_x1 = x1
-            bg_y1 = max(0, y1 - text_height - padding * 2)
+            bg_y1 = y1
             bg_x2 = x1 + text_width + padding * 2
-            bg_y2 = y1
-            draw.rectangle([bg_x1, bg_y1, bg_x2, bg_y2], fill=self._color)
+            bg_y2 = y1 + text_height + padding * 2
+            draw.rectangle([bg_x1, bg_y1, bg_x2, bg_y2], fill=color)
 
-            # テキスト描画 (白文字)
-            draw.text((x1 + padding, bg_y1 + padding), text, fill="white", font=font)
+            # テキスト描画 (白文字) - 背景の中央に配置
+            text_x = bg_x1 + padding - text_left
+            text_y = bg_y1 + padding - text_top
+            draw.text((text_x, text_y), text, fill="white", font=font)
 
         return result

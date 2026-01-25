@@ -15,6 +15,7 @@ from pochidetection.scripts.rtdetr.inference import (
     Visualizer,
 )
 from pochidetection.utils import WorkspaceManager
+from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -62,7 +63,9 @@ def infer(
 
     # コンポーネント初期化
     detector = Detector(model_path, device=device, threshold=threshold)
-    visualizer = Visualizer()
+    class_names = config.get("class_names")
+    label_mapper = LabelMapper(class_names) if class_names else None
+    visualizer = Visualizer(label_mapper=label_mapper)
     saver = InferenceSaver(model_path)
 
     logger.info(f"Results will be saved to {saver.output_dir}")
