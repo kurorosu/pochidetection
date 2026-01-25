@@ -8,6 +8,7 @@ from transformers import RTDetrImageProcessor
 
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.utils import InferenceTimer
 
 
 class Detector:
@@ -18,6 +19,7 @@ class Detector:
         _model: 検出モデル.
         _device: 実行デバイス.
         _threshold: 検出信頼度閾値.
+        _timer: 推論時間計測タイマー.
     """
 
     def __init__(
@@ -25,6 +27,7 @@ class Detector:
         model_path: Path,
         device: str = "cuda",
         threshold: float = 0.5,
+        timer: InferenceTimer | None = None,
     ) -> None:
         """Detectorを初期化.
 
@@ -32,9 +35,11 @@ class Detector:
             model_path: モデルディレクトリのパス.
             device: 実行デバイス.
             threshold: 検出信頼度閾値.
+            timer: 推論時間計測タイマー. Noneの場合は計測しない.
         """
         self._device = device
         self._threshold = threshold
+        self._timer = timer
 
         self._processor = RTDetrImageProcessor.from_pretrained(model_path)
         self._model = RTDetrModel(str(model_path))
@@ -54,9 +59,13 @@ class Detector:
         inputs = self._processor(images=image, return_tensors="pt")
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
-        # 推論
+        # 推論 (時間計測)
+        if self._timer is not None:
+            self._timer.start()
         with torch.no_grad():
             outputs = self._model.model(**inputs)
+        if self._timer is not None:
+            self._timer.stop()
 
         # 後処理
         results = self._processor.post_process_object_detection(
@@ -79,3 +88,8 @@ class Detector:
             )
 
         return detections
+
+    @property
+    def timer(self) -> InferenceTimer | None:
+        """推論時間計測タイマーを取得."""
+        return self._timer

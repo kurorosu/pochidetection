@@ -14,7 +14,7 @@ from pochidetection.scripts.rtdetr.inference import (
     InferenceSaver,
     Visualizer,
 )
-from pochidetection.utils import WorkspaceManager
+from pochidetection.utils import InferenceTimer, WorkspaceManager
 from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
@@ -62,7 +62,8 @@ def infer(
     logger.info(f"Loading model from {model_path}")
 
     # コンポーネント初期化
-    detector = Detector(model_path, device=device, threshold=threshold)
+    timer = InferenceTimer(device=device)
+    detector = Detector(model_path, device=device, threshold=threshold, timer=timer)
     class_names = config.get("class_names")
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
@@ -84,10 +85,18 @@ def infer(
         output_path = saver.save(result_image, image_file.name)
 
         logger.info(
-            f"  {image_file.name}: {len(detections)} objects -> {output_path.name}"
+            f"  {image_file.name} ({timer.last_time_ms:.1f}ms) - "
+            f"{len(detections)} objects -> {output_path.name}"
         )
 
-    logger.info(f"Inference completed. Results saved to {saver.output_dir}")
+    # サマリー出力
+    total_sec = timer.total_time_ms / 1000
+    logger.info(
+        f"Inference completed: {timer.count} images "
+        f"(1st skipped for warmup), "
+        f"avg {timer.average_time_ms:.1f}ms/image, total {total_sec:.2f}s"
+    )
+    logger.info(f"Results saved to {saver.output_dir}")
 
 
 def _resolve_model_path(
