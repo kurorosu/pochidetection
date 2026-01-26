@@ -61,9 +61,21 @@ def infer(
     logger.info(f"Found {len(image_files)} images in {image_dir}")
     logger.info(f"Loading model from {model_path}")
 
+    # cudnn.benchmark 設定
+    if config.get("cudnn_benchmark", False) and device == "cuda":
+        import torch
+
+        torch.backends.cudnn.benchmark = True
+        logger.info("cudnn.benchmark enabled")
+
     # コンポーネント初期化
+    use_fp16 = config.get("use_fp16", False)
     timer = InferenceTimer(device=device)
-    detector = Detector(model_path, device=device, threshold=threshold, timer=timer)
+    detector = Detector(
+        model_path, device=device, threshold=threshold, timer=timer, use_fp16=use_fp16
+    )
+    if use_fp16 and device == "cuda":
+        logger.info("FP16 enabled")
     class_names = config.get("class_names")
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
