@@ -22,7 +22,7 @@ val_split = "val"
 batch_size = 8
 
 # 学習設定
-epochs = 50
+epochs = 10
 learning_rate = 1e-3
 
 # デバイス設定

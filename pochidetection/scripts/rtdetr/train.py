@@ -16,6 +16,7 @@ from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.logging import LoggerManager, LogLevel
 from pochidetection.models import RTDetrModel
 from pochidetection.utils import TrainingHistory, WorkspaceManager
+from pochidetection.visualization import LossPlotter
 
 
 def train(config: dict[str, Any], config_path: str) -> None:
@@ -213,3 +214,9 @@ def train(config: dict[str, Any], config_path: str) -> None:
     history_path = workspace / "training_history.csv"
     history.save_csv(history_path)
     logger.info(f"Training history saved to {history_path}")
+
+    # 損失曲線を出力
+    loss_plotter = LossPlotter(history)
+    loss_curve_path = workspace / "loss_curve.html"
+    loss_plotter.plot(loss_curve_path)
+    logger.info(f"Loss curve saved to {loss_curve_path}")
