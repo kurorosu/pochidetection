@@ -27,6 +27,8 @@ learning_rate = 1e-3
 
 # デバイス設定
 device = "cuda"
+cudnn_benchmark = False  # 入力サイズ固定時に推論高速化
+use_fp16 = False  # FP16 推論 (CUDA のみ)
 
 # ワークスペース設定
 work_dir = "work_dirs"

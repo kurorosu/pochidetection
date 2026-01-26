@@ -20,6 +20,7 @@ class Detector:
         _device: 実行デバイス.
         _threshold: 検出信頼度閾値.
         _timer: 推論時間計測タイマー.
+        _use_fp16: FP16 推論を使用するか.
     """
 
     def __init__(
@@ -28,6 +29,7 @@ class Detector:
         device: str = "cuda",
         threshold: float = 0.5,
         timer: InferenceTimer | None = None,
+        use_fp16: bool = False,
     ) -> None:
         """Detectorを初期化.
 
@@ -36,15 +38,20 @@ class Detector:
             device: 実行デバイス.
             threshold: 検出信頼度閾値.
             timer: 推論時間計測タイマー. Noneの場合は計測しない.
+            use_fp16: FP16 推論を使用するか. CUDA デバイスでのみ有効.
         """
         self._device = device
         self._threshold = threshold
         self._timer = timer
+        self._use_fp16 = use_fp16 and device == "cuda"
 
         self._processor = RTDetrImageProcessor.from_pretrained(model_path)
         self._model = RTDetrModel(str(model_path))
         self._model.to(device)
         self._model.eval()
+
+        if self._use_fp16:
+            self._model.half()
 
     def detect(self, image: Image.Image) -> list[Detection]:
         """画像から物体を検出.
@@ -58,6 +65,12 @@ class Detector:
         # 前処理
         inputs = self._processor(images=image, return_tensors="pt")
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
+
+        # FP16 の場合は入力も変換
+        if self._use_fp16:
+            inputs = {
+                k: v.half() if v.is_floating_point() else v for k, v in inputs.items()
+            }
 
         # 推論 (時間計測)
         with torch.no_grad():
