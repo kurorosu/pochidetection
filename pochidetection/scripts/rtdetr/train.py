@@ -15,7 +15,7 @@ from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.logging import LoggerManager, LogLevel
 from pochidetection.models import RTDetrModel
-from pochidetection.utils import WorkspaceManager
+from pochidetection.utils import TrainingHistory, WorkspaceManager
 
 
 def train(config: dict[str, Any], config_path: str) -> None:
@@ -87,6 +87,9 @@ def train(config: dict[str, Any], config_path: str) -> None:
 
     # ベストmAP追跡用
     best_map = 0.0
+
+    # 学習履歴
+    history = TrainingHistory()
 
     # 学習ループ
     for epoch in range(epochs):
@@ -181,6 +184,17 @@ def train(config: dict[str, Any], config_path: str) -> None:
             f"LR: {lr:.2e}"
         )
 
+        # 履歴に追加
+        history.add(
+            epoch=epoch + 1,
+            train_loss=avg_loss,
+            val_loss=avg_val_loss,
+            mAP=mAP,
+            mAP_50=mAP_50,
+            mAP_75=mAP_75,
+            lr=lr,
+        )
+
         # ベストモデル保存
         if mAP > best_map:
             best_map = mAP
@@ -194,3 +208,8 @@ def train(config: dict[str, Any], config_path: str) -> None:
     model.model.save_pretrained(last_dir)
     processor.save_pretrained(last_dir)
     logger.info(f"Last model saved to {last_dir}")
+
+    # 学習履歴を保存
+    history_path = workspace / "training_history.csv"
+    history.save_csv(history_path)
+    logger.info(f"Training history saved to {history_path}")
