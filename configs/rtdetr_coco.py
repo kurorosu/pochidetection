@@ -7,10 +7,10 @@
 
 # モデル設定
 model_name = "PekingU/rtdetr_r50vd"
-num_classes = 1
+num_classes = 4
 
 # クラス名設定 (推論時の可視化に使用)
-class_names = ["pochi"]
+class_names = ["pochi", "pochi2", "pochi3", "pochi4"]
 
 # 画像サイズ設定
 image_size = {"height": 640, "width": 640}
@@ -22,8 +22,8 @@ val_split = "val"
 batch_size = 8
 
 # 学習設定
-epochs = 50
-learning_rate = 1e-3
+epochs = 5
+learning_rate = 1e-4
 
 # デバイス設定
 device = "cuda"

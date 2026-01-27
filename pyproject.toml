@@ -15,6 +15,7 @@ dependencies = [
     "scipy",
     "torchmetrics[detection]",
     "colorlog",
+    "plotly",
 ]
 
 [project.scripts]

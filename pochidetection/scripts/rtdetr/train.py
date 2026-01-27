@@ -15,7 +15,13 @@ from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.logging import LoggerManager, LogLevel
 from pochidetection.models import RTDetrModel
-from pochidetection.utils import WorkspaceManager
+from pochidetection.utils import TrainingHistory, WorkspaceManager
+from pochidetection.visualization import (
+    LossPlotter,
+    MetricsPlotter,
+    PRCurvePlotter,
+    TrainingReportPlotter,
+)
 
 
 def train(config: dict[str, Any], config_path: str) -> None:
@@ -82,11 +88,15 @@ def train(config: dict[str, Any], config_path: str) -> None:
 
     # mAP計算用
     # RT-DETRは300クエリを出力するため警告が出るが, 閾値はデフォルト[1,10,100]を維持
-    map_metric = MeanAveragePrecision(iou_type="bbox")
+    # extended_summary=True でPR曲線用のprecision/recallデータを取得
+    map_metric = MeanAveragePrecision(iou_type="bbox", extended_summary=True)
     map_metric.warn_on_many_detections = False
 
     # ベストmAP追跡用
     best_map = 0.0
+
+    # 学習履歴
+    history = TrainingHistory()
 
     # 学習ループ
     for epoch in range(epochs):
@@ -181,6 +191,17 @@ def train(config: dict[str, Any], config_path: str) -> None:
             f"LR: {lr:.2e}"
         )
 
+        # 履歴に追加
+        history.add(
+            epoch=epoch + 1,
+            train_loss=avg_loss,
+            val_loss=avg_val_loss,
+            mAP=mAP,
+            mAP_50=mAP_50,
+            mAP_75=mAP_75,
+            lr=lr,
+        )
+
         # ベストモデル保存
         if mAP > best_map:
             best_map = mAP
@@ -194,3 +215,23 @@ def train(config: dict[str, Any], config_path: str) -> None:
     model.model.save_pretrained(last_dir)
     processor.save_pretrained(last_dir)
     logger.info(f"Last model saved to {last_dir}")
+
+    # 学習履歴を保存
+    history_path = workspace / "training_history.csv"
+    history.save_csv(history_path)
+    logger.info(f"Training history saved to {history_path}")
+
+    # 学習レポートを出力
+    loss_plotter = LossPlotter(history)
+    metrics_plotter = MetricsPlotter(history)
+    report_plotter = TrainingReportPlotter(loss_plotter, metrics_plotter)
+    report_path = workspace / "training_report.html"
+    report_plotter.plot(report_path)
+    logger.info(f"Training report saved to {report_path}")
+
+    # PR曲線を出力 (最終epochの検証結果から)
+    if "precision" in map_result:
+        pr_plotter = PRCurvePlotter(map_result["precision"])
+        pr_path = workspace / "pr_curve.html"
+        pr_plotter.plot(pr_path)
+        logger.info(f"PR curve saved to {pr_path}")
