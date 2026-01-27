@@ -2,8 +2,10 @@
 
 from pochidetection.interfaces.dataset import IDetectionDataset
 from pochidetection.interfaces.model import IDetectionModel
+from pochidetection.interfaces.plotter import IPlotter
 
 __all__ = [
-    "IDetectionModel",
     "IDetectionDataset",
+    "IDetectionModel",
+    "IPlotter",
 ]

@@ -1,4 +1,4 @@
-"""損失曲線のプロット."""
+"""mAP曲線のプロット."""
 
 from pathlib import Path
 
@@ -8,8 +8,8 @@ from pochidetection.interfaces import IPlotter
 from pochidetection.utils import TrainingHistory
 
 
-class LossPlotter(IPlotter):
-    """Train/Val Loss 曲線を plotly で描画.
+class MetricsPlotter(IPlotter):
+    """mAP曲線をplotlyで描画.
 
     Attributes:
         _history: 学習履歴.
@@ -30,7 +30,7 @@ class LossPlotter(IPlotter):
         Returns:
             グラフのタイトル.
         """
-        return "Loss Curve"
+        return "mAP Curve"
 
     @property
     def y_axis_label(self) -> str:
@@ -39,7 +39,7 @@ class LossPlotter(IPlotter):
         Returns:
             Y軸のラベル.
         """
-        return "Loss"
+        return "mAP"
 
     def get_traces(self) -> list[go.Scatter]:
         """グラフのトレースを取得.
@@ -50,22 +50,29 @@ class LossPlotter(IPlotter):
         return [
             go.Scatter(
                 x=self._history.epochs,
-                y=self._history.train_losses,
+                y=self._history.mAPs,
                 mode="lines+markers",
-                name="Train Loss",
-                line={"color": "#1f77b4"},
+                name="mAP",
+                line={"color": "#2ca02c"},
             ),
             go.Scatter(
                 x=self._history.epochs,
-                y=self._history.val_losses,
+                y=self._history.mAP_50s,
                 mode="lines+markers",
-                name="Val Loss",
-                line={"color": "#ff7f0e"},
+                name="mAP@50",
+                line={"color": "#9467bd"},
+            ),
+            go.Scatter(
+                x=self._history.epochs,
+                y=self._history.mAP_75s,
+                mode="lines+markers",
+                name="mAP@75",
+                line={"color": "#8c564b"},
             ),
         ]
 
     def plot(self, output_path: Path) -> None:
-        """損失曲線を HTML ファイルに出力.
+        """mAP曲線をHTMLファイルに出力.
 
         Args:
             output_path: 出力先パス.
