@@ -17,6 +17,8 @@ dependencies = [
     "colorlog",
     "plotly",
     "pydantic",
+    "onnx",
+    "onnxruntime-gpu",
 ]
 
 [project.scripts]
