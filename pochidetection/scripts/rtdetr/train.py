@@ -13,7 +13,7 @@ from transformers import RTDetrImageProcessor
 
 from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset
-from pochidetection.logging import LoggerManager, LogLevel
+from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.utils import TrainingHistory, WorkspaceManager
 from pochidetection.visualization import (
@@ -33,7 +33,7 @@ def train(config: dict[str, Any], config_path: str) -> None:
     """
     # ロガー設定
     logger_manager = LoggerManager()
-    logger = logger_manager.get_logger(__name__, level=LogLevel.INFO)
+    logger = logger_manager.get_logger(__name__)
 
     # 設定値を取得
     device = config["device"]

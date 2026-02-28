@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pochidetection"
-version = "0.1.0"
+version = "0.2.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -16,6 +16,9 @@ dependencies = [
     "torchmetrics[detection]",
     "colorlog",
     "plotly",
+    "pydantic",
+    "onnx",
+    "onnxruntime-gpu",
 ]
 
 [project.scripts]
@@ -64,4 +67,9 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=. --cov-report=term-missing"
+addopts = "-v"
+filterwarnings = [
+    "ignore:.*legacy TorchScript-based ONNX export.*:DeprecationWarning",
+    "ignore::torch.jit.TracerWarning",
+    "ignore:.*The feature will be removed.*:DeprecationWarning"
+]

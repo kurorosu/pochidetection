@@ -52,16 +52,17 @@ class LoggerManager:
 
         self._default_level = LogLevel.INFO
         self._format_string = (
-            "[%(asctime)s][%(log_color)s%(levelname)s%(reset)s]"
-            "[%(filename)s:%(lineno)d] %(message)s"
+            "%(asctime)s|%(log_color)s%(levelname)-5.5s%(reset)s|"
+            "%(module)-18s|%(lineno)03d| %(message)s"
         )
         self._plain_format_string = (
-            "[%(asctime)s][%(levelname)s]" "[%(filename)s:%(lineno)d] %(message)s"
+            "%(asctime)s|%(levelname)-5.5s|" "%(module)-18s|%(lineno)03d| %(message)s"
         )
         self._date_format = "%Y-%m-%d %H:%M:%S"
         self._log_colors = {
             "DEBUG": "cyan",
             "INFO": "green",
+            "WARN": "yellow",
             "WARNING": "yellow",
             "ERROR": "red",
             "CRITICAL": "red,bg_white",
@@ -151,7 +152,24 @@ class LoggerManager:
     def set_default_level(self, level: LogLevel) -> None:
         """デフォルトのログレベルを変更.
 
+        既存の全ロガーのレベルも同時に更新する.
+
         Args:
             level: 新しいデフォルトログレベル.
         """
         self._default_level = level
+        self._update_existing_loggers_level()
+
+    def _update_existing_loggers_level(self) -> None:
+        """既存ロガーのレベル設定を更新する."""
+        log_level = getattr(logging, self._default_level.value)
+        for logger in self._loggers.values():
+            logger.setLevel(log_level)
+
+    def get_available_loggers(self) -> list[str]:
+        """管理されているロガーの名前一覧を取得.
+
+        Returns:
+            ロガー名のリスト.
+        """
+        return list(self._loggers.keys())
