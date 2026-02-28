@@ -101,7 +101,7 @@ class OnnxExporter:
         logger.info(f"ONNX変換完了: {output_path}")
 
         file_size_mb = output_path.stat().st_size / (1024 * 1024)
-        logger.info(f"ファイルサイズ: {file_size_mb:.2f} MB")
+        logger.debug(f"ファイルサイズ: {file_size_mb:.2f} MB")
 
         return output_path
 
@@ -134,12 +134,12 @@ class OnnxExporter:
                 "コンストラクタまたはload_model()でモデルを設定してください."
             )
 
-        logger.info("ONNXモデルの構造を検証中...")
+        logger.debug("ONNXモデルの構造を検証中...")
         onnx_model = onnx.load(str(onnx_path))
         onnx.checker.check_model(onnx_model)
-        logger.info("構造検証: OK")
+        logger.debug("構造検証: OK")
 
-        logger.info("PyTorchとONNXの出力を比較中...")
+        logger.debug("PyTorchとONNXの出力を比較中...")
         dummy_input = torch.randn(
             1, 3, input_size[0], input_size[1], device=self.device
         )
@@ -171,7 +171,7 @@ class OnnxExporter:
             logger.info("出力比較: OK")
             max_diff_logits = np.max(np.abs(pytorch_logits - onnx_logits))
             max_diff_boxes = np.max(np.abs(pytorch_boxes - onnx_boxes))
-            logger.info(
+            logger.debug(
                 f"最大差分 - logits: {max_diff_logits:.2e}, "
                 f"pred_boxes: {max_diff_boxes:.2e}"
             )

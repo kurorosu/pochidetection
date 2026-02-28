@@ -46,10 +46,10 @@ def export_onnx(
         height = image_size.get("height", 640)
         width = image_size.get("width", 640)
 
-    logger.info(f"モデルディレクトリ: {model_path}")
-    logger.info(f"入力サイズ: {height}x{width}")
-    logger.info(f"出力先: {output_path}")
-    logger.info(f"opset_version: {opset_version}")
+    logger.debug(f"モデルディレクトリ: {model_path}")
+    logger.debug(f"入力サイズ: {height}x{width}")
+    logger.debug(f"出力先: {output_path}")
+    logger.debug(f"opset_version: {opset_version}")
 
     exporter = OnnxExporter()
 

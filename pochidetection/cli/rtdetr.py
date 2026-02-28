@@ -12,6 +12,7 @@ RT-DETRモデルの学習・推論・ONNXエクスポートを行うコマンド
 
 import argparse
 
+from pochidetection.logging import LoggerManager, LogLevel
 from pochidetection.scripts.rtdetr.export_onnx import export_onnx
 from pochidetection.scripts.rtdetr.infer import infer
 from pochidetection.scripts.rtdetr.train import train
@@ -46,6 +47,9 @@ def parse_args() -> argparse.Namespace:
     uv run pochidet-rtdetr export -m work_dirs/20260124_001/best --input-size 640 640
         """,
     )
+
+    # グローバルオプション
+    parser.add_argument("--debug", action="store_true", help="DEBUGログを有効化")
 
     # サブコマンド
     subparsers = parser.add_subparsers(dest="command", help="実行するコマンド")
@@ -139,9 +143,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def setup_logging(debug: bool = False) -> None:
+    """ログ設定の初期化.
+
+    Args:
+        debug: DEBUGモードを有効にするか.
+    """
+    logger_manager = LoggerManager()
+    level = LogLevel.DEBUG if debug else LogLevel.INFO
+    logger_manager.set_default_level(level)
+
+
 def main() -> None:
     """メインエントリーポイント."""
     args = parse_args()
+    setup_logging(debug=args.debug)
 
     if args.command == "train":
         config = ConfigLoader.load(args.config)
