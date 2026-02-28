@@ -5,7 +5,7 @@ import pytest
 from pochidetection.utils import TrainingHistory
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def training_history() -> TrainingHistory:
     """3エポック分の TrainingHistory を作成するfixture."""
     history = TrainingHistory()
@@ -15,7 +15,7 @@ def training_history() -> TrainingHistory:
     return history
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def single_epoch_history() -> TrainingHistory:
     """1エポック分の TrainingHistory を作成するfixture."""
     history = TrainingHistory()

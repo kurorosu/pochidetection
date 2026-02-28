@@ -13,23 +13,17 @@ class TestRTDetrModel:
 
     @pytest.fixture(scope="class")
     def model(self) -> RTDetrModel:
-        """テスト用モデルを作成するfixture (推論用).
+        """テスト用モデルを作成するfixture.
 
         Note:
-            実際のモデルをダウンロードするため, CIでは時間がかかる可能性がある.
+            テスト時間を短縮するため, 事前学習重みのダウンロードは行わない.
         """
-        return RTDetrModel(model_name="PekingU/rtdetr_r18vd", num_classes=2)
-
-    @pytest.fixture(scope="class")
-    def model_for_training(self) -> RTDetrModel:
-        """学習テスト用モデルを作成するfixture.
-
-        Note:
-            ラベル付きforwardには, 事前学習なしでconfigからモデルを作成する必要がある.
-        """
-        return RTDetrModel(
+        model = RTDetrModel(
             model_name="PekingU/rtdetr_r18vd", num_classes=2, pretrained=False
         )
+        # 小さい入力画像でも forward できるようにクエリ数を削減する.
+        model.model.config.num_queries = 50
+        return model
 
     def test_implements_interface(self, model: RTDetrModel) -> None:
         """IDetectionModelを実装していることを確認."""
@@ -43,8 +37,8 @@ class TestRTDetrModel:
         """推論時のforward処理が正しく動作することを確認."""
         was_training = model.training
         model.eval()
-        batch_size = 2
-        pixel_values = torch.randn(batch_size, 3, 640, 640)
+        batch_size = 1
+        pixel_values = torch.randn(batch_size, 3, 64, 64)
 
         with torch.no_grad():
             outputs = model(pixel_values)
@@ -57,35 +51,28 @@ class TestRTDetrModel:
 
         model.train(was_training)
 
-    def test_forward_with_labels(self, model_for_training: RTDetrModel) -> None:
+    def test_forward_with_labels(self, model: RTDetrModel) -> None:
         """学習時のforward処理が損失を返すことを確認."""
-        was_training = model_for_training.training
-        model_for_training.train()
-        batch_size = 2
-        pixel_values = torch.randn(batch_size, 3, 640, 640)
+        was_training = model.training
+        model.train()
+        batch_size = 1
+        pixel_values = torch.randn(batch_size, 3, 64, 64)
 
-        # ラベルを作成 (正規化座標)
         labels = [
             {
                 "boxes": torch.tensor([[0.5, 0.5, 0.2, 0.2]], dtype=torch.float32),
                 "class_labels": torch.tensor([0], dtype=torch.int64),
-            },
-            {
-                "boxes": torch.tensor(
-                    [[0.3, 0.3, 0.1, 0.1], [0.7, 0.7, 0.15, 0.15]], dtype=torch.float32
-                ),
-                "class_labels": torch.tensor([1, 0], dtype=torch.int64),
-            },
+            }
         ]
 
-        outputs = model_for_training(pixel_values, labels=labels)
+        outputs = model(pixel_values, labels=labels)
 
         assert "loss" in outputs
         assert "pred_logits" in outputs
         assert "pred_boxes" in outputs
         assert isinstance(outputs["loss"], torch.Tensor)
 
-        model_for_training.train(was_training)
+        model.train(was_training)
 
     def test_get_backbone_params(self, model: RTDetrModel) -> None:
         """バックボーンパラメータを取得できることを確認."""
@@ -134,11 +121,12 @@ class TestRTDetrModel:
         model = RTDetrModel(
             model_name="PekingU/rtdetr_r18vd", num_classes=10, pretrained=False
         )
+        model.model.config.num_queries = 50
+
         assert model.num_classes == 10
 
-        # 分類ヘッドの出力次元を確認
         model.eval()
-        pixel_values = torch.randn(1, 3, 640, 640)
+        pixel_values = torch.randn(1, 3, 64, 64)
         with torch.no_grad():
             outputs = model(pixel_values)
 

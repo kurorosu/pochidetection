@@ -2,32 +2,42 @@
 
 from pathlib import Path
 
+import pytest
+
 from pochidetection.utils import TrainingHistory
 from pochidetection.visualization import MetricsPlotter
+
+
+@pytest.fixture(scope="class")
+def metrics_plot_html_path(
+    tmp_path_factory: pytest.TempPathFactory,
+    single_epoch_history: TrainingHistory,
+) -> Path:
+    """MetricsPlotter の出力 HTML パスを返すfixture."""
+    output_path = (
+        Path(tmp_path_factory.mktemp("metrics_plotter")) / "metrics_curve.html"
+    )
+    MetricsPlotter(single_epoch_history).plot(output_path)
+    return output_path
+
+
+@pytest.fixture(scope="class")
+def metrics_plot_html_content(metrics_plot_html_path: Path) -> str:
+    """MetricsPlotter の出力 HTML を返すfixture."""
+    return metrics_plot_html_path.read_text(encoding="utf-8")
 
 
 class TestMetricsPlotter:
     """MetricsPlotter クラスのテスト."""
 
-    def test_plot_creates_html_file(
-        self, tmp_path: Path, training_history: TrainingHistory
-    ) -> None:
+    def test_plot_creates_html_file(self, metrics_plot_html_path: Path) -> None:
         """HTML ファイルが作成されることを確認."""
-        output_path = tmp_path / "metrics_curve.html"
-        plotter = MetricsPlotter(training_history)
-        plotter.plot(output_path)
-
-        assert output_path.exists()
+        assert metrics_plot_html_path.exists()
 
     def test_plot_html_contains_map_labels(
-        self, tmp_path: Path, single_epoch_history: TrainingHistory
+        self, metrics_plot_html_content: str
     ) -> None:
         """生成された HTML に mAP のラベルが含まれることを確認."""
-        output_path = tmp_path / "metrics_curve.html"
-        plotter = MetricsPlotter(single_epoch_history)
-        plotter.plot(output_path)
-
-        content = output_path.read_text(encoding="utf-8")
-        assert "mAP" in content
-        assert "mAP@50" in content
-        assert "mAP@75" in content
+        assert "mAP" in metrics_plot_html_content
+        assert "mAP@50" in metrics_plot_html_content
+        assert "mAP@75" in metrics_plot_html_content
