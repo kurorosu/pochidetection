@@ -1,6 +1,7 @@
 """ONNXエクスポート機能を提供するモジュール."""
 
 import logging
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -78,22 +79,24 @@ class OnnxExporter:
             1, 3, input_size[0], input_size[1], device=self.device
         )
 
-        torch.onnx.export(
-            self.model.model,
-            (dummy_input,),
-            str(output_path),
-            export_params=True,
-            opset_version=opset_version,
-            do_constant_folding=True,
-            input_names=["pixel_values"],
-            output_names=["logits", "pred_boxes"],
-            dynamic_axes={
-                "pixel_values": {0: "batch_size"},
-                "logits": {0: "batch_size"},
-                "pred_boxes": {0: "batch_size"},
-            },
-            dynamo=False,
-        )
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
+            torch.onnx.export(
+                self.model.model,
+                (dummy_input,),
+                str(output_path),
+                export_params=True,
+                opset_version=opset_version,
+                do_constant_folding=True,
+                input_names=["pixel_values"],
+                output_names=["logits", "pred_boxes"],
+                dynamic_axes={
+                    "pixel_values": {0: "batch_size"},
+                    "logits": {0: "batch_size"},
+                    "pred_boxes": {0: "batch_size"},
+                },
+                dynamo=False,
+            )
 
         logger.info(f"ONNX変換完了: {output_path}")
 
