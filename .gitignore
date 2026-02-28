@@ -215,6 +215,7 @@ Plan.md
 issue.*
 tmp*.*
 .kiro
+.claude
 
 # Data directory (keep folder, ignore contents)
 data/*
