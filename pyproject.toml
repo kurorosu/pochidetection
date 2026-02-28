@@ -64,4 +64,4 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --cov=. --cov-report=term-missing"
+addopts = "-v"

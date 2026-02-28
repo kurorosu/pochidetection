@@ -45,6 +45,8 @@ class TestLoggerManager:
         """デフォルトログレベルを変更できることを確認."""
         manager = LoggerManager()
         manager.set_default_level(LogLevel.DEBUG)
-        assert manager._default_level == LogLevel.DEBUG
+        # 新規ロガーがデフォルトレベル (DEBUG) で作成されることを検証
+        logger = manager.get_logger("test_default_level_check")
+        assert logger.level == logging.DEBUG
         # 元に戻す
         manager.set_default_level(LogLevel.INFO)
