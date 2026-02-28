@@ -68,3 +68,8 @@ convention = "google"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
+filterwarnings = [
+    "ignore:.*legacy TorchScript-based ONNX export.*:DeprecationWarning",
+    "ignore::torch.jit.TracerWarning",
+    "ignore:.*The feature will be removed.*:DeprecationWarning"
+]

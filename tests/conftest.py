@@ -2,7 +2,21 @@
 
 import pytest
 
+from pochidetection.models import RTDetrModel
 from pochidetection.utils import TrainingHistory
+
+
+@pytest.fixture(scope="session")
+def rtdetr_model() -> RTDetrModel:
+    """テスト用の軽量RTDetrModelを作成するsessionスコープfixture.
+
+    全テストで1つのインスタンスを共有し, モデル初期化コストを削減する.
+    """
+    model = RTDetrModel(
+        model_name="PekingU/rtdetr_r18vd", num_classes=2, pretrained=False
+    )
+    model.model.config.num_queries = 50
+    return model
 
 
 @pytest.fixture(scope="class")

@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- なし.
+- ONNX エクスポート機能 (`OnnxExporter`) を追加. `export`, `verify`, `load_model` メソッドで学習済み RT-DETR モデルの ONNX 変換・検証・復元に対応. CLI `pochidet-rtdetr export` コマンドも追加. (N/A.)
 
 ### Changed
 - ConfigLoader を Pydantic スキーマベースに刷新し, `pydantic` 依存を追加. 設定値は `ValidationError` で詳細に検証し, 未知キーも拒否する形に変更した. (N/A.)
