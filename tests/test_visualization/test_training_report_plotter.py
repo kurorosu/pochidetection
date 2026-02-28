@@ -13,29 +13,25 @@ from pochidetection.visualization import (
 class TestTrainingReportPlotter:
     """TrainingReportPlotter クラスのテスト."""
 
-    def test_plot_creates_html_file(self, tmp_path: Path) -> None:
+    def test_plot_creates_html_file(
+        self, tmp_path: Path, training_history: TrainingHistory
+    ) -> None:
         """HTML ファイルが作成されることを確認."""
-        history = TrainingHistory()
-        history.add(1, 0.5, 0.4, 0.3, 0.5, 0.2, 0.001)
-        history.add(2, 0.4, 0.3, 0.4, 0.6, 0.3, 0.001)
-        history.add(3, 0.3, 0.25, 0.5, 0.7, 0.4, 0.0005)
-
         output_path = tmp_path / "training_report.html"
-        loss_plotter = LossPlotter(history)
-        metrics_plotter = MetricsPlotter(history)
+        loss_plotter = LossPlotter(training_history)
+        metrics_plotter = MetricsPlotter(training_history)
         plotter = TrainingReportPlotter(loss_plotter, metrics_plotter)
         plotter.plot(output_path)
 
         assert output_path.exists()
 
-    def test_plot_html_contains_both_charts(self, tmp_path: Path) -> None:
+    def test_plot_html_contains_both_charts(
+        self, tmp_path: Path, single_epoch_history: TrainingHistory
+    ) -> None:
         """生成された HTML に Loss と mAP のラベルが含まれることを確認."""
-        history = TrainingHistory()
-        history.add(1, 0.5, 0.4, 0.3, 0.5, 0.2, 0.001)
-
         output_path = tmp_path / "training_report.html"
-        loss_plotter = LossPlotter(history)
-        metrics_plotter = MetricsPlotter(history)
+        loss_plotter = LossPlotter(single_epoch_history)
+        metrics_plotter = MetricsPlotter(single_epoch_history)
         plotter = TrainingReportPlotter(loss_plotter, metrics_plotter)
         plotter.plot(output_path)
 

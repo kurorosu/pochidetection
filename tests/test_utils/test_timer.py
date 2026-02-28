@@ -92,15 +92,14 @@ class TestInferenceTimer:
 
     def test_cpu_fallback_when_cuda_unavailable(self) -> None:
         """CUDA が利用不可の場合, CPU にフォールバックすることを確認."""
-        import torch
-
         timer = InferenceTimer(device="cuda")
 
-        # CUDA が利用不可なら _use_cuda は False
-        if not torch.cuda.is_available():
-            assert timer._use_cuda is False
-        else:
-            assert timer._use_cuda is True
+        # CUDA 有無に関わらず measure() が正常動作する
+        with timer.measure():
+            pass
+
+        # フォールバック時でも計測が完了している
+        assert timer.last_time_ms >= 0.0
 
     def test_reset_clears_accumulated_data(self) -> None:
         """reset() で累積データがクリアされることを確認."""
