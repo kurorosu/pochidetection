@@ -1,62 +1,35 @@
 """設定ファイルの読み込みとバリデーション.
 
-Python設定ファイル (.py) を読み込み, バリデーションを行う.
-pochisegmentationと同じ形式: 個別変数を辞書に変換.
+Python 設定ファイル (.py) を読み込み, Pydantic でバリデーションする.
 """
 
 import importlib.util
+import inspect
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+from pydantic import ValidationError
+
+from pochidetection.configs.schemas import DetectionConfig
 
 
 class ConfigLoader:
     """設定ファイルの読み込みとバリデーション.
 
     Python設定ファイルの個別変数を辞書として読み込み,
-    バリデーションとデフォルト値の適用を行う.
+    Pydantic スキーマでバリデーションを行う.
 
     Raises:
         FileNotFoundError: 設定ファイルが見つからない場合.
-        KeyError: 必須キーがない場合.
-        ValueError: 設定値が許可リストにない場合.
-        TypeError: 設定値の型が不正な場合.
+        ValidationError: 設定値がスキーマと一致しない場合.
     """
 
-    REQUIRED_KEYS: list[str] = ["data_root", "num_classes"]
-
-    ALLOWED_VALUES: dict[str, list[Any]] = {
-        "architecture": ["RTDetr"],
-        "loss": ["DetectionLoss"],
-        "device": ["cuda", "cpu"],
-    }
-
-    TYPE_CHECKS: dict[str, type | tuple[type, ...]] = {
-        "num_classes": int,
-        "batch_size": int,
-        "epochs": int,
-        "learning_rate": (int, float),
-        "image_size": dict,
-        "pretrained": bool,
-    }
-
-    DEFAULTS: dict[str, Any] = {
-        "architecture": "RTDetr",
-        "model_name": "PekingU/rtdetr_r50vd",
-        "pretrained": True,
-        "image_size": {"height": 640, "width": 640},
-        "batch_size": 4,
-        "epochs": 100,
-        "learning_rate": 1e-4,
-        "loss": "DetectionLoss",
-        "metrics": "DetectionMetrics",
-        "dataset": "CocoDetectionDataset",
-        "device": "cuda",
-        "work_dir": "work_dirs",
-    }
+    CONFIG_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
     @classmethod
     def load(cls, config_path: str | Path) -> dict[str, Any]:
-        """設定を読み込み, バリデーションとデフォルト値適用.
+        """設定を読み込み, Pydantic バリデーションを行う.
 
         Args:
             config_path: 設定ファイルのパス.
@@ -66,15 +39,15 @@ class ConfigLoader:
 
         Raises:
             FileNotFoundError: 設定ファイルが見つからない場合.
-            KeyError: 必須キーがない場合.
-            ValueError: 設定値が許可リストにない場合.
-            TypeError: 設定値の型が不正な場合.
+            ValidationError: 設定値がスキーマと一致しない場合.
         """
-        config = cls._load_file(config_path)
-        cls._validate_required(config)
-        cls._validate_values(config)
-        cls._validate_types(config)
-        return cls._apply_defaults(config)
+        raw_config = cls._load_file(config_path)
+        try:
+            validated = DetectionConfig.model_validate(raw_config)
+        except ValidationError as error:
+            error.add_note(f"設定ファイルのバリデーションに失敗しました: {config_path}")
+            raise
+        return cast(dict[str, Any], validated.model_dump())
 
     @classmethod
     def _load_file(cls, config_path: str | Path) -> dict[str, Any]:
@@ -100,71 +73,19 @@ class ConfigLoader:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        # モジュールの公開属性を辞書として取得 (アンダースコアで始まらないもの)
+        # モジュール属性のうち, 設定値として扱うキーのみ抽出する.
         config: dict[str, Any] = {}
         for key in dir(module):
-            if not key.startswith("_"):
-                config[key] = getattr(module, key)
+            if not cls.CONFIG_KEY_PATTERN.match(key):
+                continue
+
+            value = getattr(module, key)
+            if (
+                inspect.ismodule(value)
+                or inspect.isclass(value)
+                or inspect.isroutine(value)
+            ):
+                continue
+            config[key] = value
 
         return config
-
-    @classmethod
-    def _validate_required(cls, config: dict[str, Any]) -> None:
-        """必須項目チェック.
-
-        Args:
-            config: 設定辞書.
-
-        Raises:
-            KeyError: 必須キーがない場合.
-        """
-        missing = [key for key in cls.REQUIRED_KEYS if key not in config]
-        if missing:
-            raise KeyError(f"必須キーが設定に存在しません: {missing}")
-
-    @classmethod
-    def _validate_values(cls, config: dict[str, Any]) -> None:
-        """許可値チェック.
-
-        Args:
-            config: 設定辞書.
-
-        Raises:
-            ValueError: 設定値が許可リストにない場合.
-        """
-        for key, allowed in cls.ALLOWED_VALUES.items():
-            if key in config and config[key] not in allowed:
-                raise ValueError(
-                    f"設定値が不正です: {key}={config[key]}. 許可値: {allowed}"
-                )
-
-    @classmethod
-    def _validate_types(cls, config: dict[str, Any]) -> None:
-        """型チェック.
-
-        Args:
-            config: 設定辞書.
-
-        Raises:
-            TypeError: 設定値の型が不正な場合.
-        """
-        for key, expected_type in cls.TYPE_CHECKS.items():
-            if key in config and not isinstance(config[key], expected_type):
-                raise TypeError(
-                    f"設定値の型が不正です: {key}={config[key]} "
-                    f"(期待: {expected_type}, 実際: {type(config[key])})"
-                )
-
-    @classmethod
-    def _apply_defaults(cls, config: dict[str, Any]) -> dict[str, Any]:
-        """デフォルト値を適用.
-
-        Args:
-            config: 設定辞書.
-
-        Returns:
-            デフォルト値が適用された設定辞書.
-        """
-        result = cls.DEFAULTS.copy()
-        result.update(config)
-        return result
