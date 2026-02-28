@@ -11,7 +11,7 @@ from pochidetection.models import RTDetrModel
 class TestRTDetrModel:
     """RTDetrModelのテスト."""
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def model(self) -> RTDetrModel:
         """テスト用モデルを作成するfixture (推論用).
 
@@ -20,7 +20,7 @@ class TestRTDetrModel:
         """
         return RTDetrModel(model_name="PekingU/rtdetr_r18vd", num_classes=2)
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def model_for_training(self) -> RTDetrModel:
         """学習テスト用モデルを作成するfixture.
 
@@ -41,6 +41,7 @@ class TestRTDetrModel:
 
     def test_forward_inference(self, model: RTDetrModel) -> None:
         """推論時のforward処理が正しく動作することを確認."""
+        was_training = model.training
         model.eval()
         batch_size = 2
         pixel_values = torch.randn(batch_size, 3, 640, 640)
@@ -54,8 +55,11 @@ class TestRTDetrModel:
         assert outputs["pred_boxes"].shape[0] == batch_size
         assert outputs["pred_boxes"].shape[2] == 4  # [cx, cy, w, h]
 
+        model.train(was_training)
+
     def test_forward_with_labels(self, model_for_training: RTDetrModel) -> None:
         """学習時のforward処理が損失を返すことを確認."""
+        was_training = model_for_training.training
         model_for_training.train()
         batch_size = 2
         pixel_values = torch.randn(batch_size, 3, 640, 640)
@@ -80,6 +84,8 @@ class TestRTDetrModel:
         assert "pred_logits" in outputs
         assert "pred_boxes" in outputs
         assert isinstance(outputs["loss"], torch.Tensor)
+
+        model_for_training.train(was_training)
 
     def test_get_backbone_params(self, model: RTDetrModel) -> None:
         """バックボーンパラメータを取得できることを確認."""

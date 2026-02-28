@@ -9,7 +9,8 @@
 - なし.
 
 ### Changed
-- テストコードを古典派テストに移行 (MagicMock 除去, プライベート属性アクセス除去, プレースホルダーテスト実装) し, テストディレクトリをモジュール構成に合わせて整理した. N/A.
+- テストコードを古典派テストに移行 (MagicMock 除去, プライベート属性アクセス除去, プレースホルダーテスト実装) し, テストディレクトリをモジュール構成に合わせて整理した. ([#35](https://github.com/kurorosu/pochidetection/pull/35))
+- `test_rtdetr_model.py` の `model` / `model_for_training` fixture を `scope="class"` に変更し, setup 時間を約 5.1s から約 1.0s に削減. ([#36](https://github.com/kurorosu/pochidetection/pull/36))
 
 ### Fixed
 - なし.
