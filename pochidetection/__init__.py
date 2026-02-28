@@ -1,5 +1,7 @@
 """Pochidetection - pochitrainの設計思想に基づいた物体検出フレームワーク."""
 
+__version__ = "0.1.0"
+
 # Core
 from pochidetection.core import DetectionCollator
 
