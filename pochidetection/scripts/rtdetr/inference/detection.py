@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+import torch
+
 
 @dataclass
 class Detection:
@@ -16,3 +18,14 @@ class Detection:
     box: list[float]
     score: float
     label: int
+
+
+@dataclass
+class OutputWrapper:
+    """HF transformers の出力インターフェースを模倣するラッパー.
+
+    post_process_object_detection が期待する logits / pred_boxes 属性を提供する.
+    """
+
+    logits: torch.Tensor
+    pred_boxes: torch.Tensor
