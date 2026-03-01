@@ -54,6 +54,11 @@ class OnnxBackend(IInferenceBackend):
         if providers is None:
             providers = self._default_providers()
 
+        # RT-DETR の ScatterND オペレータが CUDA EP で大量の WARNING を出すため,
+        # ONNX Runtime の C++ ロガーを ERROR 以上に制限する.
+        # NOTE: グローバル設定のため同一プロセス内の全セッションに影響する.
+        ort.set_default_logger_severity(3)
+
         self._session = ort.InferenceSession(str(model_path), providers=providers)
         self._input_names = tuple(inp.name for inp in self._session.get_inputs())
 
