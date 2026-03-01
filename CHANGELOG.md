@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- なし.
+- ONNX Runtime 推論バックエンド `OnnxBackend` を追加. `-m model.onnx` で自動判定し, `config["device"]` に連動した Execution Providers 選択と実デバイスのベンチマーク反映に対応. (N/A.)
 
 ### Changed
 - なし.
