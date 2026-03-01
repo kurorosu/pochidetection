@@ -9,7 +9,8 @@ from typing import Any
 from PIL import Image
 from transformers import RTDetrImageProcessor
 
-from pochidetection.inference import PyTorchBackend
+from pochidetection.inference import OnnxBackend, PyTorchBackend
+from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.rtdetr.inference import (
@@ -29,6 +30,86 @@ from pochidetection.visualization import LabelMapper
 logger = LoggerManager().get_logger(__name__)
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
+
+
+def _is_onnx_model(model_path: Path) -> bool:
+    """モデルパスが ONNX ファイルかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .onnx ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".onnx"
+
+
+def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProcessor:
+    """画像前処理プロセッサを読み込む.
+
+    ONNX モデルの場合, processor ファイルは ONNX ファイルと同じディレクトリから
+    読み込みを試み, 見つからなければ config の model_name からフォールバックする.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+
+    Returns:
+        RTDetrImageProcessor インスタンス.
+
+    Raises:
+        RuntimeError: processor が解決できない場合.
+    """
+    if not _is_onnx_model(model_path):
+        return RTDetrImageProcessor.from_pretrained(model_path)
+
+    processor_dir = model_path.parent
+    processor_config = processor_dir / "preprocessor_config.json"
+    if processor_config.exists():
+        logger.info(f"Loading processor from {processor_dir}")
+        return RTDetrImageProcessor.from_pretrained(processor_dir)
+
+    model_name = config.get("model_name")
+    if model_name:
+        logger.info(f"Loading processor from model_name: {model_name}")
+        return RTDetrImageProcessor.from_pretrained(model_name)
+
+    raise RuntimeError(
+        f"RTDetrImageProcessor を解決できません. "
+        f"{processor_dir} に preprocessor_config.json が見つからず, "
+        f"config に model_name も指定されていません."
+    )
+
+
+def _create_backend(
+    model_path: Path, config: dict[str, Any]
+) -> tuple[IInferenceBackend, str, bool]:
+    """モデルパスからバックエンドを生成する.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+
+    Returns:
+        (backend, precision, use_fp16) のタプル.
+    """
+    device = config["device"]
+    use_fp16 = config.get("use_fp16", False)
+
+    if _is_onnx_model(model_path):
+        logger.info("ONNX backend selected")
+        return OnnxBackend(model_path), "fp32", False
+
+    model = RTDetrModel(str(model_path))
+    model.to(device)
+    model.eval()
+
+    if use_fp16 and device == "cuda":
+        model.half()
+        logger.info("FP16 enabled")
+
+    precision = "fp16" if (use_fp16 and device == "cuda") else "fp32"
+    return PyTorchBackend(model), precision, use_fp16
 
 
 def infer(
@@ -73,26 +154,18 @@ def infer(
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 
-    use_fp16 = config.get("use_fp16", False)
+    processor = _load_processor(model_path, config)
+    backend, precision, use_fp16 = _create_backend(model_path, config)
+    runtime_device = "cpu" if _is_onnx_model(model_path) else device
 
-    processor = RTDetrImageProcessor.from_pretrained(model_path)
-    model = RTDetrModel(str(model_path))
-    model.to(device)
-    model.eval()
-
-    if use_fp16 and device == "cuda":
-        model.half()
-        logger.info("FP16 enabled")
-
-    backend = PyTorchBackend(model)
     phased_timer = PhasedTimer(
         phases=DetectionPipeline.PHASES,
-        device=device,
+        device=runtime_device,
     )
     pipeline = DetectionPipeline(
         backend=backend,
         processor=processor,
-        device=device,
+        device=runtime_device,
         threshold=threshold,
         use_fp16=use_fp16,
         phased_timer=phased_timer,
@@ -101,7 +174,9 @@ def infer(
     class_names = config.get("class_names")
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
-    saver = InferenceSaver(model_path)
+
+    saver_base = model_path.parent if _is_onnx_model(model_path) else model_path
+    saver = InferenceSaver(saver_base)
 
     logger.info(f"Results will be saved to {saver.output_dir}")
 
@@ -117,7 +192,6 @@ def infer(
             f"{len(detections)} objects -> {output_path.name}"
         )
 
-    precision = "fp16" if (use_fp16 and device == "cuda") else "fp32"
     result = build_benchmark_result(
         phased_timer=phased_timer,
         num_images=len(image_files),
