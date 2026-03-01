@@ -1,14 +1,26 @@
 """物体検出を実行するクラス."""
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import torch
 from PIL import Image
 from transformers import RTDetrImageProcessor
 
+from pochidetection.inference.pytorch_backend import PyTorchBackend
+from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils import InferenceTimer
+
+
+@dataclass
+class _OutputWrapper:
+    """HF transformersの出力インターフェースを模倣するラッパー."""
+
+    logits: torch.Tensor
+    pred_boxes: torch.Tensor
 
 
 class Detector:
@@ -16,7 +28,7 @@ class Detector:
 
     Attributes:
         _processor: 画像前処理プロセッサ.
-        _model: 検出モデル.
+        _backend: 推論バックエンド.
         _device: 実行デバイス.
         _threshold: 検出信頼度閾値.
         _timer: 推論時間計測タイマー.
@@ -25,33 +37,56 @@ class Detector:
 
     def __init__(
         self,
-        model_path: Path,
+        model_path: Path | None = None,
         device: str = "cuda",
         threshold: float = 0.5,
         timer: InferenceTimer | None = None,
         use_fp16: bool = False,
+        backend: IInferenceBackend | None = None,
+        processor: Any | None = None,
     ) -> None:
         """Detectorを初期化.
 
         Args:
-            model_path: モデルディレクトリのパス.
+            model_path: モデルディレクトリのパス. backend と processor を省略する場合は必須.
             device: 実行デバイス.
             threshold: 検出信頼度閾値.
             timer: 推論時間計測タイマー. Noneの場合は計測しない.
             use_fp16: FP16 推論を使用するか. CUDA デバイスでのみ有効.
+            backend: 推論バックエンドのインスタンス (DI用). 指定時は processor も必須.
+            processor: 画像前処理プロセッサのインスタンス (DI用). 指定時は backend も必須.
         """
+        if (backend is None) != (processor is None):
+            msg = "backend と processor は両方指定するか, 両方省略する必要があります."
+            raise ValueError(msg)
+
+        if backend is None and model_path is None:
+            msg = "backend と processor を省略する場合, model_path は必須です."
+            raise ValueError(msg)
         self._device = device
         self._threshold = threshold
         self._timer = timer
         self._use_fp16 = use_fp16 and device == "cuda"
 
-        self._processor = RTDetrImageProcessor.from_pretrained(model_path)
-        self._model = RTDetrModel(str(model_path))
-        self._model.to(device)
-        self._model.eval()
+        if processor is not None:
+            self._processor = processor
+        else:
+            assert model_path is not None
+            self._processor = RTDetrImageProcessor.from_pretrained(model_path)
 
-        if self._use_fp16:
-            self._model.half()
+        if backend is not None:
+            self._backend = backend
+        else:
+            assert model_path is not None
+            # TODO: モデル初期化とバックエンド生成は外部から完全に分離するように将来リファクタ推奨
+            model = RTDetrModel(str(model_path))
+            model.to(device)
+            model.eval()
+
+            if self._use_fp16:
+                model.half()
+
+            self._backend = PyTorchBackend(model)
 
     def detect(self, image: Image.Image) -> list[Detection]:
         """画像から物体を検出.
@@ -76,9 +111,14 @@ class Detector:
         with torch.no_grad():
             if self._timer is not None:
                 with self._timer.measure():
-                    outputs = self._model.model(**inputs)
+                    pred_logits, pred_boxes = self._backend.infer(inputs)
+                    self._backend.synchronize()
             else:
-                outputs = self._model.model(**inputs)
+                pred_logits, pred_boxes = self._backend.infer(inputs)
+                self._backend.synchronize()
+
+        # 実装依存を解消するため, HFが期待するラッパーオブジェクトを作成
+        outputs = _OutputWrapper(logits=pred_logits, pred_boxes=pred_boxes)
 
         # 後処理
         results = self._processor.post_process_object_detection(

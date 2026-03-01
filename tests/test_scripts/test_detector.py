@@ -1,6 +1,17 @@
 """Detector のテスト."""
 
+from pathlib import Path
+from typing import Any
+
+import pytest
+import torch
+from PIL import Image
+from transformers import RTDetrImageProcessor
+
+from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.scripts.rtdetr.inference.detector import Detector, _OutputWrapper
+from pochidetection.utils import InferenceTimer
 
 
 class TestDetection:
@@ -36,3 +47,146 @@ class TestDetection:
         x1, y1, x2, y2 = detection.box
         assert x2 > x1
         assert y2 > y1
+
+
+class DummyBackend(IInferenceBackend):
+    """テスト用のダミー推論バックエンド."""
+
+    def __init__(self) -> None:
+        self.infer_called = False
+        self.synchronize_called = False
+
+    def infer(self, inputs: Any) -> tuple[Any, Any]:
+        """ダミー推論."""
+        self.infer_called = True
+        return torch.zeros((1, 100, 2)), torch.zeros((1, 100, 4))
+
+    def synchronize(self) -> None:
+        """ダミー同期."""
+        self.synchronize_called = True
+
+
+class DummyProcessor:
+    """テスト用のダミープロセッサ."""
+
+    def __call__(self, images: Any, return_tensors: str) -> dict[str, Any]:
+        """ダミー前処理."""
+        return {"pixel_values": torch.zeros((1, 3, 64, 64))}
+
+    def post_process_object_detection(
+        self, outputs: Any, target_sizes: Any, threshold: float
+    ) -> list[dict[str, Any]]:
+        """ダミー後処理."""
+        return [
+            {
+                "scores": torch.tensor([0.9]),
+                "labels": torch.tensor([1]),
+                "boxes": torch.tensor([[10, 20, 30, 40]]),
+            }
+        ]
+
+
+class DummyProcessorEmpty(DummyProcessor):
+    """何も検出しないプロセッサ."""
+
+    def post_process_object_detection(
+        self, outputs: Any, target_sizes: Any, threshold: float
+    ) -> list[dict[str, Any]]:
+        """空の検出結果."""
+        return [{"scores": [], "labels": [], "boxes": []}]
+
+
+class TestDetector:
+    """Detector クラスのテスト."""
+
+    def test_detect_calls_backend_infer_and_synchronize(self) -> None:
+        """Detector.detect()が推論と同期を行うことを確認."""
+        dummy_backend = DummyBackend()
+        dummy_processor = DummyProcessor()
+
+        detector = Detector(
+            device="cpu",
+            backend=dummy_backend,
+            processor=dummy_processor,
+        )
+        dummy_image = Image.new("RGB", (64, 64))
+
+        detections = detector.detect(dummy_image)
+
+        assert len(detections) == 1
+        assert detections[0].score == pytest.approx(0.9, rel=1e-3)
+        assert detections[0].label == 1
+        assert dummy_backend.infer_called
+        assert dummy_backend.synchronize_called
+
+    def test_detect_calls_timer(self) -> None:
+        """timerが与えられている場合にタイマーが呼ばれることを確認."""
+        dummy_backend = DummyBackend()
+        dummy_processor = DummyProcessorEmpty()
+
+        timer = InferenceTimer(device="cpu", skip_first=False)
+        detector = Detector(
+            device="cpu",
+            timer=timer,
+            backend=dummy_backend,
+            processor=dummy_processor,
+        )
+
+        dummy_image = Image.new("RGB", (64, 64))
+        detector.detect(dummy_image)
+
+        assert timer.count == 1
+        assert dummy_backend.synchronize_called
+
+    def test_detector_initialization_requires_model_path_without_di(self) -> None:
+        """backend と processor を省略する場合に model_path が必須であることを確認."""
+        with pytest.raises(
+            ValueError,
+            match="backend と processor を省略する場合, model_path は必須です.",
+        ):
+            Detector(model_path=None)
+
+    def test_detector_initialization_requires_both_di_components(self) -> None:
+        """backend と processor が片側のみ指定された場合にエラーとなることを確認."""
+        dummy_backend = DummyBackend()
+        dummy_processor = DummyProcessor()
+
+        with pytest.raises(
+            ValueError,
+            match="backend と processor は両方指定するか, 両方省略する必要があります.",
+        ):
+            Detector(model_path=Path("dummy"), backend=dummy_backend, processor=None)
+
+        with pytest.raises(
+            ValueError,
+            match="backend と processor は両方指定するか, 両方省略する必要があります.",
+        ):
+            Detector(model_path=Path("dummy"), backend=None, processor=dummy_processor)
+
+    def test_output_wrapper_with_real_processor(self) -> None:
+        """実際の RTDetrImageProcessor と _OutputWrapper の互換性を確認."""
+        processor = RTDetrImageProcessor()
+
+        # バッチサイズ 1 のダミー画像サイズ
+        target_sizes = [(640, 640)]
+
+        # 予測ロジットとボックスを保持する出力をシミュレート
+        num_queries = 300
+        num_classes = 80
+        dummy_logits = torch.randn(1, num_queries, num_classes)
+        # ランダムなボックス [0, 1]
+        dummy_boxes = torch.rand(1, num_queries, 4)
+
+        wrapper = _OutputWrapper(logits=dummy_logits, pred_boxes=dummy_boxes)
+
+        results = processor.post_process_object_detection(
+            wrapper,
+            target_sizes=target_sizes,
+            threshold=0.5,
+        )
+        # scores, labels, boxes のキーを持つ辞書のリストが生成されることを確認
+        assert isinstance(results, list)
+        assert len(results) == 1
+        assert "scores" in results[0]
+        assert "labels" in results[0]
+        assert "boxes" in results[0]
