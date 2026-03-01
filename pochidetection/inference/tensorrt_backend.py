@@ -81,6 +81,19 @@ class TensorRTBackend(IInferenceBackend):
             )
 
         self._context = self._engine.create_execution_context()
+
+        # 動的バッチサイズの入力テンソルに対して shape を確定させる.
+        # DetectionPipeline はバッチサイズ1で画像を逐次処理するため,
+        # バッチ次元を1に固定する.
+        for i in range(self._engine.num_io_tensors):
+            name = self._engine.get_tensor_name(i)
+            mode = self._engine.get_tensor_mode(name)
+            if mode == trt.TensorIOMode.INPUT:
+                shape = list(self._engine.get_tensor_shape(name))
+                if shape[0] == -1:
+                    shape[0] = 1
+                    self._context.set_input_shape(name, shape)
+
         self._bindings = allocate_bindings(self._engine, self._context)
 
         self._input_bindings = [b for b in self._bindings if b.is_input]

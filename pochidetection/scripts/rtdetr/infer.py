@@ -10,6 +10,13 @@ from PIL import Image
 from transformers import RTDetrImageProcessor
 
 from pochidetection.inference import OnnxBackend, PyTorchBackend
+
+try:
+    from pochidetection.inference import TensorRTBackend
+
+    _TRT_AVAILABLE = True
+except ImportError:
+    _TRT_AVAILABLE = False
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
@@ -44,11 +51,24 @@ def _is_onnx_model(model_path: Path) -> bool:
     return model_path.suffix.lower() == ".onnx"
 
 
+def _is_tensorrt_model(model_path: Path) -> bool:
+    """モデルパスが TensorRT エンジンかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .engine ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".engine"
+
+
 def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProcessor:
     """画像前処理プロセッサを読み込む.
 
-    ONNX モデルの場合, processor ファイルは ONNX ファイルと同じディレクトリから
-    読み込みを試み, 見つからなければ config の model_name からフォールバックする.
+    ONNX / TensorRT モデルの場合, processor ファイルはモデルファイルと
+    同じディレクトリから読み込みを試み, 見つからなければ config の
+    model_name からフォールバックする.
 
     Args:
         model_path: モデルのパス.
@@ -60,7 +80,7 @@ def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProc
     Raises:
         RuntimeError: processor が解決できない場合.
     """
-    if not _is_onnx_model(model_path):
+    if not _is_onnx_model(model_path) and not _is_tensorrt_model(model_path):
         return RTDetrImageProcessor.from_pretrained(model_path)
 
     processor_dir = model_path.parent
@@ -95,6 +115,15 @@ def _create_backend(
     """
     device = config["device"]
     use_fp16 = config.get("use_fp16", False)
+
+    if _is_tensorrt_model(model_path):
+        if not _TRT_AVAILABLE:
+            raise ImportError(
+                "tensorrt パッケージがインストールされていません. "
+                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
+            )
+        logger.info("TensorRT backend selected")
+        return TensorRTBackend(model_path), "fp32", False
 
     if _is_onnx_model(model_path):
         logger.info("ONNX backend selected")
@@ -156,7 +185,10 @@ def infer(
 
     processor = _load_processor(model_path, config)
     backend, precision, use_fp16 = _create_backend(model_path, config)
-    if _is_onnx_model(model_path):
+    if _is_tensorrt_model(model_path):
+        actual_device = "cuda"
+        runtime_device = "cuda"
+    elif _is_onnx_model(model_path):
         assert isinstance(backend, OnnxBackend)
         actual_device = (
             "cuda" if "CUDAExecutionProvider" in backend.active_providers else "cpu"
@@ -183,7 +215,8 @@ def infer(
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
 
-    saver_base = model_path.parent if _is_onnx_model(model_path) else model_path
+    is_single_file = _is_onnx_model(model_path) or _is_tensorrt_model(model_path)
+    saver_base = model_path.parent if is_single_file else model_path
     saver = InferenceSaver(saver_base)
 
     logger.info(f"Results will be saved to {saver.output_dir}")
