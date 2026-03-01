@@ -28,7 +28,6 @@ from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
 
-# サポートする画像拡張子
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 
 
@@ -48,12 +47,10 @@ def infer(
     """
     device = config["device"]
 
-    # モデルディレクトリの決定
     model_path = _resolve_model_path(config, model_dir)
     if model_path is None:
         return
 
-    # 画像ファイルを取得
     image_dir_path = Path(image_dir)
     if not image_dir_path.exists():
         logger.error(f"Image directory not found: {image_dir}")
@@ -70,14 +67,12 @@ def infer(
     logger.info(f"Found {len(image_files)} images in {image_dir}")
     logger.info(f"Loading model from {model_path}")
 
-    # cudnn.benchmark 設定
     if config.get("cudnn_benchmark", False) and device == "cuda":
         import torch
 
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 
-    # コンポーネント初期化
     use_fp16 = config.get("use_fp16", False)
 
     processor = RTDetrImageProcessor.from_pretrained(model_path)
@@ -110,17 +105,10 @@ def infer(
 
     logger.info(f"Results will be saved to {saver.output_dir}")
 
-    # 一括推論
     for image_file in image_files:
         image = Image.open(image_file).convert("RGB")
-
-        # 検出
         detections = pipeline.run(image)
-
-        # 描画
         result_image = visualizer.draw(image, detections)
-
-        # 保存
         output_path = saver.save(result_image, image_file.name)
 
         inf_timer = phased_timer.get_timer("inference")
@@ -129,7 +117,6 @@ def infer(
             f"{len(detections)} objects -> {output_path.name}"
         )
 
-    # ベンチマーク結果を構築・出力
     precision = "fp16" if (use_fp16 and device == "cuda") else "fp32"
     result = build_benchmark_result(
         phased_timer=phased_timer,
@@ -188,7 +175,6 @@ def _resolve_model_path(
             return None
         return model_path
 
-    # 最新のワークスペースからベストモデルを探す
     workspace_manager = WorkspaceManager(config["work_dir"])
     workspaces = workspace_manager.get_available_workspaces()
 
@@ -196,7 +182,6 @@ def _resolve_model_path(
         logger.error("No trained models found. Please run training first.")
         return None
 
-    # 最新のワークスペースのbestディレクトリを使用
     latest_workspace = Path(str(workspaces[-1]["path"]))
     model_path = latest_workspace / "best"
 
