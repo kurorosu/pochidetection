@@ -14,6 +14,7 @@ import argparse
 
 from pochidetection.logging import LoggerManager, LogLevel
 from pochidetection.scripts.rtdetr.export_onnx import export_onnx
+from pochidetection.scripts.rtdetr.export_trt import export_trt
 from pochidetection.scripts.rtdetr.infer import infer
 from pochidetection.scripts.rtdetr.train import train
 from pochidetection.utils import ConfigLoader
@@ -45,6 +46,10 @@ def parse_args() -> argparse.Namespace:
     uv run pochidet-rtdetr export -m work_dirs/20260124_001/best
     uv run pochidet-rtdetr export -m work_dirs/20260124_001/best -o model.onnx
     uv run pochidet-rtdetr export -m work_dirs/20260124_001/best --input-size 640 640
+
+  TensorRTエクスポート (FP32):
+    uv run pochidet-rtdetr export-trt -i model.onnx
+    uv run pochidet-rtdetr export-trt -i model.onnx --max-batch 8
         """,
     )
 
@@ -140,6 +145,45 @@ def parse_args() -> argparse.Namespace:
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
+    # TensorRTエクスポートコマンド
+    export_trt_parser = subparsers.add_parser(
+        "export-trt", help="ONNXモデルからTensorRTエンジンへのエクスポート"
+    )
+    export_trt_parser.add_argument(
+        "-i", "--onnx-path", type=str, required=True, help="入力ONNXモデルのパス"
+    )
+    export_trt_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="出力エンジンパス (default: <onnx_path>.engine)",
+    )
+    export_trt_parser.add_argument(
+        "--input-size",
+        nargs=2,
+        type=int,
+        default=None,
+        metavar=("HEIGHT", "WIDTH"),
+        help="入力画像サイズ (default: configのimage_sizeを使用)",
+    )
+    export_trt_parser.add_argument(
+        "--min-batch", type=int, default=1, help="最小バッチサイズ (default: 1)"
+    )
+    export_trt_parser.add_argument(
+        "--opt-batch", type=int, default=1, help="最適バッチサイズ (default: 1)"
+    )
+    export_trt_parser.add_argument(
+        "--max-batch", type=int, default=4, help="最大バッチサイズ (default: 4)"
+    )
+    export_trt_parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default=DEFAULT_CONFIG,
+        help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
+    )
+
     return parser.parse_args()
 
 
@@ -175,6 +219,24 @@ def main() -> None:
             args.opset_version,
             input_size,
             args.skip_verify,
+        )
+    elif args.command == "export-trt":
+        config = ConfigLoader.load(args.config)
+        input_size_tgt: tuple[int, int] = (
+            (args.input_size[0], args.input_size[1])
+            if args.input_size
+            else (
+                int(config["image_size"]["height"]),
+                int(config["image_size"]["width"]),
+            )
+        )
+        export_trt(
+            args.onnx_path,
+            args.output,
+            input_size_tgt,
+            args.min_batch,
+            args.opt_batch,
+            args.max_batch,
         )
     else:
         # コマンド未指定の場合はヘルプを表示

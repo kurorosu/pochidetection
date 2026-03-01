@@ -6,7 +6,8 @@
 ## [Unreleased]
 
 ### Added
-- ONNX Runtime 推論バックエンド `OnnxBackend` を追加. `-m model.onnx` で自動判定し, `config["device"]` に連動した Execution Providers 選択と実デバイスのベンチマーク反映に対応. (N/A.)
+- ONNX Runtime 推論バックエンド `OnnxBackend` を追加. `-m model.onnx` で自動判定し, `config["device"]` に連動した Execution Providers 選択と実デバイスのベンチマーク反映に対応. ([#53](https://github.com/kurorosu/pochidetection/pull/53).)
+- TensorRT (FP32) エクスポート機能 (`pochidet-rtdetr export-trt`) およびエクスポートクラス (`TensorRTExporter`) を追加. Dynamic Batching 設定に対応. (N/A.)
 
 ### Changed
 - なし.
