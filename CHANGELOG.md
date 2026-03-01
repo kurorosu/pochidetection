@@ -6,10 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- ベンチマーク結果スキーマ `BenchmarkResult` (Pydantic) と JSON 出力機能 (`build_benchmark_result`, `write_benchmark_result`) を追加. 推論完了時に `benchmark_result.json` を出力する. (N/A.)
+- なし.
 
 ### Changed
-- `infer` コマンドを `DetectionPipeline` + `PhasedTimer` ベースに移行し, フェーズ別タイミング・スループットをターミナル出力するよう変更. (N/A.)
+- なし.
 
 ### Fixed
 - なし.
@@ -17,26 +17,25 @@
 ### Removed
 - なし.
 
-## v0.2.0 (2026-02-28)
+## v0.3.0 (2026-03-01)
 
 ### Added
-- ONNX エクスポート機能 (`OnnxExporter`) を追加. `export`, `verify`, `load_model` メソッドで学習済み RT-DETR モデルの ONNX 変換・検証・復元に対応. CLI `pochidet-rtdetr export` コマンドも追加. ([#42](https://github.com/kurorosu/pochidetection/pull/42))
+- ベンチマーク結果スキーマ `BenchmarkResult` (Pydantic) と JSON 出力機能 (`build_benchmark_result`, `write_benchmark_result`) を追加. 推論完了時に `benchmark_result.json` を出力する. ([#48](https://github.com/kurorosu/pochidetection/pull/48))
 
 ### Changed
-- ログフォーマットを pochitrain のパイプ区切りに統一し, CLI に `--debug` フラグを追加. ONNX エクスポートの補足ログを debug レベルに変更. ([#45](https://github.com/kurorosu/pochidetection/pull/45))
-- ConfigLoader を Pydantic スキーマベースに刷新し, `pydantic` 依存を追加. 設定値は `ValidationError` で詳細に検証し, 未知キーも拒否する形に変更した. ([#41](https://github.com/kurorosu/pochidetection/pull/41))
-- plotter 系テストで class スコープ fixture と tmp_path_factory を導入し, HTML 生成を共有して `fig.write_html()` 呼び出し回数を削減. あわせて `test_rtdetr_model.py` の forward 入力を軽量化し, 実挙動検証を維持したまま実行時間を短縮. ([#38](https://github.com/kurorosu/pochidetection/pull/38))
-- テストコードを古典派テストに移行 (MagicMock 除去, プライベート属性アクセス除去, プレースホルダーテスト実装) し, テストディレクトリをモジュール構成に合わせて整理した. ([#35](https://github.com/kurorosu/pochidetection/pull/35))
-- `test_rtdetr_model.py` の `model` / `model_for_training` fixture を `scope="class"` に変更し, setup 時間を約 5.1s から約 1.0s に削減. ([#36](https://github.com/kurorosu/pochidetection/pull/36))
+- `infer` コマンドを `DetectionPipeline` + `PhasedTimer` ベースに移行し, フェーズ別タイミング・スループットをターミナル出力するよう変更. ([#48](https://github.com/kurorosu/pochidetection/pull/48))
+- `Detector` から `timer` パラメータを削除し, 推論計測責務を `infer` 側 (`DetectionPipeline` + `PhasedTimer`) に統一. ([#49](https://github.com/kurorosu/pochidetection/pull/49))
+- 低価値コメントを整理し, `TODO` と実装意図を示すコメントのみを保持して可読性を改善. ([#50](https://github.com/kurorosu/pochidetection/pull/50))
 
 ### Fixed
-- ONNX エクスポート時に `TracerWarning` が大量表示される問題を修正. `warnings.catch_warnings()` で抑制. ([#44](https://github.com/kurorosu/pochidetection/pull/44))
+- なし.
 
 ### Removed
 - なし.
 
 ## Archived Changelogs
 
+- [0.2.x](changelogs/0.2.x.md)
 - [0.1.x](changelogs/0.1.x.md)
 
 運用ルールは [`changelogs/README.md`](./changelogs/README.md) を参照してください.
