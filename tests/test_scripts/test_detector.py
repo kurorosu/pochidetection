@@ -9,8 +9,11 @@ from PIL import Image
 from transformers import RTDetrImageProcessor
 
 from pochidetection.interfaces.backend import IInferenceBackend
-from pochidetection.scripts.rtdetr.inference.detection import Detection
-from pochidetection.scripts.rtdetr.inference.detector import Detector, _OutputWrapper
+from pochidetection.scripts.rtdetr.inference.detection import (
+    Detection,
+    OutputWrapper,
+)
+from pochidetection.scripts.rtdetr.inference.detector import Detector
 from pochidetection.utils import InferenceTimer
 
 
@@ -164,7 +167,7 @@ class TestDetector:
             Detector(model_path=Path("dummy"), backend=None, processor=dummy_processor)
 
     def test_output_wrapper_with_real_processor(self) -> None:
-        """実際の RTDetrImageProcessor と _OutputWrapper の互換性を確認."""
+        """実際の RTDetrImageProcessor と OutputWrapper の互換性を確認."""
         processor = RTDetrImageProcessor()
 
         # バッチサイズ 1 のダミー画像サイズ
@@ -177,7 +180,7 @@ class TestDetector:
         # ランダムなボックス [0, 1]
         dummy_boxes = torch.rand(1, num_queries, 4)
 
-        wrapper = _OutputWrapper(logits=dummy_logits, pred_boxes=dummy_boxes)
+        wrapper = OutputWrapper(logits=dummy_logits, pred_boxes=dummy_boxes)
 
         results = processor.post_process_object_detection(
             wrapper,

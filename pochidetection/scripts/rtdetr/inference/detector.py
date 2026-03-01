@@ -1,6 +1,5 @@
 """物体検出を実行するクラス."""
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -11,16 +10,8 @@ from transformers import RTDetrImageProcessor
 from pochidetection.inference.pytorch_backend import PyTorchBackend
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.models import RTDetrModel
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.scripts.rtdetr.inference.detection import Detection, OutputWrapper
 from pochidetection.utils import InferenceTimer
-
-
-@dataclass
-class _OutputWrapper:
-    """HF transformersの出力インターフェースを模倣するラッパー."""
-
-    logits: torch.Tensor
-    pred_boxes: torch.Tensor
 
 
 class Detector:
@@ -118,7 +109,7 @@ class Detector:
                 self._backend.synchronize()
 
         # 実装依存を解消するため, HFが期待するラッパーオブジェクトを作成
-        outputs = _OutputWrapper(logits=pred_logits, pred_boxes=pred_boxes)
+        outputs = OutputWrapper(logits=pred_logits, pred_boxes=pred_boxes)
 
         # 後処理
         results = self._processor.post_process_object_detection(
