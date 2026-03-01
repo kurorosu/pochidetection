@@ -11,7 +11,6 @@ from pochidetection.inference.pytorch_backend import PyTorchBackend
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.rtdetr.inference.detection import Detection, OutputWrapper
-from pochidetection.utils import InferenceTimer
 
 
 class Detector:
@@ -22,7 +21,6 @@ class Detector:
         _backend: 推論バックエンド.
         _device: 実行デバイス.
         _threshold: 検出信頼度閾値.
-        _timer: 推論時間計測タイマー.
         _use_fp16: FP16 推論を使用するか.
     """
 
@@ -31,7 +29,6 @@ class Detector:
         model_path: Path | None = None,
         device: str = "cuda",
         threshold: float = 0.5,
-        timer: InferenceTimer | None = None,
         use_fp16: bool = False,
         backend: IInferenceBackend | None = None,
         processor: Any | None = None,
@@ -42,7 +39,6 @@ class Detector:
             model_path: モデルディレクトリのパス. backend と processor を省略する場合は必須.
             device: 実行デバイス.
             threshold: 検出信頼度閾値.
-            timer: 推論時間計測タイマー. Noneの場合は計測しない.
             use_fp16: FP16 推論を使用するか. CUDA デバイスでのみ有効.
             backend: 推論バックエンドのインスタンス (DI用). 指定時は processor も必須.
             processor: 画像前処理プロセッサのインスタンス (DI用). 指定時は backend も必須.
@@ -56,7 +52,6 @@ class Detector:
             raise ValueError(msg)
         self._device = device
         self._threshold = threshold
-        self._timer = timer
         self._use_fp16 = use_fp16 and device == "cuda"
 
         if processor is not None:
@@ -98,15 +93,10 @@ class Detector:
                 k: v.half() if v.is_floating_point() else v for k, v in inputs.items()
             }
 
-        # 推論 (時間計測)
+        # 推論
         with torch.no_grad():
-            if self._timer is not None:
-                with self._timer.measure():
-                    pred_logits, pred_boxes = self._backend.infer(inputs)
-                    self._backend.synchronize()
-            else:
-                pred_logits, pred_boxes = self._backend.infer(inputs)
-                self._backend.synchronize()
+            pred_logits, pred_boxes = self._backend.infer(inputs)
+            self._backend.synchronize()
 
         # 実装依存を解消するため, HFが期待するラッパーオブジェクトを作成
         outputs = OutputWrapper(logits=pred_logits, pred_boxes=pred_boxes)
@@ -132,8 +122,3 @@ class Detector:
             )
 
         return detections
-
-    @property
-    def timer(self) -> InferenceTimer | None:
-        """推論時間計測タイマーを取得."""
-        return self._timer

@@ -14,7 +14,6 @@ from pochidetection.scripts.rtdetr.inference.detection import (
     OutputWrapper,
 )
 from pochidetection.scripts.rtdetr.inference.detector import Detector
-from pochidetection.utils import InferenceTimer
 
 
 class TestDetection:
@@ -89,16 +88,6 @@ class DummyProcessor:
         ]
 
 
-class DummyProcessorEmpty(DummyProcessor):
-    """何も検出しないプロセッサ."""
-
-    def post_process_object_detection(
-        self, outputs: Any, target_sizes: Any, threshold: float
-    ) -> list[dict[str, Any]]:
-        """空の検出結果."""
-        return [{"scores": [], "labels": [], "boxes": []}]
-
-
 class TestDetector:
     """Detector クラスのテスト."""
 
@@ -120,25 +109,6 @@ class TestDetector:
         assert detections[0].score == pytest.approx(0.9, rel=1e-3)
         assert detections[0].label == 1
         assert dummy_backend.infer_called
-        assert dummy_backend.synchronize_called
-
-    def test_detect_calls_timer(self) -> None:
-        """timerが与えられている場合にタイマーが呼ばれることを確認."""
-        dummy_backend = DummyBackend()
-        dummy_processor = DummyProcessorEmpty()
-
-        timer = InferenceTimer(device="cpu", skip_first=False)
-        detector = Detector(
-            device="cpu",
-            timer=timer,
-            backend=dummy_backend,
-            processor=dummy_processor,
-        )
-
-        dummy_image = Image.new("RGB", (64, 64))
-        detector.detect(dummy_image)
-
-        assert timer.count == 1
         assert dummy_backend.synchronize_called
 
     def test_detector_initialization_requires_model_path_without_di(self) -> None:
