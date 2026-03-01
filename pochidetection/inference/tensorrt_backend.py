@@ -1,0 +1,163 @@
+"""TensorRT 推論バックエンド."""
+
+import logging
+from pathlib import Path
+from typing import Any
+
+import torch
+
+try:
+    import tensorrt as trt
+
+    _TRT_AVAILABLE = True
+except ImportError:
+    _TRT_AVAILABLE = False
+
+from pochidetection.interfaces import IInferenceBackend
+from pochidetection.logging import LoggerManager
+from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
+
+logger: logging.Logger = LoggerManager().get_logger(__name__)
+
+
+class TensorRTBackend(IInferenceBackend):
+    """TensorRT エンジンを使用した推論バックエンド.
+
+    PyTorch CUDA テンソルをバッファとして使用し,
+    execute_async_v3 で非同期推論を実行する.
+
+    Attributes:
+        _engine: TensorRT エンジン.
+        _context: TensorRT 実行コンテキスト.
+        _stream: 推論用 CUDA ストリーム.
+        _bindings: I/O テンソルバインディング.
+    """
+
+    def __init__(
+        self,
+        engine_path: Path | str,
+    ) -> None:
+        """初期化.
+
+        Args:
+            engine_path: TensorRT エンジンファイル (.engine) のパス.
+
+        Raises:
+            ImportError: tensorrt がインストールされていない場合.
+            FileNotFoundError: エンジンファイルが存在しない場合.
+            ValueError: .engine 以外の拡張子が指定された場合.
+            RuntimeError: エンジンのデシリアライズに失敗した場合.
+        """
+        if not _TRT_AVAILABLE:
+            raise ImportError(
+                "tensorrt パッケージがインストールされていません. "
+                "GPU環境構築手順に従って TensorRT をインストールしてください."
+            )
+
+        engine_path = Path(engine_path)
+
+        if not engine_path.exists():
+            raise FileNotFoundError(f"TensorRTエンジンが見つかりません: {engine_path}")
+        if not engine_path.is_file():
+            raise ValueError(
+                f"TensorRTエンジンのパスはファイルである必要があります: {engine_path}"
+            )
+        if engine_path.suffix.lower() != ".engine":
+            raise ValueError(
+                f"TensorRTエンジンの拡張子は .engine である必要があります: "
+                f"{engine_path}"
+            )
+
+        trt_logger = trt.Logger(trt.Logger.ERROR)
+        runtime = trt.Runtime(trt_logger)
+
+        with open(engine_path, "rb") as f:
+            engine_data = f.read()
+
+        self._engine = runtime.deserialize_cuda_engine(engine_data)
+        if self._engine is None:
+            raise RuntimeError(
+                f"TensorRTエンジンのデシリアライズに失敗しました: {engine_path}"
+            )
+
+        self._context = self._engine.create_execution_context()
+        self._bindings = allocate_bindings(self._engine, self._context)
+
+        self._input_bindings = [b for b in self._bindings if b.is_input]
+        self._output_bindings = [b for b in self._bindings if not b.is_input]
+        self._input_names = tuple(b.name for b in self._input_bindings)
+
+        # 非デフォルト CUDA ストリームを使用.
+        # デフォルトストリーム (stream 0) では execute_async_v3 内部で
+        # 毎回 cudaStreamSynchronize() が追加呼び出しされ性能低下するため.
+        self._stream = torch.cuda.Stream()
+
+        logger.info(f"TensorRT backend loaded: {engine_path}")
+        for b in self._bindings:
+            kind = "input" if b.is_input else "output"
+            logger.debug(f"  {kind}: {b.name}, shape={b.shape}, dtype={b.numpy_dtype}")
+
+    def infer(
+        self, inputs: dict[str, torch.Tensor]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """推論を実行する.
+
+        入力テンソルを GPU バッファにコピーし, TensorRT エンジンで推論後,
+        出力を torch.Tensor として返す.
+
+        Args:
+            inputs: 前処理済みの入力テンソル辞書.
+                キー "pixel_values" に (B, C, H, W) のテンソルを含む.
+
+        Returns:
+            pred_logits と pred_boxes のタプル.
+
+        Raises:
+            ValueError: 必須入力が不足している場合.
+        """
+        missing = [name for name in self._input_names if name not in inputs]
+        if missing:
+            raise ValueError(
+                f"TensorRT入力が不足しています: {missing}. "
+                f"利用可能なキー: {list(inputs.keys())}"
+            )
+
+        # 入力テンソルを GPU バッファにコピー
+        for binding in self._input_bindings:
+            src = inputs[binding.name]
+            if not src.is_cuda:
+                src = src.cuda()
+            self._stream.wait_stream(torch.cuda.default_stream())
+            with torch.cuda.stream(self._stream):
+                binding.device_tensor.copy_(src)
+
+        # 推論実行
+        self._context.execute_async_v3(self._stream.cuda_stream)
+        self._stream.synchronize()
+
+        # 出力テンソルを取得
+        outputs = [b.device_tensor.clone() for b in self._output_bindings]
+
+        if len(outputs) < 2:
+            raise RuntimeError(
+                f"TensorRTエンジンの出力が2つ未満です: {len(outputs)}個. "
+                f"RT-DETR は (pred_logits, pred_boxes) の2出力が必要です."
+            )
+
+        pred_logits = outputs[0]
+        pred_boxes = outputs[1]
+        return pred_logits, pred_boxes
+
+    def synchronize(self) -> None:
+        """CUDA 同期. ストリームの完了を待機する."""
+        self._stream.synchronize()
+
+    @property
+    def engine(self) -> Any:
+        """Tensorrt エンジンを取得."""
+        return self._engine
+
+    @property
+    def bindings(self) -> list[TensorBinding]:
+        """I/O テンソルバインディングを取得."""
+        return self._bindings
