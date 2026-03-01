@@ -6,10 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- なし.
+- ベンチマーク結果スキーマ `BenchmarkResult` (Pydantic) と JSON 出力機能 (`build_benchmark_result`, `write_benchmark_result`) を追加. 推論完了時に `benchmark_result.json` を出力する. (N/A.)
 
 ### Changed
-- なし.
+- `infer` コマンドを `DetectionPipeline` + `PhasedTimer` ベースに移行し, フェーズ別タイミング・スループットをターミナル出力するよう変更. (N/A.)
 
 ### Fixed
 - なし.

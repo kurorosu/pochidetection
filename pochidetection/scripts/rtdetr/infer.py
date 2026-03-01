@@ -7,14 +7,23 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image
+from transformers import RTDetrImageProcessor
 
+from pochidetection.inference import PyTorchBackend
 from pochidetection.logging import LoggerManager
+from pochidetection.models import RTDetrModel
 from pochidetection.scripts.rtdetr.inference import (
-    Detector,
+    DetectionPipeline,
     InferenceSaver,
     Visualizer,
 )
-from pochidetection.utils import InferenceTimer, WorkspaceManager
+from pochidetection.utils import (
+    BenchmarkResult,
+    PhasedTimer,
+    WorkspaceManager,
+    build_benchmark_result,
+    write_benchmark_result,
+)
 from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
@@ -70,12 +79,30 @@ def infer(
 
     # コンポーネント初期化
     use_fp16 = config.get("use_fp16", False)
-    timer = InferenceTimer(device=device)
-    detector = Detector(
-        model_path, device=device, threshold=threshold, timer=timer, use_fp16=use_fp16
-    )
+
+    processor = RTDetrImageProcessor.from_pretrained(model_path)
+    model = RTDetrModel(str(model_path))
+    model.to(device)
+    model.eval()
+
     if use_fp16 and device == "cuda":
+        model.half()
         logger.info("FP16 enabled")
+
+    backend = PyTorchBackend(model)
+    phased_timer = PhasedTimer(
+        phases=DetectionPipeline.PHASES,
+        device=device,
+    )
+    pipeline = DetectionPipeline(
+        backend=backend,
+        processor=processor,
+        device=device,
+        threshold=threshold,
+        use_fp16=use_fp16,
+        phased_timer=phased_timer,
+    )
+
     class_names = config.get("class_names")
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
@@ -88,7 +115,7 @@ def infer(
         image = Image.open(image_file).convert("RGB")
 
         # 検出
-        detections = detector.detect(image)
+        detections = pipeline.run(image)
 
         # 描画
         result_image = visualizer.draw(image, detections)
@@ -96,19 +123,49 @@ def infer(
         # 保存
         output_path = saver.save(result_image, image_file.name)
 
+        inf_timer = phased_timer.get_timer("inference")
         logger.info(
-            f"  {image_file.name} ({timer.last_time_ms:.1f}ms) - "
+            f"  {image_file.name} ({inf_timer.last_time_ms:.1f}ms) - "
             f"{len(detections)} objects -> {output_path.name}"
         )
 
-    # サマリー出力
-    total_sec = timer.total_time_ms / 1000
-    logger.info(
-        f"Inference completed: {timer.count} images "
-        f"(1st skipped for warmup), "
-        f"avg {timer.average_time_ms:.1f}ms/image, total {total_sec:.2f}s"
+    # ベンチマーク結果を構築・出力
+    precision = "fp16" if (use_fp16 and device == "cuda") else "fp32"
+    result = build_benchmark_result(
+        phased_timer=phased_timer,
+        num_images=len(image_files),
+        device=device,
+        precision=precision,
+        model_path=str(model_path),
     )
+
+    json_path = write_benchmark_result(saver.output_dir, result)
+    logger.info(f"Benchmark result saved to {json_path}")
+
+    _log_benchmark_summary(result)
     logger.info(f"Results saved to {saver.output_dir}")
+
+
+def _log_benchmark_summary(result: BenchmarkResult) -> None:
+    """ベンチマーク結果のサマリーをログ出力する.
+
+    Args:
+        result: ベンチマーク結果.
+    """
+    m = result.metrics
+    s = result.samples
+    logger.info(
+        f"Inference completed: {s.num_samples} images "
+        f"({s.warmup_samples} warmup skipped), "
+        f"avg {m.avg_e2e_ms:.1f}ms/image (E2E), "
+        f"throughput {m.throughput_e2e_ips:.1f} IPS (E2E), "
+        f"{m.throughput_inference_ips:.1f} IPS (inference)"
+    )
+    for phase_name, phase in m.phases.items():
+        logger.info(
+            f"  {phase_name}: avg {phase.average_ms:.1f}ms, "
+            f"total {phase.total_ms:.1f}ms ({phase.count} measured)"
+        )
 
 
 def _resolve_model_path(
