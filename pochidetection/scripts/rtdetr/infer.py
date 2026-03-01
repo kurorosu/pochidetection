@@ -98,7 +98,7 @@ def _create_backend(
 
     if _is_onnx_model(model_path):
         logger.info("ONNX backend selected")
-        return OnnxBackend(model_path), "fp32", False
+        return OnnxBackend(model_path, device=device), "fp32", False
 
     model = RTDetrModel(str(model_path))
     model.to(device)
@@ -156,7 +156,15 @@ def infer(
 
     processor = _load_processor(model_path, config)
     backend, precision, use_fp16 = _create_backend(model_path, config)
-    runtime_device = "cpu" if _is_onnx_model(model_path) else device
+    if _is_onnx_model(model_path):
+        assert isinstance(backend, OnnxBackend)
+        actual_device = (
+            "cuda" if "CUDAExecutionProvider" in backend.active_providers else "cpu"
+        )
+        runtime_device = "cpu"
+    else:
+        actual_device = device
+        runtime_device = device
 
     phased_timer = PhasedTimer(
         phases=DetectionPipeline.PHASES,
@@ -195,7 +203,7 @@ def infer(
     result = build_benchmark_result(
         phased_timer=phased_timer,
         num_images=len(image_files),
-        device=device,
+        device=actual_device,
         precision=precision,
         model_path=str(model_path),
     )

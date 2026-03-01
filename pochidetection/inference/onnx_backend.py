@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import onnxruntime as ort
@@ -26,14 +27,16 @@ class OnnxBackend(IInferenceBackend):
         self,
         model_path: Path,
         providers: list[str] | None = None,
+        device: str = "cpu",
     ) -> None:
         """初期化.
 
         Args:
             model_path: ONNX モデルファイルのパス.
             providers: Execution Providers のリスト.
-                None の場合, CUDAExecutionProvider -> CPUExecutionProvider の順で
-                フォールバックする.
+                None の場合, device に応じて自動選択する.
+            device: 推論デバイス ("cpu" または "cuda").
+                providers が None の場合にのみ使用される.
 
         Raises:
             FileNotFoundError: モデルファイルが存在しない場合.
@@ -52,7 +55,7 @@ class OnnxBackend(IInferenceBackend):
             )
 
         if providers is None:
-            providers = self._default_providers()
+            providers = self._resolve_providers(device)
 
         # RT-DETR の ScatterND オペレータが CUDA EP で大量の WARNING を出すため,
         # ONNX Runtime の C++ ロガーを ERROR 以上に制限する.
@@ -68,20 +71,24 @@ class OnnxBackend(IInferenceBackend):
         self._validate_input_dtype()
 
     @staticmethod
-    def _default_providers() -> list[str]:
-        """利用可能な Execution Providers をフォールバック順で返す.
+    def _resolve_providers(device: str) -> list[str]:
+        """デバイス設定に応じた Execution Providers を返す.
+
+        Args:
+            device: 推論デバイス ("cpu" または "cuda").
 
         Returns:
             Execution Providers のリスト.
         """
-        available = ort.get_available_providers()
-        providers: list[str] = []
+        if device == "cuda":
+            available = ort.get_available_providers()
+            providers: list[str] = []
+            if "CUDAExecutionProvider" in available:
+                providers.append("CUDAExecutionProvider")
+            providers.append("CPUExecutionProvider")
+            return providers
 
-        if "CUDAExecutionProvider" in available:
-            providers.append("CUDAExecutionProvider")
-
-        providers.append("CPUExecutionProvider")
-        return providers
+        return ["CPUExecutionProvider"]
 
     def _validate_input_dtype(self) -> None:
         """入力テンソルの dtype を検証する.
@@ -132,6 +139,11 @@ class OnnxBackend(IInferenceBackend):
     def synchronize(self) -> None:
         """同期処理. ONNX Runtime は同期実行のため何もしない."""
         pass
+
+    @property
+    def active_providers(self) -> list[str]:
+        """実際に使用されている Execution Providers を取得."""
+        return cast(list[str], self._session.get_providers())
 
     @property
     def session(self) -> ort.InferenceSession:

@@ -54,9 +54,14 @@ class TestOnnxBackendProviders:
         providers = backend.session.get_providers()
         assert "CPUExecutionProvider" in providers
 
-    def test_default_providers_includes_cpu(self) -> None:
-        """デフォルト providers に CPUExecutionProvider が含まれることを確認."""
-        providers = OnnxBackend._default_providers()
+    def test_resolve_providers_cpu_device(self) -> None:
+        """device='cpu' で CPUExecutionProvider のみ返ることを確認."""
+        providers = OnnxBackend._resolve_providers("cpu")
+        assert providers == ["CPUExecutionProvider"]
+
+    def test_resolve_providers_cuda_device_includes_cpu(self) -> None:
+        """device='cuda' で CPUExecutionProvider が含まれることを確認."""
+        providers = OnnxBackend._resolve_providers("cuda")
         assert "CPUExecutionProvider" in providers
 
 
