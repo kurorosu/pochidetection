@@ -94,6 +94,12 @@ def parse_args() -> argparse.Namespace:
         help="モデルディレクトリ (default: 最新ワークスペースのbest)",
     )
     infer_parser.add_argument(
+        "--nms-iou",
+        type=float,
+        default=0.5,
+        help="NMS の IoU 閾値 (default: 0.5)",
+    )
+    infer_parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -209,7 +215,7 @@ def main() -> None:
         train(config, args.config)
     elif args.command == "infer":
         config = ConfigLoader.load(args.config)
-        infer(config, args.dir, args.threshold, args.model_dir)
+        infer(config, args.dir, args.threshold, args.model_dir, args.nms_iou)
     elif args.command == "export":
         config = ConfigLoader.load(args.config)
         input_size = tuple(args.input_size) if args.input_size else None

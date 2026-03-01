@@ -146,6 +146,7 @@ def infer(
     image_dir: str,
     threshold: float = 0.5,
     model_dir: str | None = None,
+    nms_iou_threshold: float = 0.5,
 ) -> None:
     """フォルダ内の画像を一括推論.
 
@@ -154,6 +155,7 @@ def infer(
         image_dir: 推論対象の画像フォルダパス.
         threshold: 検出信頼度閾値.
         model_dir: モデルディレクトリ. Noneの場合は最新ワークスペースのbestを使用.
+        nms_iou_threshold: NMS の IoU 閾値.
     """
     device = config["device"]
 
@@ -207,6 +209,7 @@ def infer(
         processor=processor,
         device=runtime_device,
         threshold=threshold,
+        nms_iou_threshold=nms_iou_threshold,
         use_fp16=use_fp16,
         phased_timer=phased_timer,
     )

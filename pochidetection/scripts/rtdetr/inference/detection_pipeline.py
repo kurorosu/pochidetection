@@ -3,6 +3,7 @@
 from typing import Any
 
 import torch
+import torchvision
 from PIL import Image
 
 from pochidetection.interfaces.backend import IInferenceBackend
@@ -21,6 +22,7 @@ class DetectionPipeline:
         _processor: 画像前処理プロセッサ.
         _device: 実行デバイス.
         _threshold: 検出信頼度閾値.
+        _nms_iou_threshold: NMS の IoU 閾値.
         _use_fp16: FP16 推論を使用するか.
         _phased_timer: フェーズ別タイマー.
     """
@@ -33,6 +35,7 @@ class DetectionPipeline:
         processor: Any,
         device: str = "cuda",
         threshold: float = 0.5,
+        nms_iou_threshold: float = 0.5,
         use_fp16: bool = False,
         phased_timer: PhasedTimer | None = None,
     ) -> None:
@@ -43,6 +46,7 @@ class DetectionPipeline:
             processor: 画像前処理プロセッサのインスタンス.
             device: 実行デバイス.
             threshold: 検出信頼度閾値.
+            nms_iou_threshold: NMS の IoU 閾値.
             use_fp16: FP16 推論を使用するか. CUDA デバイスでのみ有効.
             phased_timer: フェーズ別タイマー. None の場合は計測しない.
 
@@ -61,6 +65,7 @@ class DetectionPipeline:
         self._processor = processor
         self._device = device
         self._threshold = threshold
+        self._nms_iou_threshold = nms_iou_threshold
         self._use_fp16 = use_fp16 and device == "cuda"
         self._phased_timer = phased_timer
 
@@ -130,6 +135,11 @@ class DetectionPipeline:
             target_sizes=target_sizes,
             threshold=self._threshold,
         )[0]
+
+        keep = torchvision.ops.nms(
+            results["boxes"], results["scores"], self._nms_iou_threshold
+        )
+        results = {k: v[keep] for k, v in results.items()}
 
         return [
             Detection(
