@@ -26,6 +26,8 @@ A tiny but clever object detection pipeline — as friendly as Pochi!
 uv sync
 ```
 
+> GPU (TensorRT 等) を使用するためのネイティブ環境構築については, pochitrainの[GPU Environment Setup](https://github.com/kurorosu/pochitrain/blob/dev/pochitrain/docs/gpu_environment_setup.md) ドキュメントを参照してください.
+
 > GPU を使用する場合は PyTorch の CUDA 対応版が自動でインストールされます.
 
 ### 2. データの準備
