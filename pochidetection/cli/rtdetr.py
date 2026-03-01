@@ -41,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     uv run pochidet-rtdetr infer -d images/
     uv run pochidet-rtdetr infer -d images/ -t 0.3
     uv run pochidet-rtdetr infer -d images/ -m work_dirs/20260124_001/best
+    uv run pochidet-rtdetr infer -d images/ -m model.engine
 
   ONNXエクスポート:
     uv run pochidet-rtdetr export -m work_dirs/20260124_001/best

@@ -7,3 +7,10 @@ __all__ = [
     "OnnxBackend",
     "PyTorchBackend",
 ]
+
+try:
+    from pochidetection.inference.tensorrt_backend import TensorRTBackend
+
+    __all__.append("TensorRTBackend")
+except ImportError:
+    pass
