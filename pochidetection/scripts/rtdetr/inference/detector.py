@@ -83,17 +83,14 @@ class Detector:
         Returns:
             検出結果のリスト.
         """
-        # 前処理
         inputs = self._processor(images=image, return_tensors="pt")
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
-        # FP16 の場合は入力も変換
         if self._use_fp16:
             inputs = {
                 k: v.half() if v.is_floating_point() else v for k, v in inputs.items()
             }
 
-        # 推論
         with torch.no_grad():
             pred_logits, pred_boxes = self._backend.infer(inputs)
             self._backend.synchronize()
@@ -101,14 +98,12 @@ class Detector:
         # 実装依存を解消するため, HFが期待するラッパーオブジェクトを作成
         outputs = OutputWrapper(logits=pred_logits, pred_boxes=pred_boxes)
 
-        # 後処理
         results = self._processor.post_process_object_detection(
             outputs,
             target_sizes=torch.tensor([image.size[::-1]]),  # (height, width)
             threshold=self._threshold,
         )[0]
 
-        # Detection オブジェクトに変換
         detections = []
         for score, label, box in zip(
             results["scores"], results["labels"], results["boxes"]
