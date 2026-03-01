@@ -45,6 +45,15 @@ class BenchmarkSamples(BaseModel):
     warmup_samples: int
 
 
+class DetectionMetrics(BaseModel):
+    """精度評価メトリクス (mAP)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    map_50: float
+    map_50_95: float
+
+
 class BenchmarkResult(BaseModel):
     """benchmark_result.json のルートスキーマ."""
 
@@ -57,6 +66,7 @@ class BenchmarkResult(BaseModel):
     model_path: str
     metrics: BenchmarkMetrics
     samples: BenchmarkSamples
+    detection_metrics: DetectionMetrics | None = None
 
 
 def _safe_throughput(avg_ms: float) -> float:
@@ -77,6 +87,7 @@ def build_benchmark_result(
     device: str,
     precision: str,
     model_path: str,
+    detection_metrics: DetectionMetrics | None = None,
 ) -> BenchmarkResult:
     """Phasedtimer の計測結果から BenchmarkResult を構築.
 
@@ -92,6 +103,7 @@ def build_benchmark_result(
         device: 実行デバイス.
         precision: 精度 ("fp32" or "fp16").
         model_path: モデルディレクトリのパス文字列.
+        detection_metrics: 精度評価メトリクス. None の場合は含めない.
 
     Returns:
         構築した BenchmarkResult.
@@ -130,6 +142,7 @@ def build_benchmark_result(
             measured_samples=measured,
             warmup_samples=warmup,
         ),
+        detection_metrics=detection_metrics,
     )
 
 

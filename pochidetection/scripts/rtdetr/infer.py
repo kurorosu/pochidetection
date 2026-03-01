@@ -25,13 +25,16 @@ from pochidetection.scripts.rtdetr.inference import (
     InferenceSaver,
     Visualizer,
 )
+from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils import (
     BenchmarkResult,
+    DetectionMetrics,
     PhasedTimer,
     WorkspaceManager,
     build_benchmark_result,
     write_benchmark_result,
 )
+from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
@@ -224,9 +227,12 @@ def infer(
 
     logger.info(f"Results will be saved to {saver.output_dir}")
 
+    all_predictions: dict[str, list[Detection]] = {}
+
     for image_file in image_files:
         image = Image.open(image_file).convert("RGB")
         detections = pipeline.run(image)
+        all_predictions[image_file.name] = detections
         result_image = visualizer.draw(image, detections)
         output_path = saver.save(result_image, image_file.name)
 
@@ -236,12 +242,15 @@ def infer(
             f"{len(detections)} objects -> {output_path.name}"
         )
 
+    detection_metrics = _evaluate_map(config, all_predictions)
+
     result = build_benchmark_result(
         phased_timer=phased_timer,
         num_images=len(image_files),
         device=actual_device,
         precision=precision,
         model_path=str(model_path),
+        detection_metrics=detection_metrics,
     )
 
     json_path = write_benchmark_result(saver.output_dir, result)
@@ -249,6 +258,33 @@ def infer(
 
     _log_benchmark_summary(result)
     logger.info(f"Results saved to {saver.output_dir}")
+
+
+def _evaluate_map(
+    config: dict[str, Any],
+    predictions: dict[str, list[Detection]],
+) -> DetectionMetrics | None:
+    """Config に annotation_path が指定されていれば mAP を計算する.
+
+    Args:
+        config: 設定辞書.
+        predictions: ファイル名をキー, 検出結果リストを値とする辞書.
+
+    Returns:
+        DetectionMetrics. annotation_path 未指定時は None.
+    """
+    annotation_path_str = config.get("annotation_path")
+    if annotation_path_str is None:
+        return None
+
+    annotation_path = Path(annotation_path_str)
+    if not annotation_path.exists():
+        logger.warning(f"Annotation file not found: {annotation_path}")
+        return None
+
+    logger.info(f"Evaluating mAP with annotation: {annotation_path}")
+    evaluator = MapEvaluator(annotation_path)
+    return evaluator.evaluate(predictions)
 
 
 def _log_benchmark_summary(result: BenchmarkResult) -> None:
@@ -271,6 +307,10 @@ def _log_benchmark_summary(result: BenchmarkResult) -> None:
             f"  {phase_name}: avg {phase.average_ms:.1f}ms, "
             f"total {phase.total_ms:.1f}ms ({phase.count} measured)"
         )
+
+    if result.detection_metrics is not None:
+        dm = result.detection_metrics
+        logger.info(f"  mAP@0.5: {dm.map_50:.4f}, mAP@0.5:0.95: {dm.map_50_95:.4f}")
 
 
 def _resolve_model_path(
