@@ -1,9 +1,16 @@
 """テスト共通フィクスチャ."""
 
+from pathlib import Path
+
 import pytest
 
+pytest.importorskip("onnx")
+
 from pochidetection.models import RTDetrModel
+from pochidetection.onnx import OnnxExporter
 from pochidetection.utils import TrainingHistory
+
+ONNX_INPUT_SIZE = (64, 64)
 
 
 @pytest.fixture(scope="session")
@@ -17,6 +24,19 @@ def rtdetr_model() -> RTDetrModel:
     )
     model.model.config.num_queries = 50
     return model
+
+
+@pytest.fixture(scope="session")
+def onnx_path(
+    rtdetr_model: RTDetrModel, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    """エクスポート済みONNXファイルを作成するfixture."""
+    tmp_dir = tmp_path_factory.mktemp("onnx")
+    output_path = tmp_dir / "model.onnx"
+    rtdetr_model.eval()
+    exporter = OnnxExporter(model=rtdetr_model)
+    exporter.export(output_path, input_size=ONNX_INPUT_SIZE)
+    return Path(output_path)
 
 
 @pytest.fixture(scope="class")

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+import torchvision
 from PIL import Image
 from transformers import RTDetrImageProcessor
 
@@ -21,6 +22,7 @@ class Detector:
         _backend: 推論バックエンド.
         _device: 実行デバイス.
         _threshold: 検出信頼度閾値.
+        _nms_iou_threshold: NMS の IoU 閾値.
         _use_fp16: FP16 推論を使用するか.
     """
 
@@ -29,6 +31,7 @@ class Detector:
         model_path: Path | None = None,
         device: str = "cuda",
         threshold: float = 0.5,
+        nms_iou_threshold: float = 0.5,
         use_fp16: bool = False,
         backend: IInferenceBackend | None = None,
         processor: Any | None = None,
@@ -39,6 +42,7 @@ class Detector:
             model_path: モデルディレクトリのパス. backend と processor を省略する場合は必須.
             device: 実行デバイス.
             threshold: 検出信頼度閾値.
+            nms_iou_threshold: NMS の IoU 閾値.
             use_fp16: FP16 推論を使用するか. CUDA デバイスでのみ有効.
             backend: 推論バックエンドのインスタンス (DI用). 指定時は processor も必須.
             processor: 画像前処理プロセッサのインスタンス (DI用). 指定時は backend も必須.
@@ -52,6 +56,7 @@ class Detector:
             raise ValueError(msg)
         self._device = device
         self._threshold = threshold
+        self._nms_iou_threshold = nms_iou_threshold
         self._use_fp16 = use_fp16 and device == "cuda"
 
         if processor is not None:
@@ -103,6 +108,11 @@ class Detector:
             target_sizes=torch.tensor([image.size[::-1]]),  # (height, width)
             threshold=self._threshold,
         )[0]
+
+        keep = torchvision.ops.nms(
+            results["boxes"], results["scores"], self._nms_iou_threshold
+        )
+        results = {k: v[keep] for k, v in results.items()}
 
         detections = []
         for score, label, box in zip(

@@ -51,6 +51,32 @@ class DummyProcessor:
         ]
 
 
+class DummyProcessorWithOverlaps:
+    """重複バウンディングボックスを返すダミープロセッサ."""
+
+    def __call__(self, images: Any, return_tensors: str) -> dict[str, Any]:
+        """ダミー前処理."""
+        return {"pixel_values": torch.zeros((1, 3, 64, 64))}
+
+    def post_process_object_detection(
+        self, outputs: Any, target_sizes: Any, threshold: float
+    ) -> list[dict[str, Any]]:
+        """重複するバウンディングボックスを返す."""
+        return [
+            {
+                "scores": torch.tensor([0.9, 0.8, 0.5]),
+                "labels": torch.tensor([1, 1, 2]),
+                "boxes": torch.tensor(
+                    [
+                        [10.0, 20.0, 30.0, 40.0],
+                        [11.0, 21.0, 31.0, 41.0],
+                        [100.0, 100.0, 200.0, 200.0],
+                    ]
+                ),
+            }
+        ]
+
+
 class TestDetectionPipelineInit:
     """DetectionPipeline の初期化テスト."""
 
@@ -213,3 +239,56 @@ class TestDetectionPipelineMethods:
 
         assert len(detections) == 1
         assert isinstance(detections[0], Detection)
+
+
+class TestDetectionPipelineNms:
+    """DetectionPipeline の NMS テスト."""
+
+    def test_nms_enabled_by_default(self) -> None:
+        """デフォルト (IoU=0.5) で NMS が適用され重複が除去されることを確認."""
+        pipeline = DetectionPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessorWithOverlaps(),
+            device="cpu",
+        )
+        image = Image.new("RGB", (64, 64))
+
+        detections = pipeline.run(image)
+
+        # 重複する2つ (IoU > 0.5) のうちスコア高い方が残り, 離れた1つも残る
+        assert len(detections) == 2
+        scores = [d.score for d in detections]
+        assert pytest.approx(0.9, rel=1e-3) in scores
+        assert pytest.approx(0.5, rel=1e-3) in scores
+
+    def test_nms_threshold_zero_suppresses_overlapping(self) -> None:
+        """IoU 閾値 0.0 で IoU > 0 の重複ペアが抑制されることを確認."""
+        pipeline = DetectionPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessorWithOverlaps(),
+            device="cpu",
+            nms_iou_threshold=0.0,
+        )
+        image = Image.new("RGB", (64, 64))
+
+        detections = pipeline.run(image)
+
+        # 重複する2つのうちスコア低い方が抑制され, 離れた1つは残る
+        assert len(detections) == 2
+        scores = sorted([d.score for d in detections], reverse=True)
+        assert scores[0] == pytest.approx(0.9, rel=1e-3)
+        assert scores[1] == pytest.approx(0.5, rel=1e-3)
+
+    def test_nms_threshold_one_keeps_all(self) -> None:
+        """IoU 閾値 1.0 で全検出が保持されることを確認."""
+        pipeline = DetectionPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessorWithOverlaps(),
+            device="cpu",
+            nms_iou_threshold=1.0,
+        )
+        image = Image.new("RGB", (64, 64))
+
+        detections = pipeline.run(image)
+
+        assert len(detections) == 3

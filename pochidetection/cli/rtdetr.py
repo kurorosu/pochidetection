@@ -3,20 +3,22 @@
 RT-DETRモデルの学習・推論・ONNXエクスポートを行うコマンドラインインターフェース.
 
 使用方法:
-    uv run pochidet-rtdetr train
-    uv run pochidet-rtdetr train -c configs/rtdetr_coco.py
-    uv run pochidet-rtdetr infer -d images/
-    uv run pochidet-rtdetr infer -d images/ -t 0.3 -m work_dirs/20260124_001/best
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best
+    uv run pochi train
+    uv run pochi train -c configs/rtdetr_coco.py
+    uv run pochi infer -d images/
+    uv run pochi infer -d images/ -m work_dirs/20260124_001/best
+    uv run pochi export -m work_dirs/20260124_001/best
 """
 
 import argparse
 
 from pochidetection.logging import LoggerManager, LogLevel
 from pochidetection.scripts.rtdetr.export_onnx import export_onnx
+from pochidetection.scripts.rtdetr.export_trt import export_trt
 from pochidetection.scripts.rtdetr.infer import infer
 from pochidetection.scripts.rtdetr.train import train
 from pochidetection.utils import ConfigLoader
+from pochidetection.utils.config_resolver import resolve_config_path
 
 DEFAULT_CONFIG = "configs/rtdetr_coco.py"
 
@@ -33,18 +35,25 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 使用例:
   学習:
-    uv run pochidet-rtdetr train
-    uv run pochidet-rtdetr train -c configs/rtdetr_coco.py
+    uv run pochi train
+    uv run pochi train -c configs/rtdetr_coco.py
 
   推論:
-    uv run pochidet-rtdetr infer -d images/
-    uv run pochidet-rtdetr infer -d images/ -t 0.3
-    uv run pochidet-rtdetr infer -d images/ -m work_dirs/20260124_001/best
+    uv run pochi infer -d images/
+    uv run pochi infer -d images/ -m work_dirs/20260124_001/best
+    uv run pochi infer -d images/ -m model.engine
 
   ONNXエクスポート:
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best -o model.onnx
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best --input-size 640 640
+    uv run pochi export -m work_dirs/20260124_001/best
+    uv run pochi export -m work_dirs/20260124_001/best -o model.onnx
+    uv run pochi export -m work_dirs/20260124_001/best --input-size 640 640
+
+  TensorRTエクスポート (FP32):
+    uv run pochi export-trt -i model.onnx
+    uv run pochi export-trt -i model.onnx --max-batch 8
+
+  TensorRTエクスポート (FP16):
+    uv run pochi export-trt -i model.onnx --fp16
         """,
     )
 
@@ -74,13 +83,6 @@ def parse_args() -> argparse.Namespace:
         help="推論対象の画像フォルダパス",
     )
     infer_parser.add_argument(
-        "-t",
-        "--threshold",
-        type=float,
-        default=0.5,
-        help="検出信頼度閾値 (default: 0.5)",
-    )
-    infer_parser.add_argument(
         "-m",
         "--model-dir",
         type=str,
@@ -91,7 +93,7 @@ def parse_args() -> argparse.Namespace:
         "-c",
         "--config",
         type=str,
-        default=DEFAULT_CONFIG,
+        default=None,
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
@@ -140,6 +142,50 @@ def parse_args() -> argparse.Namespace:
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
+    # TensorRTエクスポートコマンド
+    export_trt_parser = subparsers.add_parser(
+        "export-trt", help="ONNXモデルからTensorRTエンジンへのエクスポート"
+    )
+    export_trt_parser.add_argument(
+        "-i", "--onnx-path", type=str, required=True, help="入力ONNXモデルのパス"
+    )
+    export_trt_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="出力エンジンパス (default: model_fp32.engine / model_fp16.engine)",
+    )
+    export_trt_parser.add_argument(
+        "--input-size",
+        nargs=2,
+        type=int,
+        default=None,
+        metavar=("HEIGHT", "WIDTH"),
+        help="入力画像サイズ (default: configのimage_sizeを使用)",
+    )
+    export_trt_parser.add_argument(
+        "--min-batch", type=int, default=1, help="最小バッチサイズ (default: 1)"
+    )
+    export_trt_parser.add_argument(
+        "--opt-batch", type=int, default=1, help="最適バッチサイズ (default: 1)"
+    )
+    export_trt_parser.add_argument(
+        "--max-batch", type=int, default=4, help="最大バッチサイズ (default: 4)"
+    )
+    export_trt_parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="FP16 精度でエンジンをビルド (非対応GPUではFP32にフォールバック)",
+    )
+    export_trt_parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default=DEFAULT_CONFIG,
+        help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
+    )
+
     return parser.parse_args()
 
 
@@ -163,8 +209,9 @@ def main() -> None:
         config = ConfigLoader.load(args.config)
         train(config, args.config)
     elif args.command == "infer":
-        config = ConfigLoader.load(args.config)
-        infer(config, args.dir, args.threshold, args.model_dir)
+        config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
+        config = ConfigLoader.load(config_path)
+        infer(config, args.dir, args.model_dir)
     elif args.command == "export":
         config = ConfigLoader.load(args.config)
         input_size = tuple(args.input_size) if args.input_size else None
@@ -175,6 +222,25 @@ def main() -> None:
             args.opset_version,
             input_size,
             args.skip_verify,
+        )
+    elif args.command == "export-trt":
+        config = ConfigLoader.load(args.config)
+        input_size_tgt: tuple[int, int] = (
+            (args.input_size[0], args.input_size[1])
+            if args.input_size
+            else (
+                int(config["image_size"]["height"]),
+                int(config["image_size"]["width"]),
+            )
+        )
+        export_trt(
+            args.onnx_path,
+            args.output,
+            input_size_tgt,
+            args.min_batch,
+            args.opt_batch,
+            args.max_batch,
+            args.fp16,
         )
     else:
         # コマンド未指定の場合はヘルプを表示

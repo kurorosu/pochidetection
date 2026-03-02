@@ -83,7 +83,32 @@ class DummyProcessor:
             {
                 "scores": torch.tensor([0.9]),
                 "labels": torch.tensor([1]),
-                "boxes": torch.tensor([[10, 20, 30, 40]]),
+                "boxes": torch.tensor([[10.0, 20.0, 30.0, 40.0]]),
+            }
+        ]
+
+
+class DummyProcessorWithOverlaps:
+    """重複バウンディングボックスを返すダミープロセッサ."""
+
+    def __call__(self, images: Any, return_tensors: str) -> dict[str, Any]:
+        """ダミー前処理."""
+        return {"pixel_values": torch.zeros((1, 3, 64, 64))}
+
+    def post_process_object_detection(
+        self, outputs: Any, target_sizes: Any, threshold: float
+    ) -> list[dict[str, Any]]:
+        """重複するバウンディングボックスを返す."""
+        return [
+            {
+                "scores": torch.tensor([0.9, 0.8]),
+                "labels": torch.tensor([1, 1]),
+                "boxes": torch.tensor(
+                    [
+                        [10.0, 20.0, 30.0, 40.0],
+                        [11.0, 21.0, 31.0, 41.0],
+                    ]
+                ),
             }
         ]
 
@@ -135,6 +160,34 @@ class TestDetector:
             match="backend と processor は両方指定するか, 両方省略する必要があります.",
         ):
             Detector(model_path=Path("dummy"), backend=None, processor=dummy_processor)
+
+    def test_detect_default_nms_removes_overlapping_boxes(self) -> None:
+        """デフォルト NMS (IoU=0.5) で重複ボックスが除去されることを確認."""
+        detector = Detector(
+            device="cpu",
+            backend=DummyBackend(),
+            processor=DummyProcessorWithOverlaps(),
+        )
+        dummy_image = Image.new("RGB", (64, 64))
+
+        detections = detector.detect(dummy_image)
+
+        assert len(detections) == 1
+        assert detections[0].score == pytest.approx(0.9, rel=1e-3)
+
+    def test_detect_high_nms_threshold_keeps_all(self) -> None:
+        """IoU 閾値 1.0 で全検出が保持されることを確認."""
+        detector = Detector(
+            device="cpu",
+            nms_iou_threshold=1.0,
+            backend=DummyBackend(),
+            processor=DummyProcessorWithOverlaps(),
+        )
+        dummy_image = Image.new("RGB", (64, 64))
+
+        detections = detector.detect(dummy_image)
+
+        assert len(detections) == 2
 
     def test_output_wrapper_with_real_processor(self) -> None:
         """実際の RTDetrImageProcessor と OutputWrapper の互換性を確認."""

@@ -9,7 +9,15 @@ from typing import Any
 from PIL import Image
 from transformers import RTDetrImageProcessor
 
-from pochidetection.inference import PyTorchBackend
+from pochidetection.inference import OnnxBackend, PyTorchBackend
+
+try:
+    from pochidetection.inference import TensorRTBackend
+
+    _TRT_AVAILABLE = True
+except ImportError:
+    _TRT_AVAILABLE = False
+from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.rtdetr.inference import (
@@ -17,13 +25,16 @@ from pochidetection.scripts.rtdetr.inference import (
     InferenceSaver,
     Visualizer,
 )
+from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils import (
     BenchmarkResult,
+    DetectionMetrics,
     PhasedTimer,
     WorkspaceManager,
     build_benchmark_result,
     write_benchmark_result,
 )
+from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
@@ -31,10 +42,111 @@ logger = LoggerManager().get_logger(__name__)
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 
 
+def _is_onnx_model(model_path: Path) -> bool:
+    """モデルパスが ONNX ファイルかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .onnx ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".onnx"
+
+
+def _is_tensorrt_model(model_path: Path) -> bool:
+    """モデルパスが TensorRT エンジンかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .engine ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".engine"
+
+
+def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProcessor:
+    """画像前処理プロセッサを読み込む.
+
+    ONNX / TensorRT モデルの場合, processor ファイルはモデルファイルと
+    同じディレクトリから読み込みを試み, 見つからなければ config の
+    model_name からフォールバックする.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+
+    Returns:
+        RTDetrImageProcessor インスタンス.
+
+    Raises:
+        RuntimeError: processor が解決できない場合.
+    """
+    if not _is_onnx_model(model_path) and not _is_tensorrt_model(model_path):
+        return RTDetrImageProcessor.from_pretrained(model_path)
+
+    processor_dir = model_path.parent
+    processor_config = processor_dir / "preprocessor_config.json"
+    if processor_config.exists():
+        logger.info(f"Loading processor from {processor_dir}")
+        return RTDetrImageProcessor.from_pretrained(processor_dir)
+
+    model_name = config.get("model_name")
+    if model_name:
+        logger.info(f"Loading processor from model_name: {model_name}")
+        return RTDetrImageProcessor.from_pretrained(model_name)
+
+    raise RuntimeError(
+        f"RTDetrImageProcessor を解決できません. "
+        f"{processor_dir} に preprocessor_config.json が見つからず, "
+        f"config に model_name も指定されていません."
+    )
+
+
+def _create_backend(
+    model_path: Path, config: dict[str, Any]
+) -> tuple[IInferenceBackend, str, bool]:
+    """モデルパスからバックエンドを生成する.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+
+    Returns:
+        (backend, precision, use_fp16) のタプル.
+    """
+    device = config["device"]
+    use_fp16 = config.get("use_fp16", False)
+
+    if _is_tensorrt_model(model_path):
+        if not _TRT_AVAILABLE:
+            raise ImportError(
+                "tensorrt パッケージがインストールされていません. "
+                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
+            )
+        logger.info("TensorRT backend selected")
+        return TensorRTBackend(model_path), "fp32", False
+
+    if _is_onnx_model(model_path):
+        logger.info("ONNX backend selected")
+        return OnnxBackend(model_path, device=device), "fp32", False
+
+    model = RTDetrModel(str(model_path))
+    model.to(device)
+    model.eval()
+
+    if use_fp16 and device == "cuda":
+        model.half()
+        logger.info("FP16 enabled")
+
+    precision = "fp16" if (use_fp16 and device == "cuda") else "fp32"
+    return PyTorchBackend(model), precision, use_fp16
+
+
 def infer(
     config: dict[str, Any],
     image_dir: str,
-    threshold: float = 0.5,
     model_dir: str | None = None,
 ) -> None:
     """フォルダ内の画像を一括推論.
@@ -42,10 +154,11 @@ def infer(
     Args:
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
-        threshold: 検出信頼度閾値.
         model_dir: モデルディレクトリ. Noneの場合は最新ワークスペースのbestを使用.
     """
     device = config["device"]
+    threshold = config["infer_score_threshold"]
+    nms_iou_threshold = config["nms_iou_threshold"]
 
     model_path = _resolve_model_path(config, model_dir)
     if model_path is None:
@@ -73,27 +186,31 @@ def infer(
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 
-    use_fp16 = config.get("use_fp16", False)
+    processor = _load_processor(model_path, config)
+    backend, precision, use_fp16 = _create_backend(model_path, config)
+    if _is_tensorrt_model(model_path):
+        actual_device = "cuda"
+        runtime_device = "cuda"
+    elif _is_onnx_model(model_path):
+        assert isinstance(backend, OnnxBackend)
+        actual_device = (
+            "cuda" if "CUDAExecutionProvider" in backend.active_providers else "cpu"
+        )
+        runtime_device = "cpu"
+    else:
+        actual_device = device
+        runtime_device = device
 
-    processor = RTDetrImageProcessor.from_pretrained(model_path)
-    model = RTDetrModel(str(model_path))
-    model.to(device)
-    model.eval()
-
-    if use_fp16 and device == "cuda":
-        model.half()
-        logger.info("FP16 enabled")
-
-    backend = PyTorchBackend(model)
     phased_timer = PhasedTimer(
         phases=DetectionPipeline.PHASES,
-        device=device,
+        device=runtime_device,
     )
     pipeline = DetectionPipeline(
         backend=backend,
         processor=processor,
-        device=device,
+        device=runtime_device,
         threshold=threshold,
+        nms_iou_threshold=nms_iou_threshold,
         use_fp16=use_fp16,
         phased_timer=phased_timer,
     )
@@ -101,13 +218,19 @@ def infer(
     class_names = config.get("class_names")
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
-    saver = InferenceSaver(model_path)
+
+    is_single_file = _is_onnx_model(model_path) or _is_tensorrt_model(model_path)
+    saver_base = model_path.parent if is_single_file else model_path
+    saver = InferenceSaver(saver_base)
 
     logger.info(f"Results will be saved to {saver.output_dir}")
+
+    all_predictions: dict[str, list[Detection]] = {}
 
     for image_file in image_files:
         image = Image.open(image_file).convert("RGB")
         detections = pipeline.run(image)
+        all_predictions[image_file.name] = detections
         result_image = visualizer.draw(image, detections)
         output_path = saver.save(result_image, image_file.name)
 
@@ -117,13 +240,15 @@ def infer(
             f"{len(detections)} objects -> {output_path.name}"
         )
 
-    precision = "fp16" if (use_fp16 and device == "cuda") else "fp32"
+    detection_metrics = _evaluate_map(config, all_predictions)
+
     result = build_benchmark_result(
         phased_timer=phased_timer,
         num_images=len(image_files),
-        device=device,
+        device=actual_device,
         precision=precision,
         model_path=str(model_path),
+        detection_metrics=detection_metrics,
     )
 
     json_path = write_benchmark_result(saver.output_dir, result)
@@ -131,6 +256,33 @@ def infer(
 
     _log_benchmark_summary(result)
     logger.info(f"Results saved to {saver.output_dir}")
+
+
+def _evaluate_map(
+    config: dict[str, Any],
+    predictions: dict[str, list[Detection]],
+) -> DetectionMetrics | None:
+    """Config に annotation_path が指定されていれば mAP を計算する.
+
+    Args:
+        config: 設定辞書.
+        predictions: ファイル名をキー, 検出結果リストを値とする辞書.
+
+    Returns:
+        DetectionMetrics. annotation_path 未指定時は None.
+    """
+    annotation_path_str = config.get("annotation_path")
+    if annotation_path_str is None:
+        return None
+
+    annotation_path = Path(annotation_path_str)
+    if not annotation_path.exists():
+        logger.warning(f"Annotation file not found: {annotation_path}")
+        return None
+
+    logger.info(f"Evaluating mAP with annotation: {annotation_path}")
+    evaluator = MapEvaluator(annotation_path)
+    return evaluator.evaluate(predictions)
 
 
 def _log_benchmark_summary(result: BenchmarkResult) -> None:
@@ -153,6 +305,10 @@ def _log_benchmark_summary(result: BenchmarkResult) -> None:
             f"  {phase_name}: avg {phase.average_ms:.1f}ms, "
             f"total {phase.total_ms:.1f}ms ({phase.count} measured)"
         )
+
+    if result.detection_metrics is not None:
+        dm = result.detection_metrics
+        logger.info(f"  mAP@0.5: {dm.map_50:.4f}, mAP@0.5:0.95: {dm.map_50_95:.4f}")
 
 
 def _resolve_model_path(

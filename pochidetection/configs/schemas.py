@@ -45,6 +45,12 @@ class DetectionConfig(BaseModel):
     cudnn_benchmark: bool = False
     use_fp16: bool = False
 
+    train_score_threshold: float = Field(default=0.5, gt=0, le=1)
+    infer_score_threshold: float = Field(default=0.5, gt=0, le=1)
+    nms_iou_threshold: float = Field(default=0.5, ge=0, le=1)
+
+    annotation_path: str | None = None
+
     work_dir: str = Field(default="work_dirs", min_length=1)
 
     @model_validator(mode="after")
