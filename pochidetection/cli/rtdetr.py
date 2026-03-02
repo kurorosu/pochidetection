@@ -113,7 +113,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default=None,
-        help="出力ファイルパス (default: <model_dir>/model.onnx)",
+        help="出力ファイルパス (default: <model_dir>/model_fp32.onnx)",
     )
     export_parser.add_argument(
         "--input-size",
@@ -154,7 +154,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default=None,
-        help="出力エンジンパス (default: <onnx_path>.engine)",
+        help="出力エンジンパス (default: <onnx_stem>_fp32.engine / <onnx_stem>_fp16.engine)",
     )
     export_trt_parser.add_argument(
         "--input-size",

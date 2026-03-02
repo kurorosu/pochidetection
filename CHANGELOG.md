@@ -20,6 +20,7 @@
 - `pytest-xdist` を導入しテストを 6 ワーカーで並列実行するよう変更. 重複していた `onnx_path` fixture をルート `conftest.py` に統合. ([#68](https://github.com/kurorosu/pochidetection/pull/68).)
 - 推論時の閾値を CLI 引数 (`-t`, `--nms-iou`) から config.py ベースに変更. CLI オプションは廃止. ([#69](https://github.com/kurorosu/pochidetection/pull/69).)
 - 学習時の mAP 計算閾値をハードコーディング (0.2) から `train_score_threshold` config フィールドに変更. ([#69](https://github.com/kurorosu/pochidetection/pull/69).)
+- ONNX エクスポートのデフォルト出力ファイル名を `model.onnx` → `model_fp32.onnx` に変更. TensorRT エクスポートは精度に応じて `<stem>_fp32.engine` / `<stem>_fp16.engine` を生成するよう変更. (N/A.)
 
 ### Fixed
 - `DetectionConfig.train_score_threshold` のデフォルト値を `0.2` から `0.5` に修正. ([#70](https://github.com/kurorosu/pochidetection/pull/70).)
