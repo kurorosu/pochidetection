@@ -44,6 +44,12 @@ class TestOnnxBackendInit:
         backend = OnnxBackend(onnx_path, providers=["CPUExecutionProvider"])
         assert "pixel_values" in backend._input_names
 
+    def test_init_stores_output_names(self, onnx_path: Path) -> None:
+        """出力名がセッションから正しく取得されることを確認."""
+        backend = OnnxBackend(onnx_path, providers=["CPUExecutionProvider"])
+        assert "logits" in backend._output_names
+        assert "pred_boxes" in backend._output_names
+
 
 class TestOnnxBackendProviders:
     """Execution Providers のテスト."""

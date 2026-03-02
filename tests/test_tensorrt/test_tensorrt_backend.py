@@ -51,6 +51,14 @@ class TestTensorRTBackendInit:
         backend = TensorRTBackend(str(engine_path))
         assert backend.engine is not None
 
+    def test_init_stores_output_names(self, engine_path: Path) -> None:
+        """出力バインディングが名前ベースで取得できることを確認."""
+        backend = TensorRTBackend(engine_path)
+        output_names = set(backend._output_bindings_by_name.keys())
+        # logits 出力は "logits" または "pred_logits" のどちらかで存在する
+        assert output_names & {"logits", "pred_logits"}
+        assert "pred_boxes" in output_names
+
 
 class TestTensorRTBackendInfer:
     """TensorRTBackend.infer のテスト."""
