@@ -8,8 +8,7 @@ import torch
 
 from pochidetection.inference import OnnxBackend
 from pochidetection.models import RTDetrModel
-
-from .conftest import INPUT_SIZE
+from tests.conftest import ONNX_INPUT_SIZE as INPUT_SIZE
 
 
 class TestOnnxBackendInit:

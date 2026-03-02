@@ -9,11 +9,12 @@
 - ONNX Runtime 推論バックエンド `OnnxBackend` を追加. `-m model.onnx` で自動判定し, `config["device"]` に連動した Execution Providers 選択と実デバイスのベンチマーク反映に対応. ([#53](https://github.com/kurorosu/pochidetection/pull/53).)
 - TensorRT (FP32) エクスポート機能 (`pochidet-rtdetr export-trt`) およびエクスポートクラス (`TensorRTExporter`) を追加. Dynamic Batching 設定に対応. ([#61](https://github.com/kurorosu/pochidetection/pull/61).)
 - TensorRT 推論バックエンド `TensorRTBackend` を追加. `-m model.engine` で自動判定し, `execute_async_v3` + 非デフォルト CUDA ストリームで非同期推論を実行. 動的バッチサイズエンジンに対応し, `PhasedTimer` によるベンチマーク計測と `benchmark_result.json` 出力に対応. ([#63](https://github.com/kurorosu/pochidetection/pull/63).)
-- 推論後処理にクラス非依存 NMS (`torchvision.ops.nms`) をデフォルト有効 (IoU=0.5) で追加. `--nms-iou` CLI オプションで閾値を変更可能. (N/A.)
-- 推論ベンチマークに mAP 精度評価 (`MapEvaluator`) を追加. config の `annotation_path` に COCO アノテーションを指定すると mAP@0.5 / mAP@0.5:0.95 を自動計算し `benchmark_result.json` に含める. (N/A.)
+- 推論後処理にクラス非依存 NMS (`torchvision.ops.nms`) をデフォルト有効 (IoU=0.5) で追加. `--nms-iou` CLI オプションで閾値を変更可能. ([#67](https://github.com/kurorosu/pochidetection/pull/67).)
+- 推論ベンチマークに mAP 精度評価 (`MapEvaluator`) を追加. config の `annotation_path` に COCO アノテーションを指定すると mAP@0.5 / mAP@0.5:0.95 を自動計算し `benchmark_result.json` に含める. ([#67](https://github.com/kurorosu/pochidetection/pull/67).)
 
 ### Changed
-- ONNX / TensorRT バックエンドの出力テンソル取得をインデックスベースから名前ベースに変更. エクスポート設定変更時の出力順依存を排除. (N/A.)
+- ONNX / TensorRT バックエンドの出力テンソル取得をインデックスベースから名前ベースに変更. エクスポート設定変更時の出力順依存を排除. ([#67](https://github.com/kurorosu/pochidetection/pull/67).)
+- `pytest-xdist` を導入しテストを 6 ワーカーで並列実行するよう変更. 重複していた `onnx_path` fixture をルート `conftest.py` に統合. (N/A.)
 
 ### Fixed
 - なし.
