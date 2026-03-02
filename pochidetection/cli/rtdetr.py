@@ -18,6 +18,7 @@ from pochidetection.scripts.rtdetr.export_trt import export_trt
 from pochidetection.scripts.rtdetr.infer import infer
 from pochidetection.scripts.rtdetr.train import train
 from pochidetection.utils import ConfigLoader
+from pochidetection.utils.config_resolver import resolve_config_path
 
 DEFAULT_CONFIG = "configs/rtdetr_coco.py"
 
@@ -200,7 +201,8 @@ def main() -> None:
         config = ConfigLoader.load(args.config)
         train(config, args.config)
     elif args.command == "infer":
-        config = ConfigLoader.load(args.config)
+        config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
+        config = ConfigLoader.load(config_path)
         infer(config, args.dir, args.model_dir)
     elif args.command == "export":
         config = ConfigLoader.load(args.config)

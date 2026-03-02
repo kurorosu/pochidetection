@@ -7,6 +7,7 @@ from pochidetection.utils.benchmark import (
     write_benchmark_result,
 )
 from pochidetection.utils.config_loader import ConfigLoader
+from pochidetection.utils.config_resolver import resolve_config_path
 from pochidetection.utils.history import TrainingHistory
 from pochidetection.utils.phased_timer import PhasedTimer
 from pochidetection.utils.timer import InferenceTimer
@@ -21,5 +22,6 @@ __all__ = [
     "TrainingHistory",
     "WorkspaceManager",
     "build_benchmark_result",
+    "resolve_config_path",
     "write_benchmark_result",
 ]
