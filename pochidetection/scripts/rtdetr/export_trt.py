@@ -17,6 +17,7 @@ def export_trt(
     min_batch: int = 1,
     opt_batch: int = 1,
     max_batch: int = 4,
+    use_fp16: bool = False,
 ) -> None:
     """TensorRTエクスポートを実行.
 
@@ -28,6 +29,7 @@ def export_trt(
         min_batch: 最小バッチサイズ.
         opt_batch: 最適バッチサイズ.
         max_batch: 最大バッチサイズ.
+        use_fp16: FP16 精度でビルドするかどうか.
     """
     logger.info("TensorRTエクスポートを開始します")
 
@@ -47,6 +49,7 @@ def export_trt(
             min_batch=min_batch,
             opt_batch=opt_batch,
             max_batch=max_batch,
+            use_fp16=use_fp16,
         )
     except Exception as e:
         logger.error(f"TensorRTエクスポートに失敗しました: {e}")
