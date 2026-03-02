@@ -51,6 +51,9 @@ def parse_args() -> argparse.Namespace:
   TensorRTエクスポート (FP32):
     uv run pochidet-rtdetr export-trt -i model.onnx
     uv run pochidet-rtdetr export-trt -i model.onnx --max-batch 8
+
+  TensorRTエクスポート (FP16):
+    uv run pochidet-rtdetr export-trt -i model.onnx --fp16
         """,
     )
 
@@ -171,6 +174,11 @@ def parse_args() -> argparse.Namespace:
         "--max-batch", type=int, default=4, help="最大バッチサイズ (default: 4)"
     )
     export_trt_parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="FP16 精度でエンジンをビルド (非対応GPUではFP32にフォールバック)",
+    )
+    export_trt_parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -232,6 +240,7 @@ def main() -> None:
             args.min_batch,
             args.opt_batch,
             args.max_batch,
+            args.fp16,
         )
     else:
         # コマンド未指定の場合はヘルプを表示
