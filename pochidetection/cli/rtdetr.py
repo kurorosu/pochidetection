@@ -3,11 +3,11 @@
 RT-DETRモデルの学習・推論・ONNXエクスポートを行うコマンドラインインターフェース.
 
 使用方法:
-    uv run pochidet-rtdetr train
-    uv run pochidet-rtdetr train -c configs/rtdetr_coco.py
-    uv run pochidet-rtdetr infer -d images/
-    uv run pochidet-rtdetr infer -d images/ -m work_dirs/20260124_001/best
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best
+    uv run pochi train
+    uv run pochi train -c configs/rtdetr_coco.py
+    uv run pochi infer -d images/
+    uv run pochi infer -d images/ -m work_dirs/20260124_001/best
+    uv run pochi export -m work_dirs/20260124_001/best
 """
 
 import argparse
@@ -35,25 +35,25 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 使用例:
   学習:
-    uv run pochidet-rtdetr train
-    uv run pochidet-rtdetr train -c configs/rtdetr_coco.py
+    uv run pochi train
+    uv run pochi train -c configs/rtdetr_coco.py
 
   推論:
-    uv run pochidet-rtdetr infer -d images/
-    uv run pochidet-rtdetr infer -d images/ -m work_dirs/20260124_001/best
-    uv run pochidet-rtdetr infer -d images/ -m model.engine
+    uv run pochi infer -d images/
+    uv run pochi infer -d images/ -m work_dirs/20260124_001/best
+    uv run pochi infer -d images/ -m model.engine
 
   ONNXエクスポート:
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best -o model.onnx
-    uv run pochidet-rtdetr export -m work_dirs/20260124_001/best --input-size 640 640
+    uv run pochi export -m work_dirs/20260124_001/best
+    uv run pochi export -m work_dirs/20260124_001/best -o model.onnx
+    uv run pochi export -m work_dirs/20260124_001/best --input-size 640 640
 
   TensorRTエクスポート (FP32):
-    uv run pochidet-rtdetr export-trt -i model.onnx
-    uv run pochidet-rtdetr export-trt -i model.onnx --max-batch 8
+    uv run pochi export-trt -i model.onnx
+    uv run pochi export-trt -i model.onnx --max-batch 8
 
   TensorRTエクスポート (FP16):
-    uv run pochidet-rtdetr export-trt -i model.onnx --fp16
+    uv run pochi export-trt -i model.onnx --fp16
         """,
     )
 
@@ -113,7 +113,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default=None,
-        help="出力ファイルパス (default: <model_dir>/model_fp32.onnx)",
+        help="出力ファイルパス (default: <model_dir>/model.onnx)",
     )
     export_parser.add_argument(
         "--input-size",
@@ -154,7 +154,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=str,
         default=None,
-        help="出力エンジンパス (default: <onnx_stem>_fp32.engine / <onnx_stem>_fp16.engine)",
+        help="出力エンジンパス (default: model_fp32.engine / model_fp16.engine)",
     )
     export_trt_parser.add_argument(
         "--input-size",

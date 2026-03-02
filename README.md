@@ -80,10 +80,10 @@ use_fp16 = False
 
 ```bash
 # デフォルト設定で学習
-uv run pochidet-rtdetr train
+uv run pochi train
 
 # 設定ファイルを指定して学習
-uv run pochidet-rtdetr train -c configs/rtdetr_coco.py
+uv run pochi train -c configs/rtdetr_coco.py
 ```
 
 ### 5. 結果の確認
@@ -103,13 +103,13 @@ uv run pochidet-rtdetr train -c configs/rtdetr_coco.py
 
 ```bash
 # 画像ディレクトリを指定して推論
-uv run pochidet-rtdetr infer -d images/
+uv run pochi infer -d images/
 
 # 信頼度閾値を指定
-uv run pochidet-rtdetr infer -d images/ -t 0.3
+uv run pochi infer -d images/ -t 0.3
 
 # 学習済みモデルを指定
-uv run pochidet-rtdetr infer -d images/ -m work_dirs/20260124_001/best
+uv run pochi infer -d images/ -m work_dirs/20260124_001/best
 ```
 
 推論結果は `work_dirs/yyyymmdd_xxx/inference_xxx/` に保存されます.
