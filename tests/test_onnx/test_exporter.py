@@ -9,8 +9,7 @@ import torch
 
 from pochidetection.models import RTDetrModel
 from pochidetection.onnx import OnnxExporter
-
-from .conftest import INPUT_SIZE
+from tests.conftest import ONNX_INPUT_SIZE as INPUT_SIZE
 
 
 class TestOnnxExporterInit:

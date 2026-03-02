@@ -46,6 +46,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
+    "pytest-xdist>=3.5.0",
 ]
 
 [tool.black]
@@ -67,7 +68,7 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v"
+addopts = "-v -n 6"
 filterwarnings = [
     "ignore:.*legacy TorchScript-based ONNX export.*:DeprecationWarning",
     "ignore::torch.jit.TracerWarning",
