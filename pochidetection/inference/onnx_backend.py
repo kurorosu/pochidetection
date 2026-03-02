@@ -64,6 +64,7 @@ class OnnxBackend(IInferenceBackend):
 
         self._session = ort.InferenceSession(str(model_path), providers=providers)
         self._input_names = tuple(inp.name for inp in self._session.get_inputs())
+        self._output_names = tuple(out.name for out in self._session.get_outputs())
 
         active_providers = self._session.get_providers()
         logger.info(f"ONNX Runtime providers: {active_providers}")
@@ -130,11 +131,40 @@ class OnnxBackend(IInferenceBackend):
             name: inputs[name].cpu().float().numpy() for name in self._input_names
         }
 
-        outputs = self._session.run(None, numpy_inputs)
+        raw_outputs = self._session.run(None, numpy_inputs)
+        outputs_by_name = dict(zip(self._output_names, raw_outputs))
 
-        pred_logits = torch.from_numpy(outputs[0])
-        pred_boxes = torch.from_numpy(outputs[1])
+        pred_logits = torch.from_numpy(
+            self._resolve_output(outputs_by_name, ("logits", "pred_logits"))
+        )
+        pred_boxes = torch.from_numpy(
+            self._resolve_output(outputs_by_name, ("pred_boxes",))
+        )
         return pred_logits, pred_boxes
+
+    @staticmethod
+    def _resolve_output(
+        outputs: dict[str, np.ndarray], candidates: tuple[str, ...]
+    ) -> np.ndarray:
+        """候補名から出力テンソルを解決する.
+
+        Args:
+            outputs: 出力名をキーとする辞書.
+            candidates: 優先順の候補名タプル.
+
+        Returns:
+            マッチした出力テンソル.
+
+        Raises:
+            RuntimeError: どの候補名も見つからない場合.
+        """
+        for name in candidates:
+            if name in outputs:
+                return outputs[name]
+        raise RuntimeError(
+            f"ONNX出力に必要なテンソルが見つかりません. "
+            f"候補: {candidates}, 利用可能: {list(outputs.keys())}"
+        )
 
     def synchronize(self) -> None:
         """同期処理. ONNX Runtime は同期実行のため何もしない."""

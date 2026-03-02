@@ -15,6 +15,7 @@ from pochidetection.utils.benchmark import (
     BenchmarkMetrics,
     BenchmarkResult,
     BenchmarkSamples,
+    DetectionMetrics,
     PhaseMetrics,
     build_benchmark_result,
     write_benchmark_result,
@@ -135,6 +136,86 @@ class TestBenchmarkResult:
                 ),
                 unknown="bad",  # type: ignore[call-arg]
             )
+
+
+class TestDetectionMetrics:
+    """DetectionMetrics のテスト."""
+
+    def test_valid_construction(self) -> None:
+        """正常な値で構築できることを確認."""
+        m = DetectionMetrics(map_50=0.85, map_50_95=0.65)
+        assert m.map_50 == 0.85
+        assert m.map_50_95 == 0.65
+
+    def test_extra_field_raises_validation_error(self) -> None:
+        """extra="forbid" で未知フィールドが拒否されることを確認."""
+        with pytest.raises(ValidationError):
+            DetectionMetrics(map_50=0.5, map_50_95=0.3, unknown=1.0)  # type: ignore[call-arg]
+
+
+class TestBenchmarkResultWithDetectionMetrics:
+    """DetectionMetrics 付き BenchmarkResult のテスト."""
+
+    def test_round_trip_with_detection_metrics(self) -> None:
+        """detection_metrics 付き BenchmarkResult が JSON ラウンドトリップできることを確認."""
+        phases = {
+            "inference": PhaseMetrics(total_ms=50.0, count=5, average_ms=10.0),
+        }
+        original = BenchmarkResult(
+            timestamp_jst="2026-03-01 12:00:00",
+            device="cpu",
+            precision="fp32",
+            model_path="/tmp/model",
+            metrics=BenchmarkMetrics(
+                avg_inference_ms=10.0,
+                avg_e2e_ms=10.0,
+                throughput_inference_ips=100.0,
+                throughput_e2e_ips=100.0,
+                phases=phases,
+            ),
+            samples=BenchmarkSamples(
+                num_samples=5, measured_samples=5, warmup_samples=0
+            ),
+            detection_metrics=DetectionMetrics(map_50=0.85, map_50_95=0.65),
+        )
+
+        json_str = original.model_dump_json(indent=2)
+        parsed = json.loads(json_str)
+        restored = BenchmarkResult.model_validate(parsed)
+
+        assert restored == original
+        assert restored.detection_metrics is not None
+        assert restored.detection_metrics.map_50 == 0.85
+        assert restored.detection_metrics.map_50_95 == 0.65
+
+    def test_round_trip_without_detection_metrics(self) -> None:
+        """detection_metrics が None の BenchmarkResult が JSON ラウンドトリップできることを確認."""
+        phases = {
+            "inference": PhaseMetrics(total_ms=50.0, count=5, average_ms=10.0),
+        }
+        original = BenchmarkResult(
+            timestamp_jst="2026-03-01 12:00:00",
+            device="cpu",
+            precision="fp32",
+            model_path="/tmp/model",
+            metrics=BenchmarkMetrics(
+                avg_inference_ms=10.0,
+                avg_e2e_ms=10.0,
+                throughput_inference_ips=100.0,
+                throughput_e2e_ips=100.0,
+                phases=phases,
+            ),
+            samples=BenchmarkSamples(
+                num_samples=5, measured_samples=5, warmup_samples=0
+            ),
+        )
+
+        json_str = original.model_dump_json(indent=2)
+        parsed = json.loads(json_str)
+        restored = BenchmarkResult.model_validate(parsed)
+
+        assert restored == original
+        assert restored.detection_metrics is None
 
 
 # ---------- ビルダーテスト ----------

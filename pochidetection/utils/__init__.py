@@ -2,6 +2,7 @@
 
 from pochidetection.utils.benchmark import (
     BenchmarkResult,
+    DetectionMetrics,
     build_benchmark_result,
     write_benchmark_result,
 )
@@ -14,6 +15,7 @@ from pochidetection.utils.work_dir import WorkspaceManager
 __all__ = [
     "BenchmarkResult",
     "ConfigLoader",
+    "DetectionMetrics",
     "InferenceTimer",
     "PhasedTimer",
     "TrainingHistory",

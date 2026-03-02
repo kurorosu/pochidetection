@@ -45,6 +45,8 @@ class DetectionConfig(BaseModel):
     cudnn_benchmark: bool = False
     use_fp16: bool = False
 
+    annotation_path: str | None = None
+
     work_dir: str = Field(default="work_dirs", min_length=1)
 
     @model_validator(mode="after")

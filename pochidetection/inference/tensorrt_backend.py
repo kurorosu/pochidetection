@@ -97,7 +97,9 @@ class TensorRTBackend(IInferenceBackend):
         self._bindings = allocate_bindings(self._engine, self._context)
 
         self._input_bindings = [b for b in self._bindings if b.is_input]
-        self._output_bindings = [b for b in self._bindings if not b.is_input]
+        self._output_bindings_by_name = {
+            b.name: b for b in self._bindings if not b.is_input
+        }
         self._input_names = tuple(b.name for b in self._input_bindings)
 
         # 非デフォルト CUDA ストリームを使用.
@@ -148,18 +150,32 @@ class TensorRTBackend(IInferenceBackend):
         self._context.execute_async_v3(self._stream.cuda_stream)
         self._stream.synchronize()
 
-        # 出力テンソルを取得
-        outputs = [b.device_tensor.clone() for b in self._output_bindings]
-
-        if len(outputs) < 2:
-            raise RuntimeError(
-                f"TensorRTエンジンの出力が2つ未満です: {len(outputs)}個. "
-                f"RT-DETR は (pred_logits, pred_boxes) の2出力が必要です."
-            )
-
-        pred_logits = outputs[0]
-        pred_boxes = outputs[1]
+        # 出力テンソルを名前ベースで取得
+        pred_logits = self._resolve_output(("logits", "pred_logits")).clone()
+        pred_boxes = self._resolve_output(("pred_boxes",)).clone()
         return pred_logits, pred_boxes
+
+    def _resolve_output(self, candidates: tuple[str, ...]) -> torch.Tensor:
+        """候補名から出力バインディングのテンソルを解決する.
+
+        Args:
+            candidates: 優先順の候補名タプル.
+
+        Returns:
+            マッチした出力テンソル.
+
+        Raises:
+            RuntimeError: どの候補名も見つからない場合.
+        """
+        for name in candidates:
+            if name in self._output_bindings_by_name:
+                return self._output_bindings_by_name[name].device_tensor
+        available = list(self._output_bindings_by_name.keys())
+        raise RuntimeError(
+            f"TensorRTエンジンに必要な出力テンソルが見つかりません. "
+            f"候補: {candidates}, 利用可能な出力: {available}. "
+            f"RT-DETR は 'logits'/'pred_logits' と 'pred_boxes' の出力が必要です."
+        )
 
     def synchronize(self) -> None:
         """CUDA 同期. ストリームの完了を待機する."""
