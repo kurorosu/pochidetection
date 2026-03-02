@@ -88,7 +88,7 @@ class TestConfigLoader:
         assert config["val_split"] == "val"
         assert config["device"] == "cuda"
         assert config["work_dir"] == "work_dirs"
-        assert config["train_score_threshold"] == 0.2
+        assert config["train_score_threshold"] == 0.5
         assert config["infer_score_threshold"] == 0.5
         assert config["nms_iou_threshold"] == 0.5
 
