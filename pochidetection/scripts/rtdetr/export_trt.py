@@ -36,8 +36,8 @@ def export_trt(
     onnx_path = Path(onnx_path_str)
 
     if output_path_str is None:
-        precision_suffix = "_fp16" if use_fp16 else "_fp32"
-        output_path = onnx_path.with_name(f"{onnx_path.stem}{precision_suffix}.engine")
+        engine_name = "model_fp16.engine" if use_fp16 else "model_fp32.engine"
+        output_path = onnx_path.parent / engine_name
     else:
         output_path = Path(output_path_str)
 

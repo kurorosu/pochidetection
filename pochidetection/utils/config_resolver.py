@@ -33,17 +33,27 @@ def resolve_config_path(
 
     if model_dir is not None:
         model_path = Path(model_dir)
+
+        # モデルファイル (.onnx, .engine) → 同ディレクトリ, その親の config.py
+        # ディレクトリ (best, last 等) → 親ディレクトリ, 自身の config.py
         if model_path.suffix.lower() in (".onnx", ".engine"):
-            candidate = model_path.parent / "config.py"
+            base_dir = model_path.parent
         else:
-            candidate = model_path.parent / "config.py"
+            base_dir = model_path
 
-        if candidate.exists():
-            logger.info(f"Auto-resolved config: {candidate}")
-            return str(candidate)
+        candidates = [
+            base_dir / "config.py",
+            base_dir.parent / "config.py",
+        ]
 
+        for candidate in candidates:
+            if candidate.exists():
+                logger.info(f"Auto-resolved config: {candidate}")
+                return str(candidate)
+
+        searched = ", ".join(str(c) for c in candidates)
         logger.warning(
-            f"Config not found at {candidate}, falling back to {default_config}"
+            f"Config not found at [{searched}], falling back to {default_config}"
         )
 
     return default_config
