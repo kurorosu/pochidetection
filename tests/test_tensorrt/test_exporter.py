@@ -39,6 +39,58 @@ class TestTensorRTExporter:
         assert result_path.exists()
         assert result_path.stat().st_size > 0
 
+    def test_export_fp16_creates_valid_file(
+        self, dummy_onnx_path: Path, tmp_path: Path
+    ) -> None:
+        """FP16モードでTensorRTエンジンが正常に書き出されることを確認する."""
+        exporter = TensorRTExporter()
+        output_path = tmp_path / "model_fp16.engine"
+
+        result_path = exporter.export(
+            onnx_path=dummy_onnx_path,
+            output_path=output_path,
+            input_size=INPUT_SIZE,
+            min_batch=1,
+            opt_batch=1,
+            max_batch=2,
+            use_fp16=True,
+        )
+
+        assert result_path.exists()
+        assert result_path.stat().st_size > 0
+
+    def test_export_fp16_fallback_logs_warning(
+        self, dummy_onnx_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FP16非対応GPUで警告ログが出力されFP32にフォールバックすることを確認."""
+        import tensorrt as trt
+
+        original_init = trt.Builder.__init__
+
+        def patched_init(self_builder: trt.Builder, *args: object) -> None:
+            original_init(self_builder, *args)
+            monkeypatch.setattr(
+                type(self_builder), "platform_has_fast_fp16", property(lambda _: False)
+            )
+
+        monkeypatch.setattr(trt.Builder, "__init__", patched_init)
+
+        exporter = TensorRTExporter()
+        output_path = tmp_path / "model_fallback.engine"
+
+        result_path = exporter.export(
+            onnx_path=dummy_onnx_path,
+            output_path=output_path,
+            input_size=INPUT_SIZE,
+            min_batch=1,
+            opt_batch=1,
+            max_batch=2,
+            use_fp16=True,
+        )
+
+        assert result_path.exists()
+        assert result_path.stat().st_size > 0
+
     def test_export_invalid_onnx_path(self, tmp_path: Path) -> None:
         """存在しないONNXパスを指定した場合FileNotFoundErrorが発生することを確認."""
         exporter = TensorRTExporter()

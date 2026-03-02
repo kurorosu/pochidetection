@@ -17,6 +17,7 @@ def export_trt(
     min_batch: int = 1,
     opt_batch: int = 1,
     max_batch: int = 4,
+    use_fp16: bool = False,
 ) -> None:
     """TensorRTエクスポートを実行.
 
@@ -28,13 +29,15 @@ def export_trt(
         min_batch: 最小バッチサイズ.
         opt_batch: 最適バッチサイズ.
         max_batch: 最大バッチサイズ.
+        use_fp16: FP16 精度でビルドするかどうか.
     """
     logger.info("TensorRTエクスポートを開始します")
 
     onnx_path = Path(onnx_path_str)
 
     if output_path_str is None:
-        output_path = onnx_path.with_suffix(".engine")
+        precision_suffix = "_fp16" if use_fp16 else "_fp32"
+        output_path = onnx_path.with_name(f"{onnx_path.stem}{precision_suffix}.engine")
     else:
         output_path = Path(output_path_str)
 
@@ -47,6 +50,7 @@ def export_trt(
             min_batch=min_batch,
             opt_batch=opt_batch,
             max_batch=max_batch,
+            use_fp16=use_fp16,
         )
     except Exception as e:
         logger.error(f"TensorRTエクスポートに失敗しました: {e}")

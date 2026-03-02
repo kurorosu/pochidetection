@@ -37,7 +37,7 @@ def export_onnx(
     if output is not None:
         output_path = Path(output)
     else:
-        output_path = model_path / "model.onnx"
+        output_path = model_path / "model_fp32.onnx"
 
     if input_size is not None:
         height, width = input_size

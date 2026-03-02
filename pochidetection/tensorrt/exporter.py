@@ -18,7 +18,7 @@ logger: logging.Logger = LoggerManager().get_logger(__name__)
 class TensorRTExporter:
     """ONNXモデルからTensorRTエンジンへの変換を行うクラス.
 
-    FP32 精度のエンジン出力に対応し, Dynamic Batching 用の
+    FP32 / FP16 精度のエンジン出力に対応し, Dynamic Batching 用の
     最適化プロファイルを設定してビルドを行う.
     """
 
@@ -45,6 +45,7 @@ class TensorRTExporter:
         min_batch: int = 1,
         opt_batch: int = 1,
         max_batch: int = 4,
+        use_fp16: bool = False,
     ) -> Path:
         """ONNXモデルからTensorRTエンジンをビルド・エクスポートする.
 
@@ -55,6 +56,8 @@ class TensorRTExporter:
             min_batch: 最小バッチサイズ.
             opt_batch: 最適バッチサイズ.
             max_batch: 最大バッチサイズ.
+            use_fp16: FP16 精度でビルドするかどうか.
+                GPU が FP16 に対応していない場合は FP32 にフォールバックする.
 
         Returns:
             出力エンジンファイルのパス.
@@ -71,11 +74,25 @@ class TensorRTExporter:
         out_file.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"TensorRTエンジンのビルドを開始します: {onnx_file} -> {out_file}")
-        logger.info(
-            f"入力サイズ: {input_size}, Batch (min={min_batch}, opt={opt_batch}, max={max_batch})"
-        )
 
         builder = trt.Builder(self.trt_logger)
+
+        # FP16 精度の設定
+        precision = "FP32"
+        if use_fp16:
+            if builder.platform_has_fast_fp16:
+                precision = "FP16"
+                logger.info("FP16 モードが有効です (Mixed Precision)")
+            else:
+                logger.warning(
+                    "この GPU は FP16 に対応していません. FP32 にフォールバックします."
+                )
+
+        logger.info(
+            f"入力サイズ: {input_size}, "
+            f"Batch (min={min_batch}, opt={opt_batch}, max={max_batch}), "
+            f"精度: {precision}"
+        )
 
         # TRT 10.x 以降では EXPLICIT_BATCH がデフォルトとなりフラグが非推奨 / 削除されるため,
         # 属性の存在チェックを行って互換性を維持する.
@@ -91,6 +108,9 @@ class TensorRTExporter:
         config.set_memory_pool_limit(
             trt.MemoryPoolType.WORKSPACE, 4 * 1024 * 1024 * 1024
         )
+
+        if precision == "FP16":
+            config.set_flag(trt.BuilderFlag.FP16)
 
         logger.debug("ONNXモデルのパース中...")
         with open(onnx_file, "rb") as f:
