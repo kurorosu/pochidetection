@@ -30,6 +30,11 @@ device = "cuda"
 cudnn_benchmark = False  # 入力サイズ固定時に推論高速化
 use_fp16 = False  # FP16 推論 (CUDA のみ)
 
+# Threshold
+train_score_threshold = 0.2
+infer_score_threshold = 0.5
+nms_iou_threshold = 0.5
+
 # 推論ベンチマーク設定
 annotation_path = "data/val/annotations.json"  # mAP 評価用 COCO アノテーション
 
