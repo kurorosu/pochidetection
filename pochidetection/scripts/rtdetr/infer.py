@@ -147,20 +147,18 @@ def _create_backend(
 def infer(
     config: dict[str, Any],
     image_dir: str,
-    threshold: float = 0.5,
     model_dir: str | None = None,
-    nms_iou_threshold: float = 0.5,
 ) -> None:
     """フォルダ内の画像を一括推論.
 
     Args:
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
-        threshold: 検出信頼度閾値.
         model_dir: モデルディレクトリ. Noneの場合は最新ワークスペースのbestを使用.
-        nms_iou_threshold: NMS の IoU 閾値.
     """
     device = config["device"]
+    threshold = config["infer_score_threshold"]
+    nms_iou_threshold = config["nms_iou_threshold"]
 
     model_path = _resolve_model_path(config, model_dir)
     if model_path is None:

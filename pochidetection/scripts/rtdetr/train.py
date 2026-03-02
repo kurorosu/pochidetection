@@ -46,6 +46,7 @@ def train(config: dict[str, Any], config_path: str) -> None:
     batch_size = config["batch_size"]
     epochs = config["epochs"]
     learning_rate = config["learning_rate"]
+    train_score_threshold = config["train_score_threshold"]
 
     # ワークスペース作成
     workspace_manager = WorkspaceManager(config["work_dir"])
@@ -138,7 +139,7 @@ def train(config: dict[str, Any], config_path: str) -> None:
 
                 # mAP計算用: 公式APIで後処理
                 results = processor.post_process_object_detection(
-                    outputs, threshold=0.2, target_sizes=None
+                    outputs, threshold=train_score_threshold, target_sizes=None
                 )
 
                 for i, result in enumerate(results):

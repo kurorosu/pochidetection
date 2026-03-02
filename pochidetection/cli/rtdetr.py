@@ -6,7 +6,7 @@ RT-DETRモデルの学習・推論・ONNXエクスポートを行うコマンド
     uv run pochidet-rtdetr train
     uv run pochidet-rtdetr train -c configs/rtdetr_coco.py
     uv run pochidet-rtdetr infer -d images/
-    uv run pochidet-rtdetr infer -d images/ -t 0.3 -m work_dirs/20260124_001/best
+    uv run pochidet-rtdetr infer -d images/ -m work_dirs/20260124_001/best
     uv run pochidet-rtdetr export -m work_dirs/20260124_001/best
 """
 
@@ -18,6 +18,7 @@ from pochidetection.scripts.rtdetr.export_trt import export_trt
 from pochidetection.scripts.rtdetr.infer import infer
 from pochidetection.scripts.rtdetr.train import train
 from pochidetection.utils import ConfigLoader
+from pochidetection.utils.config_resolver import resolve_config_path
 
 DEFAULT_CONFIG = "configs/rtdetr_coco.py"
 
@@ -39,7 +40,6 @@ def parse_args() -> argparse.Namespace:
 
   推論:
     uv run pochidet-rtdetr infer -d images/
-    uv run pochidet-rtdetr infer -d images/ -t 0.3
     uv run pochidet-rtdetr infer -d images/ -m work_dirs/20260124_001/best
     uv run pochidet-rtdetr infer -d images/ -m model.engine
 
@@ -80,13 +80,6 @@ def parse_args() -> argparse.Namespace:
         help="推論対象の画像フォルダパス",
     )
     infer_parser.add_argument(
-        "-t",
-        "--threshold",
-        type=float,
-        default=0.5,
-        help="検出信頼度閾値 (default: 0.5)",
-    )
-    infer_parser.add_argument(
         "-m",
         "--model-dir",
         type=str,
@@ -94,16 +87,10 @@ def parse_args() -> argparse.Namespace:
         help="モデルディレクトリ (default: 最新ワークスペースのbest)",
     )
     infer_parser.add_argument(
-        "--nms-iou",
-        type=float,
-        default=0.5,
-        help="NMS の IoU 閾値 (default: 0.5)",
-    )
-    infer_parser.add_argument(
         "-c",
         "--config",
         type=str,
-        default=DEFAULT_CONFIG,
+        default=None,
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
@@ -214,8 +201,9 @@ def main() -> None:
         config = ConfigLoader.load(args.config)
         train(config, args.config)
     elif args.command == "infer":
-        config = ConfigLoader.load(args.config)
-        infer(config, args.dir, args.threshold, args.model_dir, args.nms_iou)
+        config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
+        config = ConfigLoader.load(config_path)
+        infer(config, args.dir, args.model_dir)
     elif args.command == "export":
         config = ConfigLoader.load(args.config)
         input_size = tuple(args.input_size) if args.input_size else None
