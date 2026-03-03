@@ -108,7 +108,7 @@ class PRCurvePlotter:
         # 無効値(-1)を除外して平均
         valid_mask = precision_slice >= 0
         precision_mean = torch.where(
-            valid_mask, precision_slice, torch.tensor(float("nan"))
+            valid_mask, precision_slice, torch.full_like(precision_slice, float("nan"))
         ).nanmean(dim=1)
 
         recall_values = self.RECALL_THRESHOLDS.numpy()
@@ -169,7 +169,7 @@ class PRCurvePlotter:
             precision_values = torch.where(
                 precision_slice >= 0,
                 precision_slice,
-                torch.tensor(float("nan")),
+                torch.full_like(precision_slice, float("nan")),
             ).numpy()
 
             fig.add_trace(
