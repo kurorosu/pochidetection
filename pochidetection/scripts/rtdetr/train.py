@@ -84,6 +84,13 @@ def train(config: dict[str, Any], config_path: str) -> None:
         collate_fn=collator,
     )
 
+    if len(train_loader) == 0 or len(val_loader) == 0:
+        raise ValueError(
+            f"DataLoader が空です (train: {len(train_loader)} batches, "
+            f"val: {len(val_loader)} batches). "
+            f"データセットまたはバッチサイズを確認してください."
+        )
+
     # オプティマイザ
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
