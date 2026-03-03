@@ -268,8 +268,8 @@ class TestBuildBenchmarkResult:
         assert result.metrics.throughput_inference_ips > 0.0
         assert result.metrics.throughput_e2e_ips > 0.0
 
-    def test_avg_e2e_is_sum_of_phase_averages(self) -> None:
-        """avg_e2e_ms が全フェーズの average_ms の合計であることを確認."""
+    def test_avg_e2e_is_total_divided_by_count(self) -> None:
+        """avg_e2e_ms が全フェーズの total_ms 合計 / count であることを確認."""
         timer = PhasedTimer(phases=PHASES, device="cpu", skip_first=False)
 
         for _ in range(2):
@@ -285,7 +285,9 @@ class TestBuildBenchmarkResult:
             model_path="/tmp/model",
         )
 
-        expected_e2e = sum(result.metrics.phases[p].average_ms for p in PHASES)
+        total_e2e = sum(result.metrics.phases[p].total_ms for p in PHASES)
+        count = result.metrics.phases[PHASES[0]].count
+        expected_e2e = total_e2e / count
         assert result.metrics.avg_e2e_ms == pytest.approx(expected_e2e)
 
 
