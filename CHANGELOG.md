@@ -15,7 +15,7 @@
 - なし.
 
 ### Removed
-- なし.
+- `IDetectionModel` / `RTDetrModel` の `get_backbone_params()` / `get_head_params()` を削除. 未使用であり, differential learning rate は未実装のため. (N/A.)
 
 ## v0.4.1 (2026-03-03)
 
