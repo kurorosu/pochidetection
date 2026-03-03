@@ -23,11 +23,11 @@ from pochidetection.utils.config_resolver import resolve_config_path
 DEFAULT_CONFIG = "configs/rtdetr_coco.py"
 
 
-def parse_args() -> argparse.Namespace:
-    """コマンドライン引数をパース.
+def _create_parser() -> argparse.ArgumentParser:
+    """コマンドライン引数パーサーを構築する.
 
     Returns:
-        パースされた引数.
+        構築した ArgumentParser.
     """
     parser = argparse.ArgumentParser(
         description="RT-DETR ファインチューニング・推論CLI",
@@ -186,7 +186,16 @@ def parse_args() -> argparse.Namespace:
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
-    return parser.parse_args()
+    return parser
+
+
+def parse_args() -> argparse.Namespace:
+    """コマンドライン引数をパース.
+
+    Returns:
+        パースされた引数.
+    """
+    return _create_parser().parse_args()
 
 
 def setup_logging(debug: bool = False) -> None:
@@ -245,8 +254,7 @@ def main() -> None:
             args.fp16,
         )
     else:
-        # コマンド未指定の場合はヘルプを表示
-        parse_args()
+        _create_parser().print_help()
 
 
 if __name__ == "__main__":

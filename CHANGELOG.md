@@ -12,7 +12,7 @@
 - なし.
 
 ### Fixed
-- なし.
+- `pochi` をサブコマンドなしで実行すると `parse_args()` の再帰呼び出しで `RecursionError` が発生する問題を修正. `_create_parser().print_help()` でヘルプを表示するよう変更. (N/A.)
 
 ### Removed
 - なし.
