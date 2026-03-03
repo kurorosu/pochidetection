@@ -180,6 +180,8 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
 
             # COCO形式: [x, y, w, h] -> 正規化 [cx, cy, w, h]
             x, y, w, h = ann["bbox"]
+            if w <= 0 or h <= 0:
+                continue  # ゼロサイズの bbox はスキップ
             cx = (x + w / 2) / orig_w
             cy = (y + h / 2) / orig_h
             nw = w / orig_w
