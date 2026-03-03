@@ -73,3 +73,19 @@ class TestPRCurvePlotter:
     ) -> None:
         """無効値(-1)を含むprecisionテンソルを処理できることを確認."""
         assert invalid_pr_curve_html_path.exists()
+
+    def test_partial_invalid_precision_excludes_negative_values(
+        self, tmp_path: Path
+    ) -> None:
+        """一部の recall ポイントのみ -1 の場合, -1 が描画データに含まれないことを確認."""
+        precision = torch.rand(10, 101, 2, 4, 3)
+        # Class 0 の一部の recall ポイントを -1 に設定
+        precision[0, 50:60, 0, 0, 2] = -1
+        output_path = tmp_path / "pr_curve.html"
+        PRCurvePlotter(precision).plot(output_path)
+
+        html_content = output_path.read_text(encoding="utf-8")
+        assert output_path.exists()
+        # -1 がデータ値として含まれていないことを確認
+        # plotly は NaN を "null" として出力する
+        assert "-1.0" not in html_content

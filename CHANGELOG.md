@@ -12,7 +12,8 @@
 - なし.
 
 ### Fixed
-- `MapEvaluator.evaluate()` が predictions 側のみ走査していたため, GT に存在するが推論されなかった画像が評価から除外され mAP が過大評価される問題を修正. GT 全画像を起点に走査するよう変更. (N/A.)
+- `MapEvaluator.evaluate()` が predictions 側のみ走査していたため, GT に存在するが推論されなかった画像が評価から除外され mAP が過大評価される問題を修正. GT 全画像を起点に走査するよう変更. ([#85](https://github.com/kurorosu/pochidetection/pull/85).)
+- `PRCurvePlotter._create_per_class_figure()` で precision の無効値 (-1) が NaN に置換されず, per-class グラフにそのまま描画される問題を修正. (N/A.)
 
 ### Removed
 - なし.
