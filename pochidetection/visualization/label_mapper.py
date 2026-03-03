@@ -26,7 +26,7 @@ class LabelMapper:
         Returns:
             クラス名. class_namesが未設定またはIDが範囲外の場合は整数を文字列化.
         """
-        if self._class_names is not None and class_id < len(self._class_names):
+        if self._class_names is not None and 0 <= class_id < len(self._class_names):
             return self._class_names[class_id]
         return str(class_id)
 
