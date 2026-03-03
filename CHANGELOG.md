@@ -16,7 +16,8 @@
 - `DetectionConfig` の `train_score_threshold` / `infer_score_threshold` の Field 制約が `gt=0` で `0.0` を拒否する問題を修正. `ge=0` に変更し `nms_iou_threshold` と整合させた. ([#105](https://github.com/kurorosu/pochidetection/pull/105).)
 - `PRCurvePlotter` の `torch.where` で `torch.tensor(float("nan"))` が CPU 固定で作成され, CUDA 上の precision テンソルと device 不一致になる問題を修正. `torch.full_like` に変更. ([#106](https://github.com/kurorosu/pochidetection/pull/106).)
 - `MapEvaluator` の basename 重複時にマッピングが無言で上書きされる問題を修正. 衝突時は警告ログを出力し basename の登録をスキップするよう変更. ([#107](https://github.com/kurorosu/pochidetection/pull/107).)
-- `CocoDetectionDataset.__getitem__` でゼロサイズの bbox (`w <= 0` or `h <= 0`) を検証せずモデルに渡していた問題を修正. スキップするよう変更. (N/A.)
+- `CocoDetectionDataset.__getitem__` でゼロサイズの bbox (`w <= 0` or `h <= 0`) を検証せずモデルに渡していた問題を修正. スキップするよう変更. ([#108](https://github.com/kurorosu/pochidetection/pull/108).)
+- `OnnxExporter.verify()` が ONNX 出力を位置インデックスで取得していた問題を修正. 出力名ベースで取得するよう変更し `OnnxBackend` と整合させた. (N/A.)
 
 ### Removed
 - なし.
