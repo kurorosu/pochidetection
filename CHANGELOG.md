@@ -9,13 +9,14 @@
 - なし.
 
 ### Changed
-- `TensorRTBackend.infer()` の `wait_stream` をループ外に移動し, 冗長な同期オーバーヘッドを削減. (N/A.)
+- `TensorRTBackend.infer()` の `wait_stream` をループ外に移動し, 冗長な同期オーバーヘッドを削減. ([#101](https://github.com/kurorosu/pochidetection/pull/101).)
+- `infer.py` の `import torch` をインライン import からトップレベル import に移動. CLAUDE.md のコーディング規約に準拠. ([#102](https://github.com/kurorosu/pochidetection/pull/102).)
 
 ### Fixed
 - なし.
 
 ### Removed
-- `IDetectionModel` / `RTDetrModel` の `get_backbone_params()` / `get_head_params()` を削除. 未使用であり, differential learning rate は未実装のため. (N/A.)
+- `IDetectionModel` / `RTDetrModel` の `get_backbone_params()` / `get_head_params()` を削除. 未使用であり, differential learning rate は未実装のため. ([#100](https://github.com/kurorosu/pochidetection/pull/100).)
 
 ## v0.4.1 (2026-03-03)
 
