@@ -3,7 +3,6 @@
 from typing import Any
 
 import torch
-from torch import nn
 from transformers import RTDetrForObjectDetection
 
 from pochidetection.interfaces.model import IDetectionModel
@@ -81,30 +80,6 @@ class RTDetrModel(IDetectionModel):
             result["loss"] = outputs.loss
 
         return result
-
-    def get_backbone_params(self) -> list[nn.Parameter]:
-        """層別学習率用のバックボーンパラメータを取得.
-
-        Returns:
-            バックボーンパラメータのリスト.
-        """
-        backbone_params: list[nn.Parameter] = []
-        for name, param in self._model.named_parameters():
-            if "backbone" in name or "encoder" in name:
-                backbone_params.append(param)
-        return backbone_params
-
-    def get_head_params(self) -> list[nn.Parameter]:
-        """層別学習率用のヘッドパラメータを取得.
-
-        Returns:
-            ヘッドパラメータのリスト.
-        """
-        head_params: list[nn.Parameter] = []
-        for name, param in self._model.named_parameters():
-            if "backbone" not in name and "encoder" not in name:
-                head_params.append(param)
-        return head_params
 
     @property
     def num_classes(self) -> int:

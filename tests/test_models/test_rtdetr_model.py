@@ -1,6 +1,5 @@
 """RTDetrModelのテスト."""
 
-import pytest
 import torch
 import torch.nn as nn
 
@@ -63,38 +62,6 @@ class TestRTDetrModel:
         assert isinstance(outputs["loss"], torch.Tensor)
 
         rtdetr_model.train(was_training)
-
-    def test_get_backbone_params(self, rtdetr_model: RTDetrModel) -> None:
-        """バックボーンパラメータを取得できることを確認."""
-        backbone_params = rtdetr_model.get_backbone_params()
-
-        assert isinstance(backbone_params, list)
-        assert len(backbone_params) > 0
-        assert all(isinstance(p, nn.Parameter) for p in backbone_params)
-
-    def test_get_head_params(self, rtdetr_model: RTDetrModel) -> None:
-        """ヘッドパラメータを取得できることを確認."""
-        head_params = rtdetr_model.get_head_params()
-
-        assert isinstance(head_params, list)
-        assert len(head_params) > 0
-        assert all(isinstance(p, nn.Parameter) for p in head_params)
-
-    def test_backbone_head_params_disjoint(self, rtdetr_model: RTDetrModel) -> None:
-        """バックボーンとヘッドのパラメータが重複しないことを確認."""
-        backbone_params = set(id(p) for p in rtdetr_model.get_backbone_params())
-        head_params = set(id(p) for p in rtdetr_model.get_head_params())
-
-        assert backbone_params.isdisjoint(head_params)
-
-    def test_all_params_covered(self, rtdetr_model: RTDetrModel) -> None:
-        """全パラメータがバックボーンまたはヘッドに含まれることを確認."""
-        backbone_params = set(id(p) for p in rtdetr_model.get_backbone_params())
-        head_params = set(id(p) for p in rtdetr_model.get_head_params())
-        all_params = set(id(p) for p in rtdetr_model.parameters())
-
-        covered = backbone_params | head_params
-        assert covered == all_params
 
     def test_num_classes_property(self, rtdetr_model: RTDetrModel) -> None:
         """num_classesプロパティが正しい値を返すことを確認."""
