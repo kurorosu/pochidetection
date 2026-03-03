@@ -177,6 +177,58 @@ class TestMapEvaluatorMultipleImages:
         assert 0.0 < result.map_50 < 1.0
 
 
+class TestMapEvaluatorMissingPredictions:
+    """GT に存在するが predictions にない画像が FN としてカウントされるテスト."""
+
+    def test_missing_predictions_lower_map(self, tmp_path: Path) -> None:
+        """predictions にない GT 画像が FN としてカウントされ mAP が下がることを確認."""
+        ann_path = _create_coco_annotation(
+            tmp_path,
+            images=[
+                {"id": 1, "file_name": "img1.jpg", "width": 640, "height": 480},
+                {"id": 2, "file_name": "img2.jpg", "width": 640, "height": 480},
+            ],
+            annotations=[
+                {"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 20, 50, 60]},
+                {"id": 2, "image_id": 2, "category_id": 1, "bbox": [10, 20, 50, 60]},
+            ],
+        )
+
+        evaluator = MapEvaluator(ann_path)
+
+        # img1 のみ完全一致, img2 は predictions に含めない
+        predictions = {
+            "img1.jpg": [
+                Detection(box=[10.0, 20.0, 60.0, 80.0], score=0.99, label=0),
+            ],
+        }
+
+        result = evaluator.evaluate(predictions)
+
+        # img2 の GT が FN としてカウントされるため mAP < 1.0
+        assert result.map_50 < 1.0
+
+    def test_all_predictions_missing_yield_map_zero(self, tmp_path: Path) -> None:
+        """predictions が完全に空の場合 mAP が 0.0 になることを確認."""
+        ann_path = _create_coco_annotation(
+            tmp_path,
+            images=[
+                {"id": 1, "file_name": "img1.jpg", "width": 640, "height": 480},
+            ],
+            annotations=[
+                {"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 20, 50, 60]},
+            ],
+        )
+
+        evaluator = MapEvaluator(ann_path)
+        predictions: dict[str, list[Detection]] = {}
+
+        result = evaluator.evaluate(predictions)
+
+        assert result.map_50 == pytest.approx(0.0, abs=1e-3)
+        assert result.map_50_95 == pytest.approx(0.0, abs=1e-3)
+
+
 class TestMapEvaluatorSubdirFilename:
     """サブディレクトリ付き file_name でのベースネームマッチテスト."""
 

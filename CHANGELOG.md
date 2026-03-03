@@ -12,7 +12,7 @@
 - なし.
 
 ### Fixed
-- なし.
+- `MapEvaluator.evaluate()` が predictions 側のみ走査していたため, GT に存在するが推論されなかった画像が評価から除外され mAP が過大評価される問題を修正. GT 全画像を起点に走査するよう変更. (N/A.)
 
 ### Removed
 - なし.
