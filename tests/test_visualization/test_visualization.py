@@ -68,6 +68,12 @@ class TestLabelMapper:
         assert mapper.get_label(2) == "2"
         assert mapper.get_label(10) == "10"
 
+    def test_negative_class_id_returns_string_id(self) -> None:
+        """負のclass_idは整数を文字列で返すことを確認."""
+        mapper = LabelMapper(class_names=["cat", "dog", "bird"])
+        assert mapper.get_label(-1) == "-1"
+        assert mapper.get_label(-3) == "-3"
+
     def test_class_names_property(self) -> None:
         """class_namesプロパティの確認."""
         mapper = LabelMapper(class_names=["dog", "cat"])

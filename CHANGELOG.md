@@ -13,8 +13,9 @@
 
 ### Fixed
 - `MapEvaluator.evaluate()` が predictions 側のみ走査していたため, GT に存在するが推論されなかった画像が評価から除外され mAP が過大評価される問題を修正. GT 全画像を起点に走査するよう変更. ([#85](https://github.com/kurorosu/pochidetection/pull/85).)
-- `PRCurvePlotter._create_per_class_figure()` で precision の無効値 (-1) が NaN に置換されず, per-class グラフにそのまま描画される問題を修正. (N/A.)
-- `build_benchmark_result()` の `avg_e2e_ms` 計算を「各フェーズの average_ms の合計」から「全フェーズの total_ms 合計 / count」に修正. フェーズ間で count が異なる場合に正しい per-image E2E 時間を算出するよう変更. (N/A.)
+- `PRCurvePlotter._create_per_class_figure()` で precision の無効値 (-1) が NaN に置換されず, per-class グラフにそのまま描画される問題を修正. ([#86](https://github.com/kurorosu/pochidetection/pull/86).)
+- `build_benchmark_result()` の `avg_e2e_ms` 計算を「各フェーズの average_ms の合計」から「全フェーズの total_ms 合計 / count」に修正. フェーズ間で count が異なる場合に正しい per-image E2E 時間を算出するよう変更. ([#87](https://github.com/kurorosu/pochidetection/pull/87).)
+- `LabelMapper.get_label()` が負の `class_id` で Python の負のインデックスにより誤ったクラス名を返す問題を修正. `0 <=` の下限チェックを追加. (N/A.)
 
 ### Removed
 - なし.
