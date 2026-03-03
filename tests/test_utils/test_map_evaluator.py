@@ -339,6 +339,35 @@ class TestMapEvaluatorCategoryOrder:
         assert result_asc.map_50_95 == pytest.approx(result_desc.map_50_95, abs=1e-3)
 
 
+class TestMapEvaluatorBasenameCollision:
+    """basename 重複時の警告テスト."""
+
+    def test_duplicate_basename_skips_registration(self, tmp_path: Path) -> None:
+        """同名 basename が複数ある場合にフルパスマッチのみ使用されることを確認."""
+        data = {
+            "images": [
+                {"id": 1, "file_name": "train/img.jpg", "width": 640, "height": 480},
+                {"id": 2, "file_name": "val/img.jpg", "width": 640, "height": 480},
+            ],
+            "annotations": [
+                {"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 20, 50, 60]},
+                {"id": 2, "image_id": 2, "category_id": 1, "bbox": [10, 20, 50, 60]},
+            ],
+            "categories": [{"id": 1, "name": "cat"}],
+        }
+        path = tmp_path / "annotations.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        evaluator = MapEvaluator(path)
+
+        # basename "img.jpg" は最初の image_id=1 のみ登録され, 2 番目は登録されない
+        # (衝突時はスキップされる)
+        assert evaluator._image_id_by_filename["img.jpg"] == 1
+        # フルパスは両方登録されている
+        assert evaluator._image_id_by_filename["train/img.jpg"] == 1
+        assert evaluator._image_id_by_filename["val/img.jpg"] == 2
+
+
 class TestExtractBasename:
     """_extract_basename のテスト."""
 
