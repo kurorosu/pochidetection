@@ -35,21 +35,3 @@ class IDetectionModel(ABC, nn.Module):
             - pred_logits: 予測ロジット
         """
         pass
-
-    @abstractmethod
-    def get_backbone_params(self) -> list[nn.Parameter]:
-        """層別学習率用のバックボーンパラメータを取得.
-
-        Returns:
-            バックボーンパラメータのリスト.
-        """
-        pass
-
-    @abstractmethod
-    def get_head_params(self) -> list[nn.Parameter]:
-        """層別学習率用のヘッドパラメータを取得.
-
-        Returns:
-            ヘッドパラメータのリスト.
-        """
-        pass

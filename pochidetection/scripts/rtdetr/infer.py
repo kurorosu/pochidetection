@@ -6,6 +6,7 @@
 from pathlib import Path
 from typing import Any
 
+import torch
 from PIL import Image
 from transformers import RTDetrImageProcessor
 
@@ -181,8 +182,6 @@ def infer(
     logger.info(f"Loading model from {model_path}")
 
     if config.get("cudnn_benchmark", False) and device == "cuda":
-        import torch
-
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 

@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.4.2-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -14,7 +14,6 @@ A tiny but clever object detection pipeline — as friendly as Pochi!
 
 - **HuggingFace Transformers ベース**: RT-DETR などの最新モデルをすぐに利用可能
 - **COCO フォーマット対応**: 標準的なアノテーション形式でデータセットを管理
-- **設計パターン準拠**: Interface (ABC) + Singleton など SOLID 原則に基づく設計
 - **学習の可視化**: Loss 曲線, mAP 曲線, PR 曲線を HTML で自動出力
 - **CLI ツール**: コマンドひとつで学習・推論を実行
 

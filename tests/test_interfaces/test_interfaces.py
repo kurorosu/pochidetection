@@ -38,5 +38,3 @@ class TestIDetectionModel:
     def test_has_required_methods(self) -> None:
         """必須メソッドが定義されていることを確認."""
         assert hasattr(IDetectionModel, "forward")
-        assert hasattr(IDetectionModel, "get_backbone_params")
-        assert hasattr(IDetectionModel, "get_head_params")

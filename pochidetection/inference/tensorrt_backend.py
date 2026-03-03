@@ -138,11 +138,11 @@ class TensorRTBackend(IInferenceBackend):
             )
 
         # 入力テンソルを GPU バッファにコピー
+        self._stream.wait_stream(torch.cuda.default_stream())
         for binding in self._input_bindings:
             src = inputs[binding.name]
             if not src.is_cuda:
                 src = src.cuda()
-            self._stream.wait_stream(torch.cuda.default_stream())
             with torch.cuda.stream(self._stream):
                 binding.device_tensor.copy_(src)
 
