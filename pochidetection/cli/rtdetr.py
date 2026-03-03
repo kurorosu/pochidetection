@@ -138,7 +138,7 @@ def parse_args() -> argparse.Namespace:
         "-c",
         "--config",
         type=str,
-        default=DEFAULT_CONFIG,
+        default=None,
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
@@ -182,7 +182,7 @@ def parse_args() -> argparse.Namespace:
         "-c",
         "--config",
         type=str,
-        default=DEFAULT_CONFIG,
+        default=None,
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
@@ -213,7 +213,8 @@ def main() -> None:
         config = ConfigLoader.load(config_path)
         infer(config, args.dir, args.model_dir)
     elif args.command == "export":
-        config = ConfigLoader.load(args.config)
+        config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
+        config = ConfigLoader.load(config_path)
         input_size = tuple(args.input_size) if args.input_size else None
         export_onnx(
             config,
@@ -224,7 +225,8 @@ def main() -> None:
             args.skip_verify,
         )
     elif args.command == "export-trt":
-        config = ConfigLoader.load(args.config)
+        config_path = resolve_config_path(args.config, args.onnx_path, DEFAULT_CONFIG)
+        config = ConfigLoader.load(config_path)
         input_size_tgt: tuple[int, int] = (
             (args.input_size[0], args.input_size[1])
             if args.input_size
