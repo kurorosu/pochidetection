@@ -1,5 +1,6 @@
 """推論結果を保存するクラス."""
 
+import re
 from pathlib import Path
 
 from PIL import Image
@@ -31,17 +32,18 @@ class InferenceSaver:
         Returns:
             作成したディレクトリのパス.
         """
-        # 既存の inference_XXX ディレクトリを検索
-        existing = list(base_dir.glob("inference_[0-9][0-9][0-9]"))
-        if existing:
-            # 最大番号を取得
-            max_num = max(int(d.name.split("_")[1]) for d in existing)
-            next_num = max_num + 1
-        else:
-            next_num = 1
+        # 既存の inference_XXX ディレクトリを検索 (任意桁数に対応)
+        pattern = re.compile(r"^inference_(\d+)$")
+        max_num = 0
+        for d in base_dir.iterdir():
+            if d.is_dir():
+                m = pattern.match(d.name)
+                if m:
+                    max_num = max(max_num, int(m.group(1)))
 
+        next_num = max_num + 1
         output_dir = base_dir / f"inference_{next_num:03d}"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True)
         return output_dir
 
     def save(self, image: Image.Image, filename: str) -> Path:

@@ -16,6 +16,7 @@ class MapEvaluator:
     Attributes:
         _annotations: COCO アノテーション辞書.
         _image_id_by_filename: ファイル名から image_id へのマッピング.
+        _filenames_by_image_id: image_id からファイル名リストへの逆引きマッピング.
         _gt_by_image_id: image_id ごとのアノテーションリスト.
     """
 
@@ -31,10 +32,12 @@ class MapEvaluator:
             self._annotations: dict = json.load(f)
 
         self._image_id_by_filename: dict[str, int] = {}
+        self._filenames_by_image_id: dict[int, list[str]] = {}
         for img in self._annotations["images"]:
             file_name = img["file_name"]
             image_id = img["id"]
             self._image_id_by_filename[file_name] = image_id
+            filenames_for_id = [file_name]
             # 学習時は image_id でアノテーションを引くためファイル名マッチが不要だが,
             # 推論時はファイルシステムから画像を列挙するためベースネームでの
             # マッチングが必要. アノテーションの file_name がサブディレクトリ付き
@@ -42,13 +45,18 @@ class MapEvaluator:
             basename = self._extract_basename(file_name)
             if basename != file_name:
                 self._image_id_by_filename[basename] = image_id
+                filenames_for_id.append(basename)
+            self._filenames_by_image_id[image_id] = filenames_for_id
 
-        # CocoDetectionDataset と同じリマップ: 背景除外 → 連続インデックス
-        categories = [
-            c
-            for c in self._annotations.get("categories", [])
-            if c["name"].lower() not in self._BACKGROUND_NAMES
-        ]
+        # CocoDetectionDataset と同じリマップ: 背景除外 → カテゴリID昇順ソート → 連続インデックス
+        categories = sorted(
+            [
+                c
+                for c in self._annotations.get("categories", [])
+                if c["name"].lower() not in self._BACKGROUND_NAMES
+            ],
+            key=lambda c: c["id"],
+        )
         self._category_id_to_idx: dict[int, int] = {
             cat["id"]: idx for idx, cat in enumerate(categories)
         }
@@ -75,6 +83,12 @@ class MapEvaluator:
         - バッチ更新: 学習時は 1画像ずつ update, 推論時は全画像まとめて update.
           torchmetrics の仕様上, 結果は同一.
 
+        Note:
+            本メソッドは GT の全画像を起点に走査するため,
+            「GT の画像セット = 推論フォルダの画像セット」という前提を必要としない.
+            predictions に含まれない GT 画像は空の予測 (検出 0 件) として扱われ,
+            その GT オブジェクトは False Negative にカウントされる.
+
         Args:
             predictions: ファイル名をキー, 検出結果リストを値とする辞書.
 
@@ -86,10 +100,15 @@ class MapEvaluator:
         preds_list: list[dict[str, torch.Tensor]] = []
         targets_list: list[dict[str, torch.Tensor]] = []
 
-        for filename, detections in predictions.items():
-            image_id = self._image_id_by_filename.get(filename)
-            if image_id is None:
-                continue
+        # GT の全画像を走査し, predictions にない画像は空の予測として扱う.
+        # これにより, 推論対象外の GT が False Negative として正しくカウントされる.
+        for image_id, filenames in self._filenames_by_image_id.items():
+            # predictions からファイル名で検出結果を検索
+            detections: list[Detection] = []
+            for fn in filenames:
+                if fn in predictions:
+                    detections = predictions[fn]
+                    break
 
             # 予測
             if detections:

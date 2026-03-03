@@ -120,9 +120,13 @@ def build_benchmark_result(
     }
 
     avg_inference_ms = phases["inference"].average_ms if "inference" in phases else 0.0
-    avg_e2e_ms = sum(p.average_ms for p in phases.values())
 
+    # E2E 平均: 全フェーズの total_ms 合計を計測サンプル数で割る.
+    # 各フェーズの average_ms を足す方式だと, フェーズ間で count が
+    # 異なる場合に正しい per-image E2E 時間にならないため.
     measured = next(iter(phases.values())).count if phases else 0
+    total_e2e_ms = sum(p.total_ms for p in phases.values())
+    avg_e2e_ms = total_e2e_ms / measured if measured > 0 else 0.0
     warmup = num_images - measured
 
     return BenchmarkResult(

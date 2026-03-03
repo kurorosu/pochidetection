@@ -141,6 +141,12 @@ class PRCurvePlotter:
     def _create_per_class_figure(self) -> go.Figure:
         """クラス別のPR曲線を作成.
 
+        Note:
+            torchmetrics は GT が 0 件のクラスの precision を -1 (評価不能) にする.
+            例: categories が ["cat", "dog", "bird"] で val データに bird の GT が
+            存在しない場合, bird の全 recall ポイントが -1 になる.
+            -1 をそのまま描画すると不正な値がプロットされるため, NaN に置換する.
+
         Returns:
             plotly Figure オブジェクト.
         """
@@ -154,11 +160,17 @@ class PRCurvePlotter:
             precision_slice = self._precision[
                 self._iou_threshold_idx, :, class_idx, 0, 2
             ]
-            precision_values = precision_slice.numpy()
 
-            # 無効値(-1)をスキップ
+            # 全ポイントが無効値(-1)のクラスはスキップ
             if (precision_slice < 0).all():
                 continue
+
+            # 無効値(-1)を NaN に置換して描画から除外
+            precision_values = torch.where(
+                precision_slice >= 0,
+                precision_slice,
+                torch.tensor(float("nan")),
+            ).numpy()
 
             fig.add_trace(
                 go.Scatter(
