@@ -18,7 +18,8 @@
 - `LabelMapper.get_label()` が負の `class_id` で Python の負のインデックスにより誤ったクラス名を返す問題を修正. `0 <=` の下限チェックを追加. ([#88](https://github.com/kurorosu/pochidetection/pull/88).)
 - `pochi export` / `pochi export-trt` で `-c` 省略時にデフォルト config を使用していた問題を修正. `infer` と同じ `resolve_config_path` でモデルディレクトリから config.py を自動解決するよう変更. ([#89](https://github.com/kurorosu/pochidetection/pull/89).)
 - `InferenceSaver._create_numbered_dir()` の glob パターンが 3 桁固定で 4 桁以上のディレクトリを検出できず, 1000 回目以降にデータが上書きされる問題を修正. 正規表現による任意桁数マッチに変更し, `exist_ok=True` を削除. ([#90](https://github.com/kurorosu/pochidetection/pull/90).)
-- `train()` で DataLoader が空の場合に `ZeroDivisionError` が発生する問題を修正. 学習ループ前にバリデーションを追加し, 分かりやすいエラーメッセージで早期終了するよう変更. (N/A.)
+- `train()` で DataLoader が空の場合に `ZeroDivisionError` が発生する問題を修正. 学習ループ前にバリデーションを追加し, 分かりやすいエラーメッセージで早期終了するよう変更. ([#91](https://github.com/kurorosu/pochidetection/pull/91).)
+- `CocoDetectionDataset` と `MapEvaluator` のカテゴリ ID→インデックス変換が JSON 内の出現順に依存していた問題を修正. カテゴリ ID の昇順でソートしてから連続インデックスを割り当てるよう変更. (N/A.)
 
 ### Removed
 - なし.

@@ -119,12 +119,16 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
 
         images = data.get("images", [])
         annotations = data.get("annotations", [])
-        # 背景クラスを除外
-        categories = [
-            c
-            for c in data.get("categories", [])
-            if c["name"].lower() not in {"_background_", "background"}
-        ]
+        # 背景クラスを除外し, カテゴリIDの昇順でソート.
+        # JSON 内の出現順に依存しない一意のマッピングを保証する.
+        categories = sorted(
+            [
+                c
+                for c in data.get("categories", [])
+                if c["name"].lower() not in {"_background_", "background"}
+            ],
+            key=lambda c: c["id"],
+        )
 
         # image_idでアノテーションをグループ化
         annotations_by_image_id: dict[int, list[dict[str, Any]]] = {}

@@ -48,12 +48,15 @@ class MapEvaluator:
                 filenames_for_id.append(basename)
             self._filenames_by_image_id[image_id] = filenames_for_id
 
-        # CocoDetectionDataset と同じリマップ: 背景除外 → 連続インデックス
-        categories = [
-            c
-            for c in self._annotations.get("categories", [])
-            if c["name"].lower() not in self._BACKGROUND_NAMES
-        ]
+        # CocoDetectionDataset と同じリマップ: 背景除外 → カテゴリID昇順ソート → 連続インデックス
+        categories = sorted(
+            [
+                c
+                for c in self._annotations.get("categories", [])
+                if c["name"].lower() not in self._BACKGROUND_NAMES
+            ],
+            key=lambda c: c["id"],
+        )
         self._category_id_to_idx: dict[int, int] = {
             cat["id"]: idx for idx, cat in enumerate(categories)
         }
