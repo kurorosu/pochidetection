@@ -9,7 +9,7 @@
 - なし.
 
 ### Changed
-- なし.
+- `TensorRTBackend.infer()` の `wait_stream` をループ外に移動し, 冗長な同期オーバーヘッドを削減. (N/A.)
 
 ### Fixed
 - なし.
