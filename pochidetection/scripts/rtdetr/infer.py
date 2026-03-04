@@ -23,8 +23,11 @@ from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.rtdetr.inference import (
     DetectionPipeline,
+    DetectionSummary,
     InferenceSaver,
     Visualizer,
+    build_detection_summary,
+    write_detection_summary,
 )
 from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils import (
@@ -241,6 +244,11 @@ def infer(
 
     detection_metrics = _evaluate_map(config, all_predictions)
 
+    summary = build_detection_summary(all_predictions, label_mapper)
+    summary_path = write_detection_summary(saver.output_dir, summary)
+    logger.info(f"Detection summary saved to {summary_path}")
+    _log_detection_summary(summary)
+
     result = build_benchmark_result(
         phased_timer=phased_timer,
         num_images=len(image_files),
@@ -308,6 +316,24 @@ def _log_benchmark_summary(result: BenchmarkResult) -> None:
     if result.detection_metrics is not None:
         dm = result.detection_metrics
         logger.info(f"  mAP@0.5: {dm.map_50:.4f}, mAP@0.5:0.95: {dm.map_50_95:.4f}")
+
+
+def _log_detection_summary(summary: DetectionSummary) -> None:
+    """検出サマリーをログ出力する.
+
+    Args:
+        summary: 検出サマリー.
+    """
+    logger.info("=== Detection Summary ===")
+    logger.info(f"  Total images  : {summary.total_images}")
+    logger.info(f"  Total detected: {summary.total_detections}")
+    for cc in summary.per_class:
+        logger.info(
+            f"  {cc.name} : {cc.count} detections "
+            f"({cc.images_with_detections} images, avg score: {cc.avg_score:.2f})"
+        )
+    if summary.images_without_detections > 0:
+        logger.info(f"  No detections : {summary.images_without_detections} images")
 
 
 def _resolve_model_path(
