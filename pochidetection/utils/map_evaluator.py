@@ -6,8 +6,11 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 import torch
 from torchmetrics.detection import MeanAveragePrecision
 
+from pochidetection.logging import LoggerManager
 from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils.benchmark import DetectionMetrics
+
+logger = LoggerManager().get_logger(__name__)
 
 
 class MapEvaluator:
@@ -44,8 +47,15 @@ class MapEvaluator:
             # (例: "JPEGImages/img.jpg") の場合にも対応する.
             basename = self._extract_basename(file_name)
             if basename != file_name:
-                self._image_id_by_filename[basename] = image_id
-                filenames_for_id.append(basename)
+                if basename in self._image_id_by_filename:
+                    logger.warning(
+                        f"basename '{basename}' が重複しています "
+                        f"('{file_name}' と既存エントリ). "
+                        f"フルパスでのマッチングのみ使用します."
+                    )
+                else:
+                    self._image_id_by_filename[basename] = image_id
+                    filenames_for_id.append(basename)
             self._filenames_by_image_id[image_id] = filenames_for_id
 
         # CocoDetectionDataset と同じリマップ: 背景除外 → カテゴリID昇順ソート → 連続インデックス

@@ -116,6 +116,21 @@ class TestConfigLoader:
         ):
             ConfigLoader.load(str(config_file))
 
+    def test_score_threshold_accepts_zero(self, tmp_path: Path) -> None:
+        """score_threshold に 0.0 を設定できることを確認."""
+        config_file = tmp_path / "zero_threshold_config.py"
+        config_file.write_text(
+            'data_root = "data"\n'
+            "num_classes = 2\n"
+            "train_score_threshold = 0.0\n"
+            "infer_score_threshold = 0.0\n",
+            encoding="utf-8",
+        )
+
+        config = ConfigLoader.load(str(config_file))
+        assert config["train_score_threshold"] == 0.0
+        assert config["infer_score_threshold"] == 0.0
+
     def test_load_real_config(self) -> None:
         """実際の設定ファイルを読み込めることを確認."""
         config = ConfigLoader.load("configs/rtdetr_coco.py")

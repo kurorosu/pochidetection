@@ -212,3 +212,37 @@ class TestCocoDetectionDataset:
             sample_dataset_dir, processor, annotation_file="instances_train.json"
         )
         assert len(dataset) == 3
+
+    def test_zero_size_bbox_is_skipped(self, tmp_path: Path) -> None:
+        """w=0 または h=0 の bbox がスキップされることを確認."""
+        images_dir = tmp_path / "JPEGImages"
+        images_dir.mkdir()
+        img = Image.new("RGB", (100, 100), color=(128, 128, 128))
+        img.save(images_dir / "img.jpg")
+
+        annotations = {
+            "images": [
+                {
+                    "id": 1,
+                    "file_name": "JPEGImages/img.jpg",
+                    "width": 100,
+                    "height": 100,
+                },
+            ],
+            "annotations": [
+                {"id": 1, "image_id": 1, "category_id": 1, "bbox": [10, 10, 30, 30]},
+                {"id": 2, "image_id": 1, "category_id": 1, "bbox": [50, 50, 0, 20]},
+                {"id": 3, "image_id": 1, "category_id": 1, "bbox": [70, 70, 10, 0]},
+            ],
+            "categories": [{"id": 1, "name": "cat"}],
+        }
+        with open(tmp_path / "annotations.json", "w") as f:
+            json.dump(annotations, f)
+
+        processor = RTDetrImageProcessor()
+        dataset = CocoDetectionDataset(tmp_path, processor)
+        sample = dataset[0]
+
+        # w=0, h=0 の 2 件がスキップされ, 有効な 1 件のみ残る
+        assert sample["labels"]["boxes"].shape == (1, 4)
+        assert sample["labels"]["class_labels"].shape == (1,)

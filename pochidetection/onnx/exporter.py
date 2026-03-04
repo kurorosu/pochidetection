@@ -155,9 +155,13 @@ class OnnxExporter:
         session = ort.InferenceSession(
             str(onnx_path), providers=["CPUExecutionProvider"]
         )
-        onnx_outputs = session.run(None, {"pixel_values": dummy_input.cpu().numpy()})
-        onnx_logits = onnx_outputs[0]
-        onnx_boxes = onnx_outputs[1]
+        output_names = [o.name for o in session.get_outputs()]
+        onnx_results = session.run(
+            output_names, {"pixel_values": dummy_input.cpu().numpy()}
+        )
+        onnx_output_dict = dict(zip(output_names, onnx_results))
+        onnx_logits = onnx_output_dict["logits"]
+        onnx_boxes = onnx_output_dict["pred_boxes"]
 
         logits_close: bool = bool(
             np.allclose(pytorch_logits, onnx_logits, rtol=rtol, atol=atol)
