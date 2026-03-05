@@ -130,6 +130,22 @@ class WorkspaceManager:
         """
         return self._current_workspace
 
+    def _ensure_workspace_created(self) -> Path:
+        """ワークスペースが作成済みであることを確認する.
+
+        Returns:
+            現在のワークスペースのパス.
+
+        Raises:
+            RuntimeError: ワークスペースが作成されていない場合.
+        """
+        if self._current_workspace is None:
+            raise RuntimeError(
+                "ワークスペースが作成されていません. "
+                "create_workspace() を先に呼び出してください."
+            )
+        return self._current_workspace
+
     def create_workspace(self) -> Path:
         """新しいワークスペースを作成.
 
@@ -166,13 +182,7 @@ class WorkspaceManager:
         Raises:
             RuntimeError: ワークスペースが作成されていない場合.
         """
-        if self._current_workspace is None:
-            raise RuntimeError(
-                "ワークスペースが作成されていません. "
-                "create_workspace() を先に呼び出してください."
-            )
-
-        return self._current_workspace / "best"
+        return self._ensure_workspace_created() / "best"
 
     def get_last_dir(self) -> Path:
         """最終モデル保存用ディレクトリのパスを取得.
@@ -183,13 +193,7 @@ class WorkspaceManager:
         Raises:
             RuntimeError: ワークスペースが作成されていない場合.
         """
-        if self._current_workspace is None:
-            raise RuntimeError(
-                "ワークスペースが作成されていません. "
-                "create_workspace() を先に呼び出してください."
-            )
-
-        return self._current_workspace / "last"
+        return self._ensure_workspace_created() / "last"
 
     def save_config(
         self, config_path: str | Path, target_name: str = "config.py"
@@ -207,17 +211,13 @@ class WorkspaceManager:
             RuntimeError: ワークスペースが作成されていない場合.
             FileNotFoundError: コピー元ファイルが存在しない場合.
         """
-        if self._current_workspace is None:
-            raise RuntimeError(
-                "ワークスペースが作成されていません. "
-                "create_workspace() を先に呼び出してください."
-            )
+        workspace = self._ensure_workspace_created()
 
         config_path = Path(config_path)
         if not config_path.exists():
             raise FileNotFoundError(f"設定ファイルが見つかりません: {config_path}")
 
-        target_path = self._current_workspace / target_name
+        target_path = workspace / target_name
         shutil.copy2(config_path, target_path)
 
         return target_path
@@ -231,13 +231,7 @@ class WorkspaceManager:
         Raises:
             RuntimeError: ワークスペースが作成されていない場合.
         """
-        if self._current_workspace is None:
-            raise RuntimeError(
-                "ワークスペースが作成されていません. "
-                "create_workspace() を先に呼び出してください."
-            )
-
-        return self._current_workspace / "training_state.json"
+        return self._ensure_workspace_created() / "training_state.json"
 
     def get_available_workspaces(self) -> list[dict[str, str | int | bool]]:
         """利用可能なワークスペースの一覧を取得.
