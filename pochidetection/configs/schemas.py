@@ -1,6 +1,6 @@
 """Pydantic 設定スキーマ."""
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -48,6 +48,9 @@ class DetectionConfig(BaseModel):
     train_score_threshold: float = Field(default=0.5, ge=0, le=1)
     infer_score_threshold: float = Field(default=0.5, ge=0, le=1)
     nms_iou_threshold: float = Field(default=0.5, ge=0, le=1)
+
+    lr_scheduler: str | None = None
+    lr_scheduler_params: dict[str, Any] | None = None
 
     annotation_path: str | None = None
 

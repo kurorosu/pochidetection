@@ -6,13 +6,13 @@
 ## [Unreleased]
 
 ### Added
-- なし.
+- `DetectionConfig` に `lr_scheduler` / `lr_scheduler_params` フィールドを追加し, 学習時に PyTorch 標準の Learning Rate Scheduler を使用可能にした. `CosineAnnealingLR` は `T_max` 未指定時にエポック数をデフォルトとする. (N/A.)
 
 ### Changed
 - なし.
 
 ### Fixed
-- `Visualizer` のラベルテキストが常に白で描画され, 黄色等の明るい背景色で視認性が低下する問題を修正. W3C 相対輝度に基づいて黒/白を自動切替するよう変更. (N/A.)
+- `Visualizer` のラベルテキストが常に白で描画され, 黄色等の明るい背景色で視認性が低下する問題を修正. W3C 相対輝度に基づいて黒/白を自動切替するよう変更. ([#133](https://github.com/kurorosu/pochidetection/pull/133).)
 
 ### Removed
 - なし.

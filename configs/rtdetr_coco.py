@@ -24,6 +24,8 @@ batch_size = 8
 # 学習設定
 epochs = 100
 learning_rate = 1e-4
+lr_scheduler = "CosineAnnealingLR"  # None で無効 (デフォルト)
+lr_scheduler_params = {"eta_min": 1e-7}  # Scheduler 固有パラメータ
 
 # デバイス設定
 device = "cuda"

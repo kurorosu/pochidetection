@@ -91,6 +91,8 @@ class TestConfigLoader:
         assert config["train_score_threshold"] == 0.5
         assert config["infer_score_threshold"] == 0.5
         assert config["nms_iou_threshold"] == 0.5
+        assert config["lr_scheduler"] is None
+        assert config["lr_scheduler_params"] is None
 
     def test_load_config_rejects_unknown_key(self, tmp_path: Path) -> None:
         """未知キーがある場合にエラーが発生することを確認."""
@@ -130,6 +132,21 @@ class TestConfigLoader:
         config = ConfigLoader.load(str(config_file))
         assert config["train_score_threshold"] == 0.0
         assert config["infer_score_threshold"] == 0.0
+
+    def test_load_config_with_lr_scheduler(self, tmp_path: Path) -> None:
+        """lr_scheduler を設定できることを確認."""
+        config_file = tmp_path / "scheduler_config.py"
+        config_file.write_text(
+            'data_root = "data"\n'
+            "num_classes = 2\n"
+            'lr_scheduler = "CosineAnnealingLR"\n'
+            'lr_scheduler_params = {"eta_min": 1e-6}\n',
+            encoding="utf-8",
+        )
+
+        config = ConfigLoader.load(str(config_file))
+        assert config["lr_scheduler"] == "CosineAnnealingLR"
+        assert config["lr_scheduler_params"] == {"eta_min": 1e-6}
 
     def test_load_real_config(self) -> None:
         """実際の設定ファイルを読み込めることを確認."""
