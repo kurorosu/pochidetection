@@ -41,11 +41,25 @@ class IPlotter(ABC):
         """
         pass
 
-    @abstractmethod
     def plot(self, output_path: Path) -> None:
         """グラフを HTML ファイルに出力.
 
         Args:
             output_path: 出力先パス.
         """
-        pass
+        fig = go.Figure()
+
+        for trace in self.get_traces():
+            fig.add_trace(trace)
+
+        fig.update_layout(
+            title=self.title,
+            xaxis_title="Epoch",
+            yaxis_title=self.y_axis_label,
+            legend={"x": 1, "y": 1, "xanchor": "right", "bgcolor": "rgba(0,0,0,0)"},
+            hovermode="x unified",
+            width=600,
+            height=600,
+        )
+
+        fig.write_html(output_path)
