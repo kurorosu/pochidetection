@@ -12,7 +12,8 @@
 - `CocoDetectionDataset` と `MapEvaluator` のカテゴリフィルタリング・ID→index マッピングロジックを `category_utils` に共通化. ([#121](https://github.com/kurorosu/pochidetection/pull/121).)
 - `PRCurvePlotter` と `TrainingReportPlotter` の `LEGEND_CONFIG` 定数を `plotters/constants.py` に共通化. ([#122](https://github.com/kurorosu/pochidetection/pull/122).)
 - `LossPlotter` と `MetricsPlotter` の重複 `plot()` メソッドを `IPlotter` のデフォルト実装に集約. ([#123](https://github.com/kurorosu/pochidetection/pull/123).)
-- `WorkspaceManager` の4メソッドに重複していたワークスペース未作成チェックを `_ensure_workspace_created()` に集約. (N/A.)
+- `WorkspaceManager` の4メソッドに重複していたワークスペース未作成チェックを `_ensure_workspace_created()` に集約. ([#124](https://github.com/kurorosu/pochidetection/pull/124).)
+- `DetectionPipeline` と `infer.py` に分散していた FP16 判定ロジックを `is_fp16_available()` に共通化. (N/A.)
 
 ### Fixed
 - なし.

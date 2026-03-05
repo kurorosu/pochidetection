@@ -12,6 +12,7 @@ from pochidetection.utils.category_utils import (
 )
 from pochidetection.utils.config_loader import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
+from pochidetection.utils.device import is_fp16_available
 from pochidetection.utils.history import TrainingHistory
 from pochidetection.utils.phased_timer import PhasedTimer
 from pochidetection.utils.timer import InferenceTimer
@@ -24,6 +25,7 @@ __all__ = [
     "filter_categories",
     "DetectionMetrics",
     "InferenceTimer",
+    "is_fp16_available",
     "PhasedTimer",
     "TrainingHistory",
     "WorkspaceManager",
