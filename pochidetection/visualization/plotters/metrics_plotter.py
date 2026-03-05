@@ -1,7 +1,5 @@
 """mAP曲線のプロット."""
 
-from pathlib import Path
-
 import plotly.graph_objects as go
 
 from pochidetection.interfaces import IPlotter
@@ -70,26 +68,3 @@ class MetricsPlotter(IPlotter):
                 line={"color": "#8c564b"},
             ),
         ]
-
-    def plot(self, output_path: Path) -> None:
-        """mAP曲線をHTMLファイルに出力.
-
-        Args:
-            output_path: 出力先パス.
-        """
-        fig = go.Figure()
-
-        for trace in self.get_traces():
-            fig.add_trace(trace)
-
-        fig.update_layout(
-            title=self.title,
-            xaxis_title="Epoch",
-            yaxis_title=self.y_axis_label,
-            legend={"x": 1, "y": 1, "xanchor": "right", "bgcolor": "rgba(0,0,0,0)"},
-            hovermode="x unified",
-            width=600,
-            height=600,
-        )
-
-        fig.write_html(output_path)
