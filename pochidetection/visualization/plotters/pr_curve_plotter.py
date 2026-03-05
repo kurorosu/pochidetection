@@ -6,13 +6,7 @@ import plotly.graph_objects as go
 import torch
 from plotly.io import to_html
 
-# 凡例設定（グラフ右上外）
-LEGEND_CONFIG = {
-    "yanchor": "top",
-    "y": 1,
-    "xanchor": "left",
-    "x": 1.02,
-}
+from pochidetection.visualization.plotters.constants import LEGEND_CONFIG
 
 
 class PRCurvePlotter:
