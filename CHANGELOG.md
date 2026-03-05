@@ -7,6 +7,7 @@
 
 ### Added
 - `DetectionConfig` に `lr_scheduler` / `lr_scheduler_params` フィールドを追加し, 学習時に PyTorch 標準の Learning Rate Scheduler を使用可能にした. `CosineAnnealingLR` は `T_max` 未指定時にエポック数をデフォルトとする. (N/A.)
+- `pochi infer` 実行後に画像ごと・検出ごとの推論結果を `detection_results.csv` として出力する機能を追加. アノテーション指定時は TP/FP/FN 正答状況と IoU を含む. (N/A.)
 
 ### Changed
 - なし.

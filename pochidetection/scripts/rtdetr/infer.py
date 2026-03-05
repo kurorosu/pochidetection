@@ -26,7 +26,9 @@ from pochidetection.scripts.rtdetr.inference import (
     DetectionSummary,
     InferenceSaver,
     Visualizer,
+    build_detection_results,
     build_detection_summary,
+    write_detection_results_csv,
     write_detection_summary,
 )
 from pochidetection.scripts.rtdetr.inference.detection import Detection
@@ -250,6 +252,21 @@ def infer(
     summary_path = write_detection_summary(saver.output_dir, summary)
     logger.info(f"Detection summary saved to {summary_path}")
     _log_detection_summary(summary)
+
+    # 推論結果 CSV 出力
+    annotation_path_str = config.get("annotation_path")
+    annotation_path = Path(annotation_path_str) if annotation_path_str else None
+    if annotation_path is not None and not annotation_path.exists():
+        logger.warning(f"Annotation file not found: {annotation_path}")
+        annotation_path = None
+
+    csv_rows = build_detection_results(
+        predictions=all_predictions,
+        label_mapper=label_mapper,
+        annotation_path=annotation_path,
+    )
+    csv_path = write_detection_results_csv(saver.output_dir, csv_rows)
+    logger.info(f"Detection results CSV saved to {csv_path}")
 
     result = build_benchmark_result(
         phased_timer=phased_timer,
