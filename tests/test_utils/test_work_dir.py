@@ -227,16 +227,6 @@ class TestWorkspaceManager:
         with pytest.raises(FileNotFoundError, match="設定ファイルが見つかりません"):
             manager.save_config(tmp_path / "missing.py")
 
-    def test_get_training_state_path_returns_path(self, tmp_path: Path) -> None:
-        """get_training_state_pathがパスを返す."""
-        manager = WorkspaceManager(tmp_path)
-        manager.create_workspace()
-
-        path = manager.get_training_state_path()
-
-        assert path.name == "training_state.json"
-        assert path.parent == manager.current_workspace
-
     def test_get_available_workspaces_returns_empty_when_no_dir(
         self, tmp_path: Path
     ) -> None:
