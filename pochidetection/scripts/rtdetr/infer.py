@@ -42,7 +42,11 @@ from pochidetection.utils import (
 )
 from pochidetection.utils.device import is_fp16_available
 from pochidetection.utils.map_evaluator import MapEvaluator
-from pochidetection.visualization import LabelMapper
+from pochidetection.visualization import (
+    ConfusionMatrixPlotter,
+    LabelMapper,
+    build_confusion_matrix,
+)
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -267,6 +271,18 @@ def infer(
     )
     csv_path = write_detection_results_csv(saver.output_dir, csv_rows)
     logger.info(f"Detection results CSV saved to {csv_path}")
+
+    # 混同行列出力
+    if annotation_path is not None and class_names is not None:
+        cm = build_confusion_matrix(
+            predictions=all_predictions,
+            annotation_path=annotation_path,
+            class_names=class_names,
+        )
+        cm_plotter = ConfusionMatrixPlotter(cm, class_names)
+        cm_path = saver.output_dir / "confusion_matrix.html"
+        cm_plotter.plot(cm_path)
+        logger.info(f"Confusion matrix saved to {cm_path}")
 
     result = build_benchmark_result(
         phased_timer=phased_timer,
