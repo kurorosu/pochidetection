@@ -9,13 +9,13 @@
 - `pochi infer` 実行後にクラス毎の検出数・平均スコア・検出画像数をサマリーログ出力し, `detection_summary.json` として保存する機能を追加. ([#112](https://github.com/kurorosu/pochidetection/pull/112).)
 
 ### Changed
-- なし.
+- `CocoDetectionDataset` と `MapEvaluator` のカテゴリフィルタリング・ID→index マッピングロジックを `category_utils` に共通化. (N/A.)
 
 ### Fixed
 - なし.
 
 ### Removed
-- `DetectionPipeline` 導入後に未使用となっていた `Detector` クラスおよび専用テスト `test_detector.py` を削除. (N/A.)
+- `DetectionPipeline` 導入後に未使用となっていた `Detector` クラスおよび専用テスト `test_detector.py` を削除. ([#120](https://github.com/kurorosu/pochidetection/pull/120).)
 
 ## v0.4.3 (2026-03-04)
 

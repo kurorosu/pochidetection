@@ -10,6 +10,10 @@ from torch.utils.data import Dataset
 from transformers import RTDetrImageProcessor
 
 from pochidetection.interfaces.dataset import IDetectionDataset
+from pochidetection.utils.category_utils import (
+    build_category_id_to_idx,
+    filter_categories,
+)
 
 
 class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
@@ -67,9 +71,7 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
         self._images, self._annotations, self._categories = self._load_annotations()
 
         # カテゴリIDを連続インデックスにマッピング
-        self._category_id_to_idx = {
-            cat["id"]: idx for idx, cat in enumerate(self._categories)
-        }
+        self._category_id_to_idx = build_category_id_to_idx(self._categories)
 
     def _find_annotation_file(self, annotation_file: str | None) -> Path:
         """アノテーションファイルを探す.
@@ -121,14 +123,7 @@ class CocoDetectionDataset(Dataset[dict[str, Any]], IDetectionDataset):
         annotations = data.get("annotations", [])
         # 背景クラスを除外し, カテゴリIDの昇順でソート.
         # JSON 内の出現順に依存しない一意のマッピングを保証する.
-        categories = sorted(
-            [
-                c
-                for c in data.get("categories", [])
-                if c["name"].lower() not in {"_background_", "background"}
-            ],
-            key=lambda c: c["id"],
-        )
+        categories = filter_categories(data.get("categories", []))
 
         # image_idでアノテーションをグループ化
         annotations_by_image_id: dict[int, list[dict[str, Any]]] = {}
