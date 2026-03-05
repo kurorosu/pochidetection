@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 import plotly.graph_objects as go
 import torch
@@ -44,7 +45,7 @@ def build_confusion_matrix(
     bg_idx = num_classes  # Background のインデックス
 
     with open(annotation_path, encoding="utf-8") as f:
-        coco: dict = json.load(f)
+        coco: dict[str, Any] = json.load(f)
 
     # ファイル名 → image_id マッピング
     image_id_by_filename: dict[str, int] = {}
@@ -60,7 +61,7 @@ def build_confusion_matrix(
     category_id_to_idx = build_category_id_to_idx(categories)
 
     # image_id ごとの GT アノテーション
-    gt_by_image_id: dict[int, list[dict]] = {}
+    gt_by_image_id: dict[int, list[dict[str, Any]]] = {}
     for ann in coco["annotations"]:
         if ann["category_id"] not in category_id_to_idx:
             continue
@@ -90,7 +91,7 @@ def build_confusion_matrix(
 def _update_matrix(
     matrix: torch.Tensor,
     detections: list[Detection],
-    gt_anns: list[dict],
+    gt_anns: list[dict[str, Any]],
     category_id_to_idx: dict[int, int],
     iou_threshold: float,
     bg_idx: int,

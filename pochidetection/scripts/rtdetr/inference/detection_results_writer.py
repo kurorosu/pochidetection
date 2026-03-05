@@ -4,6 +4,7 @@ import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import torch
 from torchvision.ops import box_iou
@@ -82,7 +83,7 @@ class DetectionResultRow:
 
 def _load_ground_truth(
     annotation_path: Path,
-) -> tuple[dict[str, list[dict]], dict[int, int], list[dict]]:
+) -> tuple[dict[str, list[dict[str, Any]]], dict[int, int], list[dict[str, Any]]]:
     """COCO アノテーションから GT を読み込む.
 
     Args:
@@ -95,7 +96,7 @@ def _load_ground_truth(
         categories: フィルタ済みカテゴリリスト.
     """
     with open(annotation_path, encoding="utf-8") as f:
-        coco: dict = json.load(f)
+        coco: dict[str, Any] = json.load(f)
 
     image_id_to_filename: dict[int, str] = {}
     for img in coco["images"]:
@@ -109,7 +110,7 @@ def _load_ground_truth(
     categories = filter_categories(coco.get("categories", []))
     category_id_to_idx = build_category_id_to_idx(categories)
 
-    gt_by_filename: dict[str, list[dict]] = {}
+    gt_by_filename: dict[str, list[dict[str, Any]]] = {}
     for ann in coco["annotations"]:
         if ann["category_id"] not in category_id_to_idx:
             continue
@@ -124,7 +125,7 @@ def _load_ground_truth(
 
 def _match_detections(
     detections: list[Detection],
-    gt_annotations: list[dict],
+    gt_annotations: list[dict[str, Any]],
     category_id_to_idx: dict[int, int],
     iou_threshold: float,
 ) -> list[tuple[str, float, int | None]]:
@@ -216,7 +217,7 @@ def build_detection_results(
     """
     mapper = label_mapper if label_mapper is not None else LabelMapper()
 
-    gt_by_filename: dict[str, list[dict]] = {}
+    gt_by_filename: dict[str, list[dict[str, Any]]] = {}
     category_id_to_idx: dict[int, int] = {}
     idx_to_category_name: dict[int, str] = {}
     has_gt = False

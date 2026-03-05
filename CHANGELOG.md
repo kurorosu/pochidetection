@@ -11,15 +11,23 @@
 - `pochi infer` でアノテーション指定時に `confusion_matrix.html` (Plotly ヒートマップ) を出力する機能を追加. Background 行/列で FP/FN を表現. ([#136](https://github.com/kurorosu/pochidetection/pull/136).)
 
 ### Changed
-- `LoggerManager` の `typing.Optional` を `X | None` 記法に統一. (N/A.)
-- `EpochMetrics` を内部専用クラスとして `_EpochMetrics` にリネーム. (N/A.)
+- デッドコード・未使用コードの削除. (N/A.)
+  - `LoggerManager` の `typing.Optional` を `X | None` 記法に統一
+  - `EpochMetrics` を内部専用クラス `_EpochMetrics` にリネーム
+- コード品質改善 (assert 修正・型アノテーション・マジックナンバー・docstring). (N/A.)
+  - `infer.py` の `assert` を `TypeError` 例外に変更
+  - `dict` 型アノテーションに値型を明示 (`map_evaluator`, `confusion_matrix_plotter`, `detection_results_writer`)
+  - `visualizer.py` のマジックナンバーをクラス定数に抽出
+  - `benchmark.py` の docstring タイポを修正
+  - `history.py` の property docstring に `Returns:` セクションを追加
 
 ### Fixed
 - `Visualizer` のラベルテキストが常に白で描画され, 黄色等の明るい背景色で視認性が低下する問題を修正. W3C 相対輝度に基づいて黒/白を自動切替するよう変更. ([#133](https://github.com/kurorosu/pochidetection/pull/133).)
 
 ### Removed
-- プロダクション未使用の `LoggerManager.get_available_loggers()` メソッドを削除. (N/A.)
-- プロダクション未使用の `WorkspaceManager.get_training_state_path()` メソッドおよび専用テストを削除. (N/A.)
+- デッドコード・未使用コードの削除. (N/A.)
+  - プロダクション未使用の `LoggerManager.get_available_loggers()` メソッドを削除
+  - プロダクション未使用の `WorkspaceManager.get_training_state_path()` メソッドおよび専用テストを削除
 
 ## v0.4.4 (2026-03-05)
 
