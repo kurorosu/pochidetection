@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torchmetrics.detection import MeanAveragePrecision
 from transformers import RTDetrImageProcessor
@@ -15,7 +16,7 @@ from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
-from pochidetection.utils import TrainingHistory, WorkspaceManager
+from pochidetection.utils import TrainingHistory, WorkspaceManager, build_scheduler
 from pochidetection.visualization import (
     LossPlotter,
     MetricsPlotter,
@@ -93,6 +94,16 @@ def train(config: dict[str, Any], config_path: str) -> None:
 
     # オプティマイザ
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+
+    # Learning Rate Scheduler
+    scheduler = build_scheduler(
+        optimizer=optimizer,
+        scheduler_name=config.get("lr_scheduler"),
+        scheduler_params=config.get("lr_scheduler_params"),
+        epochs=epochs,
+    )
+    if scheduler is not None:
+        logger.info(f"LR Scheduler: {scheduler.__class__.__name__}")
 
     # mAP計算用
     # RT-DETRは300クエリを出力するため警告が出るが, 閾値はデフォルト[1,10,100]を維持
@@ -209,6 +220,13 @@ def train(config: dict[str, Any], config_path: str) -> None:
             mAP_75=mAP_75,
             lr=lr,
         )
+
+        # Scheduler ステップ
+        if scheduler is not None:
+            if isinstance(scheduler, ReduceLROnPlateau):
+                scheduler.step(avg_val_loss)
+            else:
+                scheduler.step()
 
         # ベストモデル保存
         if mAP > best_map:

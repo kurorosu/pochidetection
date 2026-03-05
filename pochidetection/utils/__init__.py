@@ -15,6 +15,7 @@ from pochidetection.utils.config_resolver import resolve_config_path
 from pochidetection.utils.device import is_fp16_available
 from pochidetection.utils.history import TrainingHistory
 from pochidetection.utils.phased_timer import PhasedTimer
+from pochidetection.utils.scheduler import build_scheduler
 from pochidetection.utils.timer import InferenceTimer
 from pochidetection.utils.work_dir import WorkspaceManager
 
@@ -30,6 +31,7 @@ __all__ = [
     "TrainingHistory",
     "WorkspaceManager",
     "build_benchmark_result",
+    "build_scheduler",
     "resolve_config_path",
     "write_benchmark_result",
 ]
