@@ -38,6 +38,7 @@ from pochidetection.utils import (
     build_benchmark_result,
     write_benchmark_result,
 )
+from pochidetection.utils.device import is_fp16_available
 from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import LabelMapper
 
@@ -140,11 +141,12 @@ def _create_backend(
     model.to(device)
     model.eval()
 
-    if use_fp16 and device == "cuda":
+    fp16 = is_fp16_available(use_fp16, device)
+    if fp16:
         model.half()
         logger.info("FP16 enabled")
 
-    precision = "fp16" if (use_fp16 and device == "cuda") else "fp32"
+    precision = "fp16" if fp16 else "fp32"
     return PyTorchBackend(model), precision, use_fp16
 
 
