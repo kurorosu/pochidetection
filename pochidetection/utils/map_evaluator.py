@@ -9,6 +9,10 @@ from torchmetrics.detection import MeanAveragePrecision
 from pochidetection.logging import LoggerManager
 from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils.benchmark import DetectionMetrics
+from pochidetection.utils.category_utils import (
+    build_category_id_to_idx,
+    filter_categories,
+)
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -22,8 +26,6 @@ class MapEvaluator:
         _filenames_by_image_id: image_id からファイル名リストへの逆引きマッピング.
         _gt_by_image_id: image_id ごとのアノテーションリスト.
     """
-
-    _BACKGROUND_NAMES = {"_background_", "background"}
 
     def __init__(self, annotation_path: Path) -> None:
         """初期化.
@@ -59,17 +61,8 @@ class MapEvaluator:
             self._filenames_by_image_id[image_id] = filenames_for_id
 
         # CocoDetectionDataset と同じリマップ: 背景除外 → カテゴリID昇順ソート → 連続インデックス
-        categories = sorted(
-            [
-                c
-                for c in self._annotations.get("categories", [])
-                if c["name"].lower() not in self._BACKGROUND_NAMES
-            ],
-            key=lambda c: c["id"],
-        )
-        self._category_id_to_idx: dict[int, int] = {
-            cat["id"]: idx for idx, cat in enumerate(categories)
-        }
+        categories = filter_categories(self._annotations.get("categories", []))
+        self._category_id_to_idx: dict[int, int] = build_category_id_to_idx(categories)
 
         self._gt_by_image_id: dict[int, list[dict]] = {}
         for ann in self._annotations["annotations"]:

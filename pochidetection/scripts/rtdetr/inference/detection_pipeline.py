@@ -9,6 +9,7 @@ from PIL import Image
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.scripts.rtdetr.inference.detection import Detection, OutputWrapper
 from pochidetection.utils import PhasedTimer
+from pochidetection.utils.device import is_fp16_available
 
 
 class DetectionPipeline:
@@ -66,7 +67,7 @@ class DetectionPipeline:
         self._device = device
         self._threshold = threshold
         self._nms_iou_threshold = nms_iou_threshold
-        self._use_fp16 = use_fp16 and device == "cuda"
+        self._use_fp16 = is_fp16_available(use_fp16, device)
         self._phased_timer = phased_timer
 
     def preprocess(self, image: Image.Image) -> dict[str, torch.Tensor]:
