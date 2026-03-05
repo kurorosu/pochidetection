@@ -8,16 +8,18 @@
 ### Added
 - `DetectionConfig` に `lr_scheduler` / `lr_scheduler_params` フィールドを追加し, 学習時に PyTorch 標準の Learning Rate Scheduler を使用可能にした. `CosineAnnealingLR` は `T_max` 未指定時にエポック数をデフォルトとする. ([#134](https://github.com/kurorosu/pochidetection/pull/134).)
 - `pochi infer` 実行後に画像ごと・検出ごとの推論結果を `detection_results.csv` として出力する機能を追加. アノテーション指定時は TP/FP/FN 正答状況と IoU を含む. ([#135](https://github.com/kurorosu/pochidetection/pull/135).)
-- `pochi infer` でアノテーション指定時に `confusion_matrix.html` (Plotly ヒートマップ) を出力する機能を追加. Background 行/列で FP/FN を表現. (N/A.)
+- `pochi infer` でアノテーション指定時に `confusion_matrix.html` (Plotly ヒートマップ) を出力する機能を追加. Background 行/列で FP/FN を表現. ([#136](https://github.com/kurorosu/pochidetection/pull/136).)
 
 ### Changed
-- なし.
+- `LoggerManager` の `typing.Optional` を `X | None` 記法に統一. (N/A.)
+- `EpochMetrics` を内部専用クラスとして `_EpochMetrics` にリネーム. (N/A.)
 
 ### Fixed
 - `Visualizer` のラベルテキストが常に白で描画され, 黄色等の明るい背景色で視認性が低下する問題を修正. W3C 相対輝度に基づいて黒/白を自動切替するよう変更. ([#133](https://github.com/kurorosu/pochidetection/pull/133).)
 
 ### Removed
-- なし.
+- プロダクション未使用の `LoggerManager.get_available_loggers()` メソッドを削除. (N/A.)
+- プロダクション未使用の `WorkspaceManager.get_training_state_path()` メソッドおよび専用テストを削除. (N/A.)
 
 ## v0.4.4 (2026-03-05)
 

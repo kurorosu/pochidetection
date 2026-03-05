@@ -222,17 +222,6 @@ class WorkspaceManager:
 
         return target_path
 
-    def get_training_state_path(self) -> Path:
-        """学習状態ファイルのパスを取得.
-
-        Returns:
-            学習状態ファイルのパス (training_state.json).
-
-        Raises:
-            RuntimeError: ワークスペースが作成されていない場合.
-        """
-        return self._ensure_workspace_created() / "training_state.json"
-
     def get_available_workspaces(self) -> list[dict[str, str | int | bool]]:
         """利用可能なワークスペースの一覧を取得.
 

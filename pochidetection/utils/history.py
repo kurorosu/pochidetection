@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 @dataclass
-class EpochMetrics:
+class _EpochMetrics:
     """1 epoch 分のメトリクス.
 
     Attributes:
@@ -36,7 +36,7 @@ class TrainingHistory:
         records: エポックごとのメトリクスリスト.
     """
 
-    records: list[EpochMetrics] = field(default_factory=list)
+    records: list[_EpochMetrics] = field(default_factory=list)
 
     def add(
         self,
@@ -59,7 +59,7 @@ class TrainingHistory:
             mAP_75: mAP at IoU=0.75.
             lr: 学習率.
         """
-        metrics = EpochMetrics(
+        metrics = _EpochMetrics(
             epoch=epoch,
             train_loss=train_loss,
             val_loss=val_loss,

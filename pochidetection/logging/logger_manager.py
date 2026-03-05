@@ -3,9 +3,10 @@
 Singletonパターンによるアプリケーション全体のログ管理.
 """
 
+from __future__ import annotations
+
 import logging
 from enum import Enum
-from typing import Optional
 
 try:
     import colorlog
@@ -36,10 +37,10 @@ class LoggerManager:
         _format_string: ログフォーマット文字列.
     """
 
-    _instance: Optional["LoggerManager"] = None
+    _instance: LoggerManager | None = None
     _loggers: dict[str, logging.Logger] = {}
 
-    def __new__(cls) -> "LoggerManager":
+    def __new__(cls) -> LoggerManager:
         """シングルトンパターンの実装."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -69,7 +70,7 @@ class LoggerManager:
         }
         self._initialized = True
 
-    def get_logger(self, name: str, level: Optional[LogLevel] = None) -> logging.Logger:
+    def get_logger(self, name: str, level: LogLevel | None = None) -> logging.Logger:
         """指定された名前のロガーを取得または作成.
 
         Args:
@@ -165,11 +166,3 @@ class LoggerManager:
         log_level = getattr(logging, self._default_level.value)
         for logger in self._loggers.values():
             logger.setLevel(log_level)
-
-    def get_available_loggers(self) -> list[str]:
-        """管理されているロガーの名前一覧を取得.
-
-        Returns:
-            ロガー名のリスト.
-        """
-        return list(self._loggers.keys())
