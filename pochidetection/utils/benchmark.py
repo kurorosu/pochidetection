@@ -89,7 +89,7 @@ def build_benchmark_result(
     model_path: str,
     detection_metrics: DetectionMetrics | None = None,
 ) -> BenchmarkResult:
-    """Phasedtimer の計測結果から BenchmarkResult を構築.
+    """計測結果から BenchmarkResult を構築.
 
     スループット計算規則:
       throughput = 1000.0 / avg_ms if avg_ms > 0.0 else 0.0
@@ -155,7 +155,7 @@ def write_benchmark_result(
     result: BenchmarkResult,
     filename: str = BENCHMARK_RESULT_FILENAME,
 ) -> Path:
-    """Benchmarkresult を JSON ファイルに書き出す.
+    """ベンチマーク結果を JSON ファイルに書き出す.
 
     Args:
         output_dir: 出力ディレクトリ.

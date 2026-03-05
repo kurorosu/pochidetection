@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Any
 
 import torch
 from torchmetrics.detection import MeanAveragePrecision
@@ -34,7 +35,7 @@ class MapEvaluator:
             annotation_path: COCO フォーマットのアノテーション JSON パス.
         """
         with open(annotation_path, encoding="utf-8") as f:
-            self._annotations: dict = json.load(f)
+            self._annotations: dict[str, Any] = json.load(f)
 
         self._image_id_by_filename: dict[str, int] = {}
         self._filenames_by_image_id: dict[int, list[str]] = {}
@@ -64,7 +65,7 @@ class MapEvaluator:
         categories = filter_categories(self._annotations.get("categories", []))
         self._category_id_to_idx: dict[int, int] = build_category_id_to_idx(categories)
 
-        self._gt_by_image_id: dict[int, list[dict]] = {}
+        self._gt_by_image_id: dict[int, list[dict[str, Any]]] = {}
         for ann in self._annotations["annotations"]:
             if ann["category_id"] not in self._category_id_to_idx:
                 continue

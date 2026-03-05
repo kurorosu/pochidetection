@@ -131,30 +131,54 @@ class TrainingHistory:
 
     @property
     def epochs(self) -> list[int]:
-        """エポック番号のリストを取得."""
+        """エポック番号のリストを取得.
+
+        Returns:
+            エポック番号のリスト.
+        """
         return [r.epoch for r in self.records]
 
     @property
     def train_losses(self) -> list[float]:
-        """学習損失のリストを取得."""
+        """学習損失のリストを取得.
+
+        Returns:
+            学習損失のリスト.
+        """
         return [r.train_loss for r in self.records]
 
     @property
     def val_losses(self) -> list[float]:
-        """検証損失のリストを取得."""
+        """検証損失のリストを取得.
+
+        Returns:
+            検証損失のリスト.
+        """
         return [r.val_loss for r in self.records]
 
     @property
     def mAPs(self) -> list[float]:
-        """Mean Average Precision のリストを取得."""
+        """Mean Average Precision のリストを取得.
+
+        Returns:
+            mAP のリスト.
+        """
         return [r.mAP for r in self.records]
 
     @property
     def mAP_50s(self) -> list[float]:
-        """mAP@50 のリストを取得."""
+        """mAP@50 のリストを取得.
+
+        Returns:
+            mAP@50 のリスト.
+        """
         return [r.mAP_50 for r in self.records]
 
     @property
     def mAP_75s(self) -> list[float]:
-        """mAP@75 のリストを取得."""
+        """mAP@75 のリストを取得.
+
+        Returns:
+            mAP@75 のリスト.
+        """
         return [r.mAP_75 for r in self.records]

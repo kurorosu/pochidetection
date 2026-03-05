@@ -14,6 +14,10 @@ class Visualizer:
         _mapper: ラベルマッパー.
     """
 
+    _LINE_WIDTH_DIVISOR = 300
+    _FONT_SIZE_DIVISOR = 40
+    _LUMINANCE_THRESHOLD = 128
+
     def __init__(
         self,
         color_palette: ColorPalette | None = None,
@@ -46,7 +50,7 @@ class Visualizer:
         g = int(hex_color[2:4], 16)
         b = int(hex_color[4:6], 16)
         luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-        return "black" if luminance > 128 else "white"
+        return "black" if luminance > Visualizer._LUMINANCE_THRESHOLD else "white"
 
     def draw(
         self,
@@ -69,8 +73,8 @@ class Visualizer:
 
         # 画像サイズに応じた線の太さとフォントサイズ
         base_size = max(width, height)
-        line_width = max(2, int(base_size / 300))
-        font_size = max(12, int(base_size / 40))
+        line_width = max(2, int(base_size / self._LINE_WIDTH_DIVISOR))
+        font_size = max(12, int(base_size / self._FONT_SIZE_DIVISOR))
 
         # フォント設定
         try:

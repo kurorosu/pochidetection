@@ -202,7 +202,8 @@ def infer(
         actual_device = "cuda"
         runtime_device = "cuda"
     elif _is_onnx_model(model_path):
-        assert isinstance(backend, OnnxBackend)
+        if not isinstance(backend, OnnxBackend):
+            raise TypeError(f"Expected OnnxBackend, got {type(backend).__name__}")
         actual_device = (
             "cuda" if "CUDAExecutionProvider" in backend.active_providers else "cpu"
         )
