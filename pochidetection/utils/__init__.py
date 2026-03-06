@@ -10,6 +10,12 @@ from pochidetection.utils.category_utils import (
     build_category_id_to_idx,
     filter_categories,
 )
+from pochidetection.utils.coco_utils import (
+    CocoGroundTruth,
+    extract_basename,
+    load_coco_ground_truth,
+    xywh_to_xyxy,
+)
 from pochidetection.utils.config_loader import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 from pochidetection.utils.device import is_fp16_available
@@ -21,8 +27,10 @@ from pochidetection.utils.work_dir import WorkspaceManager
 
 __all__ = [
     "BenchmarkResult",
+    "CocoGroundTruth",
     "ConfigLoader",
     "build_category_id_to_idx",
+    "extract_basename",
     "filter_categories",
     "DetectionMetrics",
     "InferenceTimer",
@@ -32,6 +40,8 @@ __all__ = [
     "WorkspaceManager",
     "build_benchmark_result",
     "build_scheduler",
+    "load_coco_ground_truth",
     "resolve_config_path",
     "write_benchmark_result",
+    "xywh_to_xyxy",
 ]

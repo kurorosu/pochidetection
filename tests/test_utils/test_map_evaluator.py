@@ -7,6 +7,7 @@ import pytest
 
 from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils.benchmark import DetectionMetrics
+from pochidetection.utils.coco_utils import extract_basename, xywh_to_xyxy
 from pochidetection.utils.map_evaluator import MapEvaluator
 
 
@@ -362,41 +363,41 @@ class TestMapEvaluatorBasenameCollision:
 
         # basename "img.jpg" は最初の image_id=1 のみ登録され, 2 番目は登録されない
         # (衝突時はスキップされる)
-        assert evaluator._image_id_by_filename["img.jpg"] == 1
+        assert evaluator._gt.image_id_by_filename["img.jpg"] == 1
         # フルパスは両方登録されている
-        assert evaluator._image_id_by_filename["train/img.jpg"] == 1
-        assert evaluator._image_id_by_filename["val/img.jpg"] == 2
+        assert evaluator._gt.image_id_by_filename["train/img.jpg"] == 1
+        assert evaluator._gt.image_id_by_filename["val/img.jpg"] == 2
 
 
 class TestExtractBasename:
-    """_extract_basename のテスト."""
+    """extract_basename のテスト."""
 
     def test_backslash_path(self) -> None:
         """バックスラッシュ付きパスからベースネームを抽出."""
-        assert MapEvaluator._extract_basename("JPEGImages\\img.jpg") == "img.jpg"
+        assert extract_basename("JPEGImages\\img.jpg") == "img.jpg"
 
     def test_slash_path(self) -> None:
         """スラッシュ付きパスからベースネームを抽出."""
-        assert MapEvaluator._extract_basename("JPEGImages/img.jpg") == "img.jpg"
+        assert extract_basename("JPEGImages/img.jpg") == "img.jpg"
 
     def test_plain_filename(self) -> None:
         """パス区切りなしのファイル名はそのまま返す."""
-        assert MapEvaluator._extract_basename("img.jpg") == "img.jpg"
+        assert extract_basename("img.jpg") == "img.jpg"
 
     def test_nested_path(self) -> None:
         """ネストされたパスからベースネームを抽出."""
-        assert MapEvaluator._extract_basename("a/b/c/img.jpg") == "img.jpg"
+        assert extract_basename("a/b/c/img.jpg") == "img.jpg"
 
 
 class TestXywhToXyxy:
-    """_xywh_to_xyxy の変換テスト."""
+    """xywh_to_xyxy の変換テスト."""
 
     def test_conversion(self) -> None:
         """[x, y, w, h] -> [x1, y1, x2, y2] の変換を確認."""
-        result = MapEvaluator._xywh_to_xyxy([10.0, 20.0, 50.0, 60.0])
+        result = xywh_to_xyxy([10.0, 20.0, 50.0, 60.0])
         assert result == [10.0, 20.0, 60.0, 80.0]
 
     def test_zero_size(self) -> None:
         """サイズ 0 のボックスの変換を確認."""
-        result = MapEvaluator._xywh_to_xyxy([5.0, 5.0, 0.0, 0.0])
+        result = xywh_to_xyxy([5.0, 5.0, 0.0, 0.0])
         assert result == [5.0, 5.0, 5.0, 5.0]

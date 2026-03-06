@@ -1,31 +1,24 @@
 """COCO アノテーションと推論結果から mAP を計算する評価器."""
 
-import json
-from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Any
+from pathlib import Path
 
 import torch
 from torchmetrics.detection import MeanAveragePrecision
 
-from pochidetection.logging import LoggerManager
 from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils.benchmark import DetectionMetrics
-from pochidetection.utils.category_utils import (
-    build_category_id_to_idx,
-    filter_categories,
+from pochidetection.utils.coco_utils import (
+    CocoGroundTruth,
+    load_coco_ground_truth,
+    xywh_to_xyxy,
 )
-
-logger = LoggerManager().get_logger(__name__)
 
 
 class MapEvaluator:
     """COCO アノテーションと推論結果から mAP を計算する.
 
     Attributes:
-        _annotations: COCO アノテーション辞書.
-        _image_id_by_filename: ファイル名から image_id へのマッピング.
-        _filenames_by_image_id: image_id からファイル名リストへの逆引きマッピング.
-        _gt_by_image_id: image_id ごとのアノテーションリスト.
+        _gt: COCO GT データ.
     """
 
     def __init__(self, annotation_path: Path) -> None:
@@ -34,45 +27,7 @@ class MapEvaluator:
         Args:
             annotation_path: COCO フォーマットのアノテーション JSON パス.
         """
-        with open(annotation_path, encoding="utf-8") as f:
-            self._annotations: dict[str, Any] = json.load(f)
-
-        self._image_id_by_filename: dict[str, int] = {}
-        self._filenames_by_image_id: dict[int, list[str]] = {}
-        for img in self._annotations["images"]:
-            file_name = img["file_name"]
-            image_id = img["id"]
-            self._image_id_by_filename[file_name] = image_id
-            filenames_for_id = [file_name]
-            # 学習時は image_id でアノテーションを引くためファイル名マッチが不要だが,
-            # 推論時はファイルシステムから画像を列挙するためベースネームでの
-            # マッチングが必要. アノテーションの file_name がサブディレクトリ付き
-            # (例: "JPEGImages/img.jpg") の場合にも対応する.
-            basename = self._extract_basename(file_name)
-            if basename != file_name:
-                if basename in self._image_id_by_filename:
-                    logger.warning(
-                        f"basename '{basename}' が重複しています "
-                        f"('{file_name}' と既存エントリ). "
-                        f"フルパスでのマッチングのみ使用します."
-                    )
-                else:
-                    self._image_id_by_filename[basename] = image_id
-                    filenames_for_id.append(basename)
-            self._filenames_by_image_id[image_id] = filenames_for_id
-
-        # CocoDetectionDataset と同じリマップ: 背景除外 → カテゴリID昇順ソート → 連続インデックス
-        categories = filter_categories(self._annotations.get("categories", []))
-        self._category_id_to_idx: dict[int, int] = build_category_id_to_idx(categories)
-
-        self._gt_by_image_id: dict[int, list[dict[str, Any]]] = {}
-        for ann in self._annotations["annotations"]:
-            if ann["category_id"] not in self._category_id_to_idx:
-                continue
-            image_id = ann["image_id"]
-            if image_id not in self._gt_by_image_id:
-                self._gt_by_image_id[image_id] = []
-            self._gt_by_image_id[image_id].append(ann)
+        self._gt: CocoGroundTruth = load_coco_ground_truth(annotation_path)
 
     def evaluate(self, predictions: dict[str, list[Detection]]) -> DetectionMetrics:
         """推論結果と GT から mAP を計算する.
@@ -106,7 +61,7 @@ class MapEvaluator:
 
         # GT の全画像を走査し, predictions にない画像は空の予測として扱う.
         # これにより, 推論対象外の GT が False Negative として正しくカウントされる.
-        for image_id, filenames in self._filenames_by_image_id.items():
+        for image_id, filenames in self._gt.filenames_by_image_id.items():
             # predictions からファイル名で検出結果を検索
             detections: list[Detection] = []
             for fn in filenames:
@@ -129,14 +84,17 @@ class MapEvaluator:
             preds_list.append({"boxes": boxes, "scores": scores, "labels": labels})
 
             # GT
-            gt_anns = self._gt_by_image_id.get(image_id, [])
+            gt_anns = self._gt.gt_by_image_id.get(image_id, [])
             if gt_anns:
                 gt_boxes = torch.tensor(
-                    [self._xywh_to_xyxy(ann["bbox"]) for ann in gt_anns],
+                    [xywh_to_xyxy(ann["bbox"]) for ann in gt_anns],
                     dtype=torch.float32,
                 )
                 gt_labels = torch.tensor(
-                    [self._category_id_to_idx[ann["category_id"]] for ann in gt_anns],
+                    [
+                        self._gt.category_id_to_idx[ann["category_id"]]
+                        for ann in gt_anns
+                    ],
                     dtype=torch.int64,
                 )
             else:
@@ -152,34 +110,3 @@ class MapEvaluator:
             map_50=result["map_50"].item(),
             map_50_95=result["map"].item(),
         )
-
-    @staticmethod
-    def _extract_basename(file_name: str) -> str:
-        r"""パス区切り文字を考慮してベースネームを抽出する.
-
-        COCO アノテーションの file_name は OS に依存して "/" や "\\" を含む場合がある.
-        両方の区切り文字を考慮してベースネームを返す.
-
-        Args:
-            file_name: アノテーション内の file_name 文字列.
-
-        Returns:
-            ベースネーム (ファイル名のみ).
-        """
-        # バックスラッシュを含む場合は Windows パスとして解釈
-        if "\\" in file_name:
-            return PureWindowsPath(file_name).name
-        return PurePosixPath(file_name).name
-
-    @staticmethod
-    def _xywh_to_xyxy(bbox: list[float]) -> list[float]:
-        """COCO の [x, y, w, h] を [x1, y1, x2, y2] に変換する.
-
-        Args:
-            bbox: COCO フォーマットの [x, y, w, h].
-
-        Returns:
-            [x1, y1, x2, y2] フォーマット.
-        """
-        x, y, w, h = bbox
-        return [x, y, x + w, y + h]
