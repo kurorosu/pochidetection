@@ -98,8 +98,8 @@ class TestInferenceTimer:
         with timer.measure():
             pass
 
-        # フォールバック時でも計測が完了している
-        assert timer.last_time_ms >= 0.0
+        # フォールバック時でも計測が完了している, 上限 500ms
+        assert 0.0 <= timer.last_time_ms < 500.0
 
     def test_reset_clears_accumulated_data(self) -> None:
         """reset() で累積データがクリアされることを確認."""
