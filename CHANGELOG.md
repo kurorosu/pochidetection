@@ -19,6 +19,7 @@
   - `timer` テストに上限チェック (`< 500.0` ms) を追加
   - `coco_annotation` / `sample_predictions` fixture をルート conftest に共通化
   - `test_scheduler.py` の `scheduler.step()` 前に `optimizer.step()` を追加し, PyTorch UserWarning を解消
+- `test_timer` の CUDA フォールバックテストに上限チェック (`< 500.0` ms) を追加し, 片側アサーションを解消. (N/A.)
 - デッドコード・未使用コードの削除. ([#142](https://github.com/kurorosu/pochidetection/pull/142).)
   - `LoggerManager` の `typing.Optional` を `X | None` 記法に統一
   - `EpochMetrics` を内部専用クラス `_EpochMetrics` にリネーム
