@@ -6,10 +6,10 @@ from pathlib import Path
 import plotly.graph_objects as go
 
 
-class IPlotter(ABC):
-    """プロッターのインターフェース.
+class ITrainingCurvePlotter(ABC):
+    """学習曲線プロッターのインターフェース.
 
-    学習曲線などのグラフを描画するクラスはこのインターフェースを実装する.
+    エポックごとの損失やメトリクスなど, 学習曲線を描画するクラスはこのインターフェースを実装する.
     """
 
     @property
@@ -63,3 +63,19 @@ class IPlotter(ABC):
         )
 
         fig.write_html(output_path)
+
+
+class IReportPlotter(ABC):
+    """レポートプロッターのインターフェース.
+
+    HTML レポートを出力するクラスはこのインターフェースを実装する.
+    """
+
+    @abstractmethod
+    def plot(self, output_path: Path) -> None:
+        """レポートを HTML ファイルに出力.
+
+        Args:
+            output_path: 出力先パス.
+        """
+        pass

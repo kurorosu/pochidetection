@@ -5,7 +5,7 @@ from pathlib import Path
 import plotly.graph_objects as go
 from plotly.io import to_html
 
-from pochidetection.interfaces import IPlotter
+from pochidetection.interfaces import ITrainingCurvePlotter
 from pochidetection.visualization.plotters.constants import LEGEND_CONFIG
 
 
@@ -16,7 +16,7 @@ class TrainingReportPlotter:
         _plotters: プロッターのリスト.
     """
 
-    def __init__(self, *plotters: IPlotter) -> None:
+    def __init__(self, *plotters: ITrainingCurvePlotter) -> None:
         """初期化.
 
         Args:
