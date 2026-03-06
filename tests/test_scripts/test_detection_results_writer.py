@@ -1,7 +1,6 @@
 """detection_results_writer のテスト."""
 
 import csv
-import json
 from pathlib import Path
 
 import pytest
@@ -20,66 +19,6 @@ from pochidetection.visualization import LabelMapper
 def label_mapper() -> LabelMapper:
     """テスト用ラベルマッパー."""
     return LabelMapper(class_names=["cat", "dog"])
-
-
-@pytest.fixture()
-def sample_predictions() -> dict[str, list[Detection]]:
-    """テスト用推論結果."""
-    return {
-        "img001.jpg": [
-            Detection(box=[10.0, 20.0, 100.0, 200.0], score=0.95, label=0),
-            Detection(box=[50.0, 60.0, 150.0, 250.0], score=0.80, label=1),
-        ],
-        "img002.jpg": [
-            Detection(box=[5.0, 10.0, 80.0, 120.0], score=0.70, label=0),
-        ],
-        "img003.jpg": [],
-    }
-
-
-@pytest.fixture()
-def coco_annotation(tmp_path: Path) -> Path:
-    """テスト用 COCO アノテーション."""
-    ann = {
-        "images": [
-            {"id": 1, "file_name": "img001.jpg", "width": 640, "height": 480},
-            {"id": 2, "file_name": "img002.jpg", "width": 640, "height": 480},
-            {"id": 3, "file_name": "img003.jpg", "width": 640, "height": 480},
-        ],
-        "categories": [
-            {"id": 1, "name": "cat"},
-            {"id": 2, "name": "dog"},
-        ],
-        "annotations": [
-            {
-                "id": 1,
-                "image_id": 1,
-                "category_id": 1,
-                "bbox": [8.0, 18.0, 95.0, 185.0],
-            },
-            {
-                "id": 2,
-                "image_id": 1,
-                "category_id": 2,
-                "bbox": [48.0, 58.0, 105.0, 195.0],
-            },
-            {
-                "id": 3,
-                "image_id": 2,
-                "category_id": 1,
-                "bbox": [3.0, 8.0, 78.0, 115.0],
-            },
-            {
-                "id": 4,
-                "image_id": 3,
-                "category_id": 1,
-                "bbox": [20.0, 30.0, 60.0, 80.0],
-            },
-        ],
-    }
-    ann_path = tmp_path / "annotations.json"
-    ann_path.write_text(json.dumps(ann), encoding="utf-8")
-    return ann_path
 
 
 class TestBuildDetectionResultsWithoutAnnotation:
@@ -153,11 +92,9 @@ class TestBuildDetectionResultsWithAnnotation:
         rows = build_detection_results(
             sample_predictions, label_mapper, annotation_path=coco_annotation
         )
-        img001_det_rows = [
-            r for r in rows if r.image_name == "img001.jpg" and r.status in ("TP", "FP")
-        ]
-        tp_rows = [r for r in img001_det_rows if r.status == "TP"]
-        assert len(tp_rows) >= 1
+        tp_rows = [r for r in rows if r.status == "TP"]
+        # img001: cat TP, dog TP / img002: cat TP → 3 TP
+        assert len(tp_rows) == 3
 
     def test_fn_rows_for_undetected_gt(
         self,
@@ -189,7 +126,8 @@ class TestBuildDetectionResultsWithAnnotation:
         tp_rows = [r for r in rows if r.status == "TP"]
         for row in tp_rows:
             assert isinstance(row.iou, float)
-            assert 0.0 <= row.iou <= 1.0
+            # 完全一致のボックスなので IoU は 1.0
+            assert row.iou == pytest.approx(1.0, abs=1e-3)
 
     def test_total_rows_includes_fn(
         self,
@@ -201,11 +139,11 @@ class TestBuildDetectionResultsWithAnnotation:
         rows = build_detection_results(
             sample_predictions, label_mapper, annotation_path=coco_annotation
         )
-        # 検出: 3 (img001: 2, img002: 1) + FN 行
+        # 検出: 3 (img001: 2, img002: 1) + FN: 1 (img003)
         det_rows = [r for r in rows if r.status != "FN"]
         fn_rows = [r for r in rows if r.status == "FN"]
         assert len(det_rows) == 3
-        assert len(fn_rows) >= 1
+        assert len(fn_rows) == 1
 
 
 class TestWriteDetectionResultsCsv:

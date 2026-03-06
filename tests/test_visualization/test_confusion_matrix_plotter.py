@@ -16,66 +16,6 @@ def class_names() -> list[str]:
     return ["cat", "dog"]
 
 
-@pytest.fixture()
-def coco_annotation(tmp_path: Path) -> Path:
-    """テスト用 COCO アノテーション."""
-    ann = {
-        "images": [
-            {"id": 1, "file_name": "img001.jpg", "width": 640, "height": 480},
-            {"id": 2, "file_name": "img002.jpg", "width": 640, "height": 480},
-            {"id": 3, "file_name": "img003.jpg", "width": 640, "height": 480},
-        ],
-        "categories": [
-            {"id": 1, "name": "cat"},
-            {"id": 2, "name": "dog"},
-        ],
-        "annotations": [
-            {
-                "id": 1,
-                "image_id": 1,
-                "category_id": 1,
-                "bbox": [10.0, 20.0, 90.0, 180.0],
-            },
-            {
-                "id": 2,
-                "image_id": 1,
-                "category_id": 2,
-                "bbox": [50.0, 60.0, 100.0, 190.0],
-            },
-            {
-                "id": 3,
-                "image_id": 2,
-                "category_id": 1,
-                "bbox": [5.0, 10.0, 75.0, 110.0],
-            },
-            {
-                "id": 4,
-                "image_id": 3,
-                "category_id": 1,
-                "bbox": [20.0, 30.0, 60.0, 80.0],
-            },
-        ],
-    }
-    ann_path = tmp_path / "annotations.json"
-    ann_path.write_text(json.dumps(ann), encoding="utf-8")
-    return ann_path
-
-
-@pytest.fixture()
-def sample_predictions() -> dict[str, list[Detection]]:
-    """テスト用推論結果."""
-    return {
-        "img001.jpg": [
-            Detection(box=[10.0, 20.0, 100.0, 200.0], score=0.95, label=0),
-            Detection(box=[50.0, 60.0, 150.0, 250.0], score=0.80, label=1),
-        ],
-        "img002.jpg": [
-            Detection(box=[5.0, 10.0, 80.0, 120.0], score=0.70, label=0),
-        ],
-        "img003.jpg": [],
-    }
-
-
 class TestBuildConfusionMatrix:
     """build_confusion_matrix のテスト."""
 
@@ -113,9 +53,9 @@ class TestBuildConfusionMatrix:
         matrix = build_confusion_matrix(
             sample_predictions, coco_annotation, class_names
         )
-        # cat(0) と dog(1) の対角にマッチがあるはず
-        diagonal_sum = matrix[0, 0] + matrix[1, 1]
-        assert diagonal_sum >= 2
+        # img001: cat TP, dog TP / img002: cat TP → cat=2, dog=1
+        assert matrix[0, 0] == 2
+        assert matrix[1, 1] == 1
 
     def test_fn_in_background_column(
         self,
@@ -127,9 +67,9 @@ class TestBuildConfusionMatrix:
         matrix = build_confusion_matrix(
             sample_predictions, coco_annotation, class_names
         )
-        # img003 は検出なし, GT に cat 1 つ -> matrix[0, 2] (cat → Background)
-        bg_col = matrix[:, 2]
-        assert bg_col.sum() >= 1
+        # img003 は検出なし, GT に cat 1 つ -> matrix[0, 2] (cat → Background) = 1
+        assert matrix[0, 2] == 1
+        assert matrix[1, 2] == 0
 
     def test_fp_in_background_row(
         self,
@@ -146,8 +86,11 @@ class TestBuildConfusionMatrix:
             ],
         }
         matrix = build_confusion_matrix(predictions, coco_annotation, class_names)
+        # img001: 2 TP + 1 FP(cat) / img002,img003: 各 GT が FN
         bg_row = matrix[2, :]
-        assert bg_row.sum() >= 1
+        assert bg_row[0] == 1  # FP cat
+        assert bg_row[1] == 0
+        assert bg_row[2] == 0
 
     def test_no_detections_all_fn(
         self,
@@ -161,9 +104,9 @@ class TestBuildConfusionMatrix:
             "img003.jpg": [],
         }
         matrix = build_confusion_matrix(predictions, coco_annotation, class_names)
-        # 4 つの GT が全て FN
-        bg_col_sum = matrix[:2, 2].sum()
-        assert bg_col_sum == 4
+        # 4 つの GT が全て FN: cat 3つ, dog 1つ
+        assert matrix[0, 2] == 3  # cat → Background
+        assert matrix[1, 2] == 1  # dog → Background
 
     def test_total_count_matches(
         self,
@@ -176,8 +119,8 @@ class TestBuildConfusionMatrix:
             sample_predictions, coco_annotation, class_names
         )
         total = matrix.sum().item()
-        # 検出 3 (img001: 2, img002: 1) + FN (img003 の未検出 GT)
-        assert total >= 3
+        # 検出 3 (TP: cat=2, dog=1) + FN 1 (img003 の cat) = 4
+        assert total == 4
 
     def test_single_class(self, tmp_path: Path) -> None:
         """1 クラスの場合, 2x2 行列になる."""
