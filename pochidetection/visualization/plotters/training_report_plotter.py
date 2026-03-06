@@ -5,11 +5,11 @@ from pathlib import Path
 import plotly.graph_objects as go
 from plotly.io import to_html
 
-from pochidetection.interfaces import ITrainingCurvePlotter
+from pochidetection.interfaces import IReportPlotter, ITrainingCurvePlotter
 from pochidetection.visualization.plotters.constants import LEGEND_CONFIG
 
 
-class TrainingReportPlotter:
+class TrainingReportPlotter(IReportPlotter):
     """複数のプロッターを横並びで描画.
 
     Attributes:

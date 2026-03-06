@@ -6,10 +6,11 @@ import plotly.graph_objects as go
 import torch
 from plotly.io import to_html
 
+from pochidetection.interfaces import IReportPlotter
 from pochidetection.visualization.plotters.constants import LEGEND_CONFIG
 
 
-class PRCurvePlotter:
+class PRCurvePlotter(IReportPlotter):
     """PR曲線をplotlyで描画.
 
     torchmetrics.MeanAveragePrecision(extended_summary=True) の結果から
