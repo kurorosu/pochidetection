@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 @dataclass
-class EpochMetrics:
+class _EpochMetrics:
     """1 epoch 分のメトリクス.
 
     Attributes:
@@ -36,7 +36,7 @@ class TrainingHistory:
         records: エポックごとのメトリクスリスト.
     """
 
-    records: list[EpochMetrics] = field(default_factory=list)
+    records: list[_EpochMetrics] = field(default_factory=list)
 
     def add(
         self,
@@ -59,7 +59,7 @@ class TrainingHistory:
             mAP_75: mAP at IoU=0.75.
             lr: 学習率.
         """
-        metrics = EpochMetrics(
+        metrics = _EpochMetrics(
             epoch=epoch,
             train_loss=train_loss,
             val_loss=val_loss,
@@ -131,30 +131,54 @@ class TrainingHistory:
 
     @property
     def epochs(self) -> list[int]:
-        """エポック番号のリストを取得."""
+        """エポック番号のリストを取得.
+
+        Returns:
+            エポック番号のリスト.
+        """
         return [r.epoch for r in self.records]
 
     @property
     def train_losses(self) -> list[float]:
-        """学習損失のリストを取得."""
+        """学習損失のリストを取得.
+
+        Returns:
+            学習損失のリスト.
+        """
         return [r.train_loss for r in self.records]
 
     @property
     def val_losses(self) -> list[float]:
-        """検証損失のリストを取得."""
+        """検証損失のリストを取得.
+
+        Returns:
+            検証損失のリスト.
+        """
         return [r.val_loss for r in self.records]
 
     @property
     def mAPs(self) -> list[float]:
-        """Mean Average Precision のリストを取得."""
+        """Mean Average Precision のリストを取得.
+
+        Returns:
+            mAP のリスト.
+        """
         return [r.mAP for r in self.records]
 
     @property
     def mAP_50s(self) -> list[float]:
-        """mAP@50 のリストを取得."""
+        """mAP@50 のリストを取得.
+
+        Returns:
+            mAP@50 のリスト.
+        """
         return [r.mAP_50 for r in self.records]
 
     @property
     def mAP_75s(self) -> list[float]:
-        """mAP@75 のリストを取得."""
+        """mAP@75 のリストを取得.
+
+        Returns:
+            mAP@75 のリスト.
+        """
         return [r.mAP_75 for r in self.records]

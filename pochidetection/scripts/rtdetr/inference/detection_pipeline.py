@@ -6,8 +6,8 @@ import torch
 import torchvision
 from PIL import Image
 
+from pochidetection.core.detection import Detection, OutputWrapper
 from pochidetection.interfaces.backend import IInferenceBackend
-from pochidetection.scripts.rtdetr.inference.detection import Detection, OutputWrapper
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 

@@ -6,8 +6,8 @@ import pytest
 import torch
 from PIL import Image
 
+from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
-from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.scripts.rtdetr.inference.detection_pipeline import (
     DetectionPipeline,
 )

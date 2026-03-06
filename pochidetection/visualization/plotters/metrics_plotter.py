@@ -2,11 +2,11 @@
 
 import plotly.graph_objects as go
 
-from pochidetection.interfaces import IPlotter
+from pochidetection.interfaces import ITrainingCurvePlotter
 from pochidetection.utils import TrainingHistory
 
 
-class MetricsPlotter(IPlotter):
+class MetricsPlotter(ITrainingCurvePlotter):
     """mAP曲線をplotlyで描画.
 
     Attributes:

@@ -2,7 +2,7 @@
 
 from PIL import Image, ImageDraw, ImageFont
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.core.detection import Detection
 from pochidetection.visualization import ColorPalette, LabelMapper
 
 
@@ -13,6 +13,10 @@ class Visualizer:
         _palette: カラーパレット.
         _mapper: ラベルマッパー.
     """
+
+    _LINE_WIDTH_DIVISOR = 300
+    _FONT_SIZE_DIVISOR = 40
+    _LUMINANCE_THRESHOLD = 128
 
     def __init__(
         self,
@@ -27,6 +31,26 @@ class Visualizer:
         """
         self._palette = color_palette if color_palette is not None else ColorPalette()
         self._mapper = label_mapper if label_mapper is not None else LabelMapper()
+
+    @staticmethod
+    def _get_text_color(background_hex: str) -> str:
+        """背景色の輝度に基づいてテキスト色を決定.
+
+        W3C 相対輝度の公式で背景の明るさを計算し,
+        明るい背景には黒, 暗い背景には白を返す.
+
+        Args:
+            background_hex: HEX形式の背景色 (例: "#FFFF00").
+
+        Returns:
+            テキスト色 ("black" or "white").
+        """
+        hex_color = background_hex.lstrip("#")
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return "black" if luminance > Visualizer._LUMINANCE_THRESHOLD else "white"
 
     def draw(
         self,
@@ -49,8 +73,8 @@ class Visualizer:
 
         # 画像サイズに応じた線の太さとフォントサイズ
         base_size = max(width, height)
-        line_width = max(2, int(base_size / 300))
-        font_size = max(12, int(base_size / 40))
+        line_width = max(2, int(base_size / self._LINE_WIDTH_DIVISOR))
+        font_size = max(12, int(base_size / self._FONT_SIZE_DIVISOR))
 
         # フォント設定
         try:
@@ -83,9 +107,10 @@ class Visualizer:
             bg_y2 = y1 + text_height + padding * 2
             draw.rectangle([bg_x1, bg_y1, bg_x2, bg_y2], fill=color)
 
-            # テキスト描画 (白文字) - 背景の中央に配置
+            # テキスト描画 - 背景の中央に配置
+            text_color = self._get_text_color(color)
             text_x = bg_x1 + padding - text_left
             text_y = bg_y1 + padding - text_top
-            draw.text((text_x, text_y), text, fill="white", font=font)
+            draw.text((text_x, text_y), text, fill=text_color, font=font)
 
         return result
