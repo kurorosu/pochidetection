@@ -1,6 +1,5 @@
 """混同行列の構築と Plotly ヒートマップによる可視化."""
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -10,11 +9,7 @@ from plotly.io import to_html
 from torchvision.ops import box_iou
 
 from pochidetection.scripts.rtdetr.inference.detection import Detection
-from pochidetection.utils.category_utils import (
-    build_category_id_to_idx,
-    filter_categories,
-)
-from pochidetection.utils.map_evaluator import MapEvaluator
+from pochidetection.utils.coco_utils import load_coco_ground_truth, xywh_to_xyxy
 
 BACKGROUND_LABEL = "Background"
 
@@ -44,46 +39,27 @@ def build_confusion_matrix(
     matrix = torch.zeros(num_classes + 1, num_classes + 1, dtype=torch.int64)
     bg_idx = num_classes  # Background のインデックス
 
-    with open(annotation_path, encoding="utf-8") as f:
-        coco: dict[str, Any] = json.load(f)
-
-    # ファイル名 → image_id マッピング
-    image_id_by_filename: dict[str, int] = {}
-    for img in coco["images"]:
-        image_id = img["id"]
-        file_name = img["file_name"]
-        image_id_by_filename[file_name] = image_id
-        basename = MapEvaluator._extract_basename(file_name)
-        if basename != file_name:
-            image_id_by_filename[basename] = image_id
-
-    categories = filter_categories(coco.get("categories", []))
-    category_id_to_idx = build_category_id_to_idx(categories)
-
-    # image_id ごとの GT アノテーション
-    gt_by_image_id: dict[int, list[dict[str, Any]]] = {}
-    for ann in coco["annotations"]:
-        if ann["category_id"] not in category_id_to_idx:
-            continue
-        gt_by_image_id.setdefault(ann["image_id"], []).append(ann)
+    gt = load_coco_ground_truth(annotation_path)
 
     # 全画像を走査
     processed_image_ids: set[int] = set()
     for image_name, detections in predictions.items():
-        image_id = image_id_by_filename.get(image_name)
+        image_id = gt.image_id_by_filename.get(image_name)
         if image_id is not None:
             processed_image_ids.add(image_id)
-        gt_anns = gt_by_image_id.get(image_id, []) if image_id is not None else []
+        gt_anns = gt.gt_by_image_id.get(image_id, []) if image_id is not None else []
 
         _update_matrix(
-            matrix, detections, gt_anns, category_id_to_idx, iou_threshold, bg_idx
+            matrix, detections, gt_anns, gt.category_id_to_idx, iou_threshold, bg_idx
         )
 
     # predictions に含まれない GT 画像の FN を処理
-    for image_id, gt_anns in gt_by_image_id.items():
+    for image_id, gt_anns in gt.gt_by_image_id.items():
         if image_id in processed_image_ids:
             continue
-        _update_matrix(matrix, [], gt_anns, category_id_to_idx, iou_threshold, bg_idx)
+        _update_matrix(
+            matrix, [], gt_anns, gt.category_id_to_idx, iou_threshold, bg_idx
+        )
 
     return matrix
 
@@ -128,7 +104,7 @@ def _update_matrix(
 
     pred_boxes = torch.tensor([d.box for d in detections], dtype=torch.float32)
     gt_boxes = torch.tensor(
-        [MapEvaluator._xywh_to_xyxy(ann["bbox"]) for ann in gt_anns],
+        [xywh_to_xyxy(ann["bbox"]) for ann in gt_anns],
         dtype=torch.float32,
     )
 

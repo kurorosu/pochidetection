@@ -1,7 +1,6 @@
 """推論結果を CSV ファイルとして出力するモジュール."""
 
 import csv
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -10,11 +9,7 @@ import torch
 from torchvision.ops import box_iou
 
 from pochidetection.scripts.rtdetr.inference.detection import Detection
-from pochidetection.utils.category_utils import (
-    build_category_id_to_idx,
-    filter_categories,
-)
-from pochidetection.utils.map_evaluator import MapEvaluator
+from pochidetection.utils.coco_utils import load_coco_ground_truth, xywh_to_xyxy
 from pochidetection.visualization import LabelMapper
 
 CSV_COLUMNS = [
@@ -81,48 +76,6 @@ class DetectionResultRow:
         }
 
 
-def _load_ground_truth(
-    annotation_path: Path,
-) -> tuple[dict[str, list[dict[str, Any]]], dict[int, int], list[dict[str, Any]]]:
-    """COCO アノテーションから GT を読み込む.
-
-    Args:
-        annotation_path: COCO JSON パス.
-
-    Returns:
-        (gt_by_filename, category_id_to_idx, categories) のタプル.
-        gt_by_filename: ファイル名をキーとした GT アノテーションリスト.
-        category_id_to_idx: カテゴリID から連続インデックスへのマッピング.
-        categories: フィルタ済みカテゴリリスト.
-    """
-    with open(annotation_path, encoding="utf-8") as f:
-        coco: dict[str, Any] = json.load(f)
-
-    image_id_to_filename: dict[int, str] = {}
-    for img in coco["images"]:
-        image_id = img["id"]
-        file_name = img["file_name"]
-        image_id_to_filename[image_id] = file_name
-        basename = MapEvaluator._extract_basename(file_name)
-        if basename != file_name and basename not in image_id_to_filename.values():
-            image_id_to_filename[image_id] = basename
-
-    categories = filter_categories(coco.get("categories", []))
-    category_id_to_idx = build_category_id_to_idx(categories)
-
-    gt_by_filename: dict[str, list[dict[str, Any]]] = {}
-    for ann in coco["annotations"]:
-        if ann["category_id"] not in category_id_to_idx:
-            continue
-        image_id = ann["image_id"]
-        filename = image_id_to_filename.get(image_id, "")
-        if not filename:
-            continue
-        gt_by_filename.setdefault(filename, []).append(ann)
-
-    return gt_by_filename, category_id_to_idx, categories
-
-
 def _match_detections(
     detections: list[Detection],
     gt_annotations: list[dict[str, Any]],
@@ -152,7 +105,7 @@ def _match_detections(
 
     pred_boxes = torch.tensor([d.box for d in detections], dtype=torch.float32)
     gt_boxes = torch.tensor(
-        [MapEvaluator._xywh_to_xyxy(ann["bbox"]) for ann in gt_annotations],
+        [xywh_to_xyxy(ann["bbox"]) for ann in gt_annotations],
         dtype=torch.float32,
     )
 
@@ -223,12 +176,12 @@ def build_detection_results(
     has_gt = False
 
     if annotation_path is not None and annotation_path.exists():
-        gt_by_filename, category_id_to_idx, categories = _load_ground_truth(
-            annotation_path
-        )
+        gt = load_coco_ground_truth(annotation_path)
+        gt_by_filename = gt.gt_by_filename()
+        category_id_to_idx = gt.category_id_to_idx
         idx_to_category_name = {
             idx: cat["name"]
-            for cat in categories
+            for cat in gt.categories
             for cid, idx in category_id_to_idx.items()
             if cid == cat["id"]
         }
@@ -293,7 +246,7 @@ def build_detection_results(
                 if gt_label_idx is None:
                     continue
                 gt_class = idx_to_category_name.get(gt_label_idx, str(gt_label_idx))
-                gt_box = MapEvaluator._xywh_to_xyxy(ann["bbox"])
+                gt_box = xywh_to_xyxy(ann["bbox"])
                 rows.append(
                     DetectionResultRow(
                         image_name=image_name,

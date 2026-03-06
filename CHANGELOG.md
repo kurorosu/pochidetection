@@ -20,6 +20,10 @@
   - `visualizer.py` のマジックナンバーをクラス定数に抽出
   - `benchmark.py` の docstring タイポを修正
   - `history.py` の property docstring に `Returns:` セクションを追加
+- COCO GT ローダー共通化と重複コード解消. (N/A.)
+  - `extract_basename`, `xywh_to_xyxy` を `coco_utils.py` の public 関数に移動
+  - `load_coco_ground_truth` で JSON 読み込み・マッピング構築・GT グルーピングを共通化
+  - `MapEvaluator`, `confusion_matrix_plotter`, `detection_results_writer` から重複ロジックを除去
 
 ### Fixed
 - `Visualizer` のラベルテキストが常に白で描画され, 黄色等の明るい背景色で視認性が低下する問題を修正. W3C 相対輝度に基づいて黒/白を自動切替するよう変更. ([#133](https://github.com/kurorosu/pochidetection/pull/133).)
