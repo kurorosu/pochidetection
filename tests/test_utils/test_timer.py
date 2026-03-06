@@ -17,8 +17,8 @@ class TestInferenceTimer:
         with timer.measure():
             time.sleep(0.01)  # 10ms
 
-        # 10ms 以上であることを確認 (誤差を考慮)
-        assert timer.last_time_ms >= 5.0
+        # 10ms 以上であることを確認 (誤差を考慮), 上限 500ms
+        assert 5.0 <= timer.last_time_ms < 500.0
 
     def test_count_increments(self) -> None:
         """計測回数がインクリメントされることを確認 (skip_first=False)."""
@@ -58,8 +58,8 @@ class TestInferenceTimer:
         with timer.measure():
             time.sleep(0.01)
 
-        # 2回分の合計が 10ms 以上
-        assert timer.total_time_ms >= 10.0
+        # 2回分の合計が 10ms 以上, 上限 1000ms
+        assert 10.0 <= timer.total_time_ms < 1000.0
 
     def test_average_time_calculated(self) -> None:
         """平均時間が正しく計算されることを確認."""
@@ -88,7 +88,7 @@ class TestInferenceTimer:
             time.sleep(0.01)
 
         assert timer.count == 1
-        assert timer.last_time_ms >= 5.0
+        assert 5.0 <= timer.last_time_ms < 500.0
 
     def test_cpu_fallback_when_cuda_unavailable(self) -> None:
         """CUDA が利用不可の場合, CPU にフォールバックすることを確認."""
@@ -128,7 +128,7 @@ class TestInferenceTimer:
             time.sleep(0.01)
 
         assert timer.count == 1
-        assert timer.last_time_ms >= 5.0
+        assert 5.0 <= timer.last_time_ms < 500.0
 
     def test_context_manager_stops_on_exception(self) -> None:
         """Context Manager が例外時にも stop() を呼ぶことを確認."""

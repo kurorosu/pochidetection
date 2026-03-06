@@ -84,6 +84,7 @@ class TestBuildScheduler:
 
         initial_lr = optimizer.param_groups[0]["lr"]
         for _ in range(5):
+            optimizer.step()
             scheduler.step()
         mid_lr = optimizer.param_groups[0]["lr"]
 
