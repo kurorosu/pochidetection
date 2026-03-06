@@ -3,7 +3,7 @@
 import pytest
 from PIL import Image
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.core.detection import Detection
 from pochidetection.scripts.rtdetr.inference.visualizer import Visualizer
 from pochidetection.visualization import ColorPalette
 

@@ -18,6 +18,7 @@ try:
     _TRT_AVAILABLE = True
 except ImportError:
     _TRT_AVAILABLE = False
+from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
@@ -31,7 +32,6 @@ from pochidetection.scripts.rtdetr.inference import (
     write_detection_results_csv,
     write_detection_summary,
 )
-from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.utils import (
     BenchmarkResult,
     DetectionMetrics,

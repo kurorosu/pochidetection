@@ -8,7 +8,7 @@ import torch
 from plotly.io import to_html
 from torchvision.ops import box_iou
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.core.detection import Detection
 from pochidetection.utils.coco_utils import load_coco_ground_truth, xywh_to_xyxy
 
 BACKGROUND_LABEL = "Background"

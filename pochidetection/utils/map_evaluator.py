@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torchmetrics.detection import MeanAveragePrecision
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.core.detection import Detection
 from pochidetection.utils.benchmark import DetectionMetrics
 from pochidetection.utils.coco_utils import (
     CocoGroundTruth,
