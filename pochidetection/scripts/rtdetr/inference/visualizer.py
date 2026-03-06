@@ -2,7 +2,7 @@
 
 from PIL import Image, ImageDraw, ImageFont
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.core.detection import Detection
 from pochidetection.visualization import ColorPalette, LabelMapper
 
 

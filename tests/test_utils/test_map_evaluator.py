@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.core.detection import Detection
 from pochidetection.utils.benchmark import DetectionMetrics
 from pochidetection.utils.coco_utils import extract_basename, xywh_to_xyxy
 from pochidetection.utils.map_evaluator import MapEvaluator

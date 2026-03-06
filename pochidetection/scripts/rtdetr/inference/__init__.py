@@ -1,6 +1,5 @@
 """推論コンポーネント."""
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
 from pochidetection.scripts.rtdetr.inference.detection_pipeline import (
     DetectionPipeline,
 )
@@ -18,7 +17,6 @@ from pochidetection.scripts.rtdetr.inference.summary import (
 from pochidetection.scripts.rtdetr.inference.visualizer import Visualizer
 
 __all__ = [
-    "Detection",
     "DetectionPipeline",
     "DetectionResultRow",
     "DetectionSummary",

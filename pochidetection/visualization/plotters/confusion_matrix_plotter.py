@@ -8,7 +8,8 @@ import torch
 from plotly.io import to_html
 from torchvision.ops import box_iou
 
-from pochidetection.scripts.rtdetr.inference.detection import Detection
+from pochidetection.core.detection import Detection
+from pochidetection.interfaces import IReportPlotter
 from pochidetection.utils.coco_utils import load_coco_ground_truth, xywh_to_xyxy
 
 BACKGROUND_LABEL = "Background"
@@ -152,7 +153,7 @@ def _update_matrix(
                 matrix[gt_label, bg_idx] += 1
 
 
-class ConfusionMatrixPlotter:
+class ConfusionMatrixPlotter(IReportPlotter):
     """混同行列を Plotly ヒートマップで可視化.
 
     Attributes:

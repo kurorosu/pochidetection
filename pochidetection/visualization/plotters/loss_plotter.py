@@ -2,11 +2,11 @@
 
 import plotly.graph_objects as go
 
-from pochidetection.interfaces import IPlotter
+from pochidetection.interfaces import ITrainingCurvePlotter
 from pochidetection.utils import TrainingHistory
 
 
-class LossPlotter(IPlotter):
+class LossPlotter(ITrainingCurvePlotter):
     """Train/Val Loss 曲線を plotly で描画.
 
     Attributes:
