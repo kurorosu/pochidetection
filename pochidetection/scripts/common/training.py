@@ -1,17 +1,19 @@
 """学習ループの共通ロジック.
 
 RT-DETR と SSDLite で共有されるエポックループ, Early Stopping,
-レポート出力のロジックを提供する.
+データローダー構築, レポート出力のロジックを提供する.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, NamedTuple, Protocol
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchmetrics.detection import MeanAveragePrecision
 
+from pochidetection.core import DetectionCollator
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.utils import (
@@ -41,6 +43,62 @@ class TrainingContext(NamedTuple):
     device: str
     epochs: int
     train_score_threshold: float
+
+
+DatasetFactory = Callable[[Path], Dataset[dict[str, Any]]]
+
+
+def build_data_loaders(
+    config: dict[str, Any],
+    dataset_factory: DatasetFactory,
+    logger: Any,
+) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
+    """学習・検証用データローダーを構築.
+
+    Args:
+        config: 設定辞書.
+        dataset_factory: ディレクトリパスを受け取りデータセットを返すファクトリ.
+        logger: ロガー.
+
+    Returns:
+        (train_loader, val_loader) のタプル.
+
+    Raises:
+        ValueError: データローダーが空の場合.
+    """
+    data_root = Path(config["data_root"])
+    train_dir = data_root / config["train_split"]
+    val_dir = data_root / config["val_split"]
+    batch_size = config["batch_size"]
+
+    train_dataset = dataset_factory(train_dir)
+    val_dataset = dataset_factory(val_dir)
+
+    logger.info(f"Train samples: {len(train_dataset)}")
+    logger.info(f"Val samples: {len(val_dataset)}")
+
+    collator = DetectionCollator()
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=collator,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=collator,
+    )
+
+    if len(train_loader) == 0 or len(val_loader) == 0:
+        raise ValueError(
+            f"DataLoader が空です (train: {len(train_loader)} batches, "
+            f"val: {len(val_loader)} batches). "
+            f"データセットまたはバッチサイズを確認してください."
+        )
+
+    return train_loader, val_loader
 
 
 class Validator(Protocol):

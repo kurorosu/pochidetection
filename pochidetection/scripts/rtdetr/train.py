@@ -3,20 +3,18 @@
 transformersのRT-DETRをCOCO形式データセットでファインチューニングする.
 """
 
-from pathlib import Path
+from functools import partial
 from typing import Any
 
 import torch
-from torch.utils.data import DataLoader
 from torchmetrics.detection import MeanAveragePrecision
-from transformers import RTDetrImageProcessor
 
-from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.common.training import (
     TrainingContext,
+    build_data_loaders,
     run_training_loop,
 )
 from pochidetection.utils import (
@@ -77,7 +75,8 @@ def _setup_training(
     model = RTDetrModel(model_name, num_classes=num_classes, image_size=image_size)
     model.to(device)
 
-    train_loader, val_loader = _build_data_loaders(config, model.processor, logger)
+    dataset_factory = partial(CocoDetectionDataset, processor=model.processor)
+    train_loader, val_loader = build_data_loaders(config, dataset_factory, logger)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -107,59 +106,6 @@ def _setup_training(
         train_score_threshold=train_score_threshold,
     )
     return ctx
-
-
-def _build_data_loaders(
-    config: dict[str, Any],
-    processor: RTDetrImageProcessor,
-    logger: Any,
-) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
-    """学習・検証用データローダーを構築.
-
-    Args:
-        config: 設定辞書.
-        processor: 画像前処理プロセッサ.
-        logger: ロガー.
-
-    Returns:
-        (train_loader, val_loader) のタプル.
-
-    Raises:
-        ValueError: データローダーが空の場合.
-    """
-    data_root = Path(config["data_root"])
-    train_dir = data_root / config["train_split"]
-    val_dir = data_root / config["val_split"]
-    batch_size = config["batch_size"]
-
-    train_dataset = CocoDetectionDataset(train_dir, processor)
-    val_dataset = CocoDetectionDataset(val_dir, processor)
-
-    logger.info(f"Train samples: {len(train_dataset)}")
-    logger.info(f"Val samples: {len(val_dataset)}")
-
-    collator = DetectionCollator()
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        collate_fn=collator,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        collate_fn=collator,
-    )
-
-    if len(train_loader) == 0 or len(val_loader) == 0:
-        raise ValueError(
-            f"DataLoader が空です (train: {len(train_loader)} batches, "
-            f"val: {len(val_loader)} batches). "
-            f"データセットまたはバッチサイズを確認してください."
-        )
-
-    return train_loader, val_loader
 
 
 def _validate(
