@@ -9,10 +9,10 @@
 - 無し.
 
 ### Changed
-- 無し.
+- `LoggerManager._loggers` をクラス変数からインスタンス変数に変更し, テスト時のシングルトンリセットを容易にした. (N/A.)
 
 ### Fixed
-- SSDLite の `_validate` で `model.train()` に切り替えた際に BatchNorm の `running_mean` / `running_var` が検証データで更新される問題を修正. BN 統計を退避・復元する方式で保護. (N/A.)
+- SSDLite の `_validate` で `model.train()` に切り替えた際に BatchNorm の `running_mean` / `running_var` が検証データで更新される問題を修正. BN 統計を退避・復元する方式で保護. ([#191](https://github.com/kurorosu/pochidetection/pull/191).)
 
 ### Removed
 - 無し.
