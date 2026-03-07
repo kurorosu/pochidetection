@@ -14,6 +14,7 @@
 ### Fixed
 - `DetectionConfig` で SSDLite が無視する設定項目 (`model_name`, `pretrained`, `nms_iou_threshold`) にデフォルト以外の値を指定した場合に `UserWarning` を発行するバリデーションを追加. サンプル設定 `ssdlite_coco.py` から該当項目を削除. ([#168](https://github.com/kurorosu/pochidetection/pull/168).)
 - SSDLite の label オフセット (+1/-1) を `SSDLiteModel.forward()` に集約し, `SsdCocoDataset` と `train.py _validate()` から分散していたオフセット処理を除去. 推論時の背景クラス予測 (label=-1) を除去するガードを追加. (N/A.)
+- SSDLite の前処理に `transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])` を追加. `SsdCocoDataset` (学習) と `ssdlite/infer.py` (推論) の両方に適用し, MobileNetV3 バックボーンが期待する ImageNet 正規化を実施. (N/A.)
 
 ### Removed
 - 無し.
