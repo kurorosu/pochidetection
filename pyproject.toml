@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pochi = "pochidetection.cli.rtdetr:main"
+pochi = "pochidetection.cli.main:main"
 
 [[tool.uv.index]]
 name = "pytorch-cu130"

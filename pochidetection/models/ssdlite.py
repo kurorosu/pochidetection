@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from torchvision.models import MobileNet_V3_Large_Weights
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
-from torchvision.models.detection.ssdlite import SSDLite320_MobileNet_V3_Large_Weights
 
 from pochidetection.interfaces.model import IDetectionModel
 
@@ -43,9 +43,7 @@ class SSDLiteModel(IDetectionModel):
         # SSD は背景クラスを含むため +1
         ssd_num_classes = num_classes + 1
 
-        weights_backbone = (
-            SSDLite320_MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
-        )
+        weights_backbone = MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
         self._model = ssdlite320_mobilenet_v3_large(
             weights_backbone=weights_backbone,
             num_classes=ssd_num_classes,

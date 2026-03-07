@@ -130,6 +130,7 @@ def _save_best_model(
         logger: ロガー.
     """
     best_dir = ctx.workspace_manager.get_best_dir()
+    best_dir.mkdir(parents=True, exist_ok=True)
     torch.save(ctx.model.model.state_dict(), best_dir / "model.pth")
     logger.info(f"Best model saved to {best_dir} ({metric_name}: {metric_value:.4f})")
 
@@ -402,6 +403,7 @@ def _save_results(
         logger: ロガー.
     """
     last_dir = ctx.workspace_manager.get_last_dir()
+    last_dir.mkdir(parents=True, exist_ok=True)
     torch.save(ctx.model.model.state_dict(), last_dir / "model.pth")
     logger.info(f"Last model saved to {last_dir}")
 
