@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し.
+- `DetectionConfig` に `early_stopping_patience` / `early_stopping_metric` / `early_stopping_min_delta` フィールドを追加し, 学習時の Early Stopping を使用可能にした. (N/A.)
 
 ### Changed
 - 無し.
