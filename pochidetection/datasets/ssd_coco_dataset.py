@@ -13,8 +13,8 @@ from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
 class SsdCocoDataset(BaseCocoDataset):
     """SSDLite 用 COCO 形式の物体検出データセット.
 
-    SSD モデルは背景クラス (label=0) を使用するため,
-    ラベルは 1-indexed (背景=0) で返す.
+    ラベルは 0-indexed で返す.
+    背景クラスオフセットは SSDLiteModel 側で管理する.
     ボックスは xyxy ピクセル座標で返す.
 
     Attributes:
@@ -43,6 +43,10 @@ class SsdCocoDataset(BaseCocoDataset):
         self._transform = transforms.Compose(
             [
                 transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                ),
             ]
         )
         super().__init__(root, annotation_file)
@@ -63,7 +67,7 @@ class SsdCocoDataset(BaseCocoDataset):
             orig_h: 元画像の高さ.
 
         Returns:
-            pixel_values と labels (boxes: xyxy, class_labels: 1-indexed) を含む辞書.
+            pixel_values と labels (boxes: xyxy, class_labels: 0-indexed) を含む辞書.
         """
         target_h, target_w = self._image_size
         image_resized = image.resize((target_w, target_h))
@@ -80,8 +84,7 @@ class SsdCocoDataset(BaseCocoDataset):
             x2 = (x + w) * scale_x
             y2 = (y + h) * scale_y
             boxes.append([x1, y1, x2, y2])
-            # 1-indexed (背景=0)
-            labels.append(self._category_id_to_idx[ann["category_id"]] + 1)
+            labels.append(self._category_id_to_idx[ann["category_id"]])
 
         pixel_values = self._transform(image_resized)
 
