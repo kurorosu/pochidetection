@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し.
+- README に SSDLite の使い方, Early Stopping, LR Scheduler の説明を追加. torchvision バッジを追加. (N/A.)
 
 ### Changed
 - 無し.
