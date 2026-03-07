@@ -28,9 +28,9 @@ lr_scheduler = "CosineAnnealingLR"  # None で無効 (デフォルト)
 lr_scheduler_params = {"eta_min": 1e-7}  # Scheduler 固有パラメータ
 
 # Early Stopping 設定
-early_stopping_patience = 15  # 改善なしで停止するまでのエポック数 (None or 0 で無効)
+early_stopping_patience = 20  # 改善なしで停止するまでのエポック数 (None or 0 で無効)
 early_stopping_metric = "mAP"  # "mAP" (高い方が良い) or "val_loss" (低い方が良い)
-early_stopping_min_delta = 0.01  # 改善と見なす最小変化量
+early_stopping_min_delta = 0.001  # 改善と見なす最小変化量
 
 # デバイス設定
 device = "cuda"

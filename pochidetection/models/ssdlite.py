@@ -29,14 +29,12 @@ class SSDLiteModel(IDetectionModel):
         self,
         num_classes: int,
         pretrained: bool = True,
-        model_path: str | Path | None = None,
     ) -> None:
         """初期化.
 
         Args:
             num_classes: クラス数 (背景クラスを含まない).
             pretrained: 事前学習済みバックボーン重みを使用するかどうか.
-            model_path: 保存済みモデルのパス. 指定時は state_dict をロードする.
         """
         super().__init__()
 
@@ -49,14 +47,6 @@ class SSDLiteModel(IDetectionModel):
             num_classes=ssd_num_classes,
         )
         self._num_classes = num_classes
-
-        if model_path is not None:
-            state_dict = torch.load(
-                Path(model_path) / "model.pth",
-                map_location="cpu",
-                weights_only=True,
-            )
-            self._model.load_state_dict(state_dict)
 
     def forward(
         self,
@@ -98,6 +88,29 @@ class SSDLiteModel(IDetectionModel):
                 }
             )
         return {"predictions": predictions}
+
+    def save(self, save_dir: str | Path) -> None:
+        """モデルを state_dict 形式で保存.
+
+        Args:
+            save_dir: 保存先ディレクトリパス.
+        """
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        torch.save(self._model.state_dict(), save_dir / "model.pth")
+
+    def load(self, load_dir: str | Path) -> None:
+        """state_dict 形式のディレクトリからモデルを復元.
+
+        Args:
+            load_dir: 読み込み元ディレクトリパス.
+        """
+        state_dict = torch.load(
+            Path(load_dir) / "model.pth",
+            map_location="cpu",
+            weights_only=True,
+        )
+        self._model.load_state_dict(state_dict)
 
     @property
     def num_classes(self) -> int:

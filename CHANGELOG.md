@@ -17,6 +17,10 @@
   - `IDetectionModel.forward()` の返り値契約を明確化 (`loss`: 学習時必須, `predictions`: 推論時必須).
   - `SsdCocoDataset` のラベルキーを `"labels"` → `"class_labels"` に変更し, `CocoDetectionDataset` と統一.
   - `SSDLiteModel.forward()` が `class_labels` キーを受け取るよう変更.
+- `IDetectionModel` に `save()` / `load()` 抽象メソッドを追加し, モデル永続化の契約を定義. (N/A.)
+  - `RTDetrModel` に processor を内包させ, `save()` / `load()` でモデルと processor を一括保存・復元.
+  - `SSDLiteModel` の `__init__` から `model_path` を除去し, `save()` / `load()` で state_dict を保存・復元.
+  - `train.py` の `_save_model` 関数と `ModelSaver` Protocol を削除し, `ctx.model.save()` に統一.
 
 ### Fixed
 - 無し.

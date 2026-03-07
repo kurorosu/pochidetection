@@ -20,16 +20,16 @@ image_size = {"height": 320, "width": 320}
 data_root = "data"
 train_split = "train"
 val_split = "val"
-batch_size = 16
+batch_size = 32
 
 # 学習設定
 epochs = 100
 learning_rate = 1e-3
 lr_scheduler = "CosineAnnealingLR"  # None で無効 (デフォルト)
-lr_scheduler_params = {"eta_min": 1e-7}  # Scheduler 固有パラメータ
+lr_scheduler_params = {"eta_min": 1e-5}  # Scheduler 固有パラメータ
 
 # Early Stopping 設定
-early_stopping_patience = 10  # 改善なしで停止するまでのエポック数 (None or 0 で無効)
+early_stopping_patience = 20  # 改善なしで停止するまでのエポック数 (None or 0 で無効)
 early_stopping_metric = "mAP"  # "mAP" (高い方が良い) or "val_loss" (低い方が良い)
 early_stopping_min_delta = 0.001  # 改善と見なす最小変化量
 
