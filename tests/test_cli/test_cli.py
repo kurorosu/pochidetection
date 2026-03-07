@@ -1,4 +1,4 @@
-"""RT-DETR CLI のテスト."""
+"""物体検出 CLI のテスト."""
 
 import subprocess
 import sys
@@ -10,7 +10,7 @@ class TestCliNoCommand:
     def test_no_command_shows_help_without_error(self) -> None:
         """サブコマンドなしで実行するとヘルプが表示され正常終了することを確認."""
         result = subprocess.run(
-            [sys.executable, "-m", "pochidetection.cli.rtdetr"],
+            [sys.executable, "-m", "pochidetection.cli.main"],
             capture_output=True,
             text=True,
             timeout=30,

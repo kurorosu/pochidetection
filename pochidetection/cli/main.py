@@ -1,22 +1,23 @@
-"""RT-DETR CLI.
+"""物体検出 CLI.
 
-RT-DETRモデルの学習・推論・ONNXエクスポートを行うコマンドラインインターフェース.
+RT-DETR / SSDLite モデルの学習・推論・ONNXエクスポートを行うコマンドラインインターフェース.
 
 使用方法:
     uv run pochi train
     uv run pochi train -c configs/rtdetr_coco.py
+    uv run pochi train -c configs/ssdlite_coco.py
     uv run pochi infer -d images/
     uv run pochi infer -d images/ -m work_dirs/20260124_001/best
     uv run pochi export -m work_dirs/20260124_001/best
 """
 
 import argparse
+from collections.abc import Callable
+from typing import Any
 
 from pochidetection.logging import LoggerManager, LogLevel
 from pochidetection.scripts.rtdetr.export_onnx import export_onnx
 from pochidetection.scripts.rtdetr.export_trt import export_trt
-from pochidetection.scripts.rtdetr.infer import infer
-from pochidetection.scripts.rtdetr.train import train
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 
@@ -209,6 +210,51 @@ def setup_logging(debug: bool = False) -> None:
     logger_manager.set_default_level(level)
 
 
+def _resolve_train(
+    config: dict[str, Any],
+) -> Callable[[dict[str, Any], str], None]:
+    """Architecture に基づいて train 関数を返す.
+
+    Args:
+        config: 設定辞書.
+
+    Returns:
+        train 関数.
+    """
+    arch = config.get("architecture", "RTDetr")
+    if arch == "SSDLite":
+        # 未使用モデルの import コストを避けるため lazy import
+        from pochidetection.scripts.ssdlite.train import train as ssdlite_train
+
+        return ssdlite_train
+
+    from pochidetection.scripts.rtdetr.train import train as rtdetr_train
+
+    return rtdetr_train
+
+
+def _resolve_infer(
+    config: dict[str, Any],
+) -> Callable[[dict[str, Any], str, str | None], None]:
+    """Architecture に基づいて infer 関数を返す.
+
+    Args:
+        config: 設定辞書.
+
+    Returns:
+        infer 関数.
+    """
+    arch = config.get("architecture", "RTDetr")
+    if arch == "SSDLite":
+        from pochidetection.scripts.ssdlite.infer import infer as ssdlite_infer
+
+        return ssdlite_infer
+
+    from pochidetection.scripts.rtdetr.infer import infer as rtdetr_infer
+
+    return rtdetr_infer
+
+
 def main() -> None:
     """メインエントリーポイント."""
     args = parse_args()
@@ -216,11 +262,13 @@ def main() -> None:
 
     if args.command == "train":
         config = ConfigLoader.load(args.config)
-        train(config, args.config)
+        train_fn = _resolve_train(config)
+        train_fn(config, args.config)
     elif args.command == "infer":
         config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
-        infer(config, args.dir, args.model_dir)
+        infer_fn = _resolve_infer(config)
+        infer_fn(config, args.dir, args.model_dir)
     elif args.command == "export":
         config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
