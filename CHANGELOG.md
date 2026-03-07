@@ -6,10 +6,11 @@
 ## [Unreleased]
 
 ### Added
-- `DetectionConfig` に `early_stopping_patience` / `early_stopping_metric` / `early_stopping_min_delta` フィールドを追加し, 学習時の Early Stopping を使用可能にした. (N/A.)
+- `DetectionConfig` に `early_stopping_patience` / `early_stopping_metric` / `early_stopping_min_delta` フィールドを追加し, 学習時の Early Stopping を使用可能にした. ([#150](https://github.com/kurorosu/pochidetection/pull/150).)
+- SSDLite MobileNetV3 アーキテクチャを追加. `SSDLiteModel` (torchvision ラッパー), `SsdCocoDataset` (xyxy + 1-indexed ラベル), 学習・推論パイプライン, `configs/ssdlite_coco.py` を新設. config の `architecture = "SSDLite"` で切り替え可能. (N/A.)
 
 ### Changed
-- 無し.
+- `pochidetection/cli/rtdetr.py` を `pochidetection/cli/main.py` にリネームし, アーキテクチャ非依存の CLI エントリーポイントに変更. (N/A.)
 
 ### Fixed
 - 無し.
