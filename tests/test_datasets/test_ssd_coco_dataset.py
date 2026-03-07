@@ -138,10 +138,10 @@ class TestSsdCocoDataset:
         expected_first_box = torch.tensor([32.0, 32.0, 128.0, 128.0])
         assert torch.allclose(boxes[0], expected_first_box)
 
-    def test_getitem_labels_are_1_indexed(
+    def test_getitem_labels_are_0_indexed(
         self, sample_dataset_dir: Path, image_size: dict[str, int]
     ) -> None:
-        """ラベルが 1-indexed であることを確認."""
+        """ラベルが 0-indexed であることを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
         sample = dataset[0]
 
@@ -150,9 +150,9 @@ class TestSsdCocoDataset:
         assert class_labels.dtype == torch.int64
         assert class_labels.shape == (2,)
 
-        # category_id 1 → idx 0 → label 1, category_id 2 → idx 1 → label 2
-        assert class_labels[0].item() == 1  # cat
-        assert class_labels[1].item() == 2  # dog
+        # category_id 1 → idx 0, category_id 2 → idx 1
+        assert class_labels[0].item() == 0  # cat
+        assert class_labels[1].item() == 1  # dog
 
     def test_getitem_no_annotations(
         self, sample_dataset_dir: Path, image_size: dict[str, int]

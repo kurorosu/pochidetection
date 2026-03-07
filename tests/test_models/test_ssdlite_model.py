@@ -43,7 +43,7 @@ class TestSSDLiteModel:
         assert "labels" in pred
 
     def test_forward_inference_labels_are_0_indexed(self) -> None:
-        """推論時のラベルが 0-indexed であることを確認."""
+        """推論時のラベルが 0-indexed (>= 0) であることを確認."""
         model = SSDLiteModel(num_classes=2, pretrained=False)
         model.eval()
 
@@ -53,11 +53,11 @@ class TestSSDLiteModel:
 
         pred = outputs["predictions"][0]
         if pred["labels"].numel() > 0:
-            # SSD 出力は 1-indexed, forward で -1 されるので 0 以上
-            assert pred["labels"].min().item() >= -1
+            # 背景クラスは除去済みなので全て 0 以上
+            assert pred["labels"].min().item() >= 0
 
     def test_forward_with_labels(self) -> None:
-        """学習時の forward が loss を返すことを確認."""
+        """学習時の forward が loss を返すことを確認 (0-indexed ラベル)."""
         model = SSDLiteModel(num_classes=2, pretrained=False)
         model.train()
 
@@ -67,11 +67,11 @@ class TestSSDLiteModel:
                 "boxes": torch.tensor(
                     [[50.0, 50.0, 100.0, 100.0]], dtype=torch.float32
                 ),
-                "class_labels": torch.tensor([1], dtype=torch.int64),
+                "class_labels": torch.tensor([0], dtype=torch.int64),
             },
             {
                 "boxes": torch.tensor([[30.0, 30.0, 80.0, 80.0]], dtype=torch.float32),
-                "class_labels": torch.tensor([2], dtype=torch.int64),
+                "class_labels": torch.tensor([1], dtype=torch.int64),
             },
         ]
 
