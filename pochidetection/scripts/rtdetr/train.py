@@ -4,7 +4,7 @@ transformersのRT-DETRをCOCO形式データセットでファインチューニ
 """
 
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -16,7 +16,12 @@ from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
-from pochidetection.utils import TrainingHistory, WorkspaceManager, build_scheduler
+from pochidetection.utils import (
+    EarlyStopping,
+    TrainingHistory,
+    WorkspaceManager,
+    build_scheduler,
+)
 from pochidetection.visualization import (
     LossPlotter,
     MetricsPlotter,
@@ -39,6 +44,14 @@ def train(config: dict[str, Any], config_path: str) -> None:
     best_map = 0.0
     history = TrainingHistory()
     map_result: dict[str, Any] = {}
+
+    early_stopping = _build_early_stopping(config)
+    if early_stopping is not None:
+        logger.info(
+            f"Early Stopping: patience={early_stopping.patience}, "
+            f"metric={config['early_stopping_metric']}, "
+            f"min_delta={config['early_stopping_min_delta']}"
+        )
 
     for epoch in range(ctx.epochs):
         avg_loss, lr = _train_one_epoch(ctx, logger)
@@ -74,12 +87,26 @@ def train(config: dict[str, Any], config_path: str) -> None:
             else:
                 ctx.scheduler.step()
 
-        if mAP > best_map:
-            best_map = mAP
-            best_dir = ctx.workspace_manager.get_best_dir()
-            ctx.model.model.save_pretrained(best_dir)
-            ctx.processor.save_pretrained(best_dir)
-            logger.info(f"Best model saved to {best_dir} (mAP: {best_map:.4f})")
+        if early_stopping is not None:
+            metric = config["early_stopping_metric"]
+            value = mAP if metric == "mAP" else avg_val_loss
+            should_stop = early_stopping.step(value, epoch + 1)
+
+            if early_stopping.counter == 0:
+                _save_best_model(ctx, metric, value, logger)
+
+            if should_stop:
+                logger.info(
+                    f"Early Stopping: {early_stopping.patience} エポック連続で "
+                    f"{metric} が改善しなかったため学習を終了します "
+                    f"(best epoch: {early_stopping.best_epoch}, "
+                    f"best {metric}: {early_stopping.best_value:.4f})"
+                )
+                break
+        else:
+            if mAP > best_map:
+                best_map = mAP
+                _save_best_model(ctx, "mAP", mAP, logger)
 
     _save_results(ctx, history, map_result, logger)
 
@@ -87,6 +114,46 @@ def train(config: dict[str, Any], config_path: str) -> None:
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _save_best_model(
+    ctx: "_TrainingContext",
+    metric_name: str,
+    metric_value: float,
+    logger: Any,
+) -> None:
+    """Best model を保存.
+
+    Args:
+        ctx: 学習コンテキスト.
+        metric_name: メトリクス名 (ログ用).
+        metric_value: メトリクス値 (ログ用).
+        logger: ロガー.
+    """
+    best_dir = ctx.workspace_manager.get_best_dir()
+    ctx.model.model.save_pretrained(best_dir)
+    ctx.processor.save_pretrained(best_dir)
+    logger.info(f"Best model saved to {best_dir} ({metric_name}: {metric_value:.4f})")
+
+
+def _build_early_stopping(config: dict[str, Any]) -> EarlyStopping | None:
+    """設定から EarlyStopping を構築.
+
+    Args:
+        config: 設定辞書.
+
+    Returns:
+        EarlyStopping インスタンス, 無効時は None.
+    """
+    patience = config.get("early_stopping_patience")
+    if patience is None:
+        return None
+
+    metric = config["early_stopping_metric"]
+    mode: Literal["min", "max"] = "max" if metric == "mAP" else "min"
+    min_delta = config["early_stopping_min_delta"]
+
+    return EarlyStopping(patience=patience, min_delta=min_delta, mode=mode)
 
 
 class _TrainingContext(NamedTuple):
@@ -340,7 +407,7 @@ def _save_results(
     Args:
         ctx: 学習コンテキスト.
         history: 学習履歴.
-        map_result: 最終エポックの mAP 計算結果.
+        map_result: 最後に検証されたエポックの mAP 計算結果.
         logger: ロガー.
     """
     last_dir = ctx.workspace_manager.get_last_dir()
