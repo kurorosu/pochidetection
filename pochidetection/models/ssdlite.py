@@ -29,14 +29,12 @@ class SSDLiteModel(IDetectionModel):
         self,
         num_classes: int,
         pretrained: bool = True,
-        model_path: str | Path | None = None,
     ) -> None:
         """初期化.
 
         Args:
             num_classes: クラス数 (背景クラスを含まない).
             pretrained: 事前学習済みバックボーン重みを使用するかどうか.
-            model_path: 保存済みモデルのパス. 指定時は state_dict をロードする.
         """
         super().__init__()
 
@@ -50,14 +48,6 @@ class SSDLiteModel(IDetectionModel):
         )
         self._num_classes = num_classes
 
-        if model_path is not None:
-            state_dict = torch.load(
-                Path(model_path) / "model.pth",
-                map_location="cpu",
-                weights_only=True,
-            )
-            self._model.load_state_dict(state_dict)
-
     def forward(
         self,
         pixel_values: torch.Tensor,
@@ -69,17 +59,21 @@ class SSDLiteModel(IDetectionModel):
             pixel_values: 入力画像テンソル, 形状は (B, C, H, W).
             labels: 学習時のターゲット. 各要素は以下のキーを含む辞書:
                 - boxes: バウンディングボックス (N, 4), xyxy ピクセル座標
-                - labels: クラスラベル (N,), 1-indexed (背景=0)
+                - class_labels: クラスラベル (N,), 1-indexed (背景=0)
 
         Returns:
-            学習時: {"loss": Tensor}
-            推論時: {"predictions": list[dict]} 各要素は
-                boxes (M, 4), scores (M,), labels (M,) を含む (0-indexed).
+            以下のキーを含む辞書:
+            - loss: 学習時の損失 (labels が指定された場合)
+            - predictions: 推論時の検出結果 (labels が None の場合).
+                list[dict] で各要素は boxes (M, 4), scores (M,),
+                labels (M,) を含む (0-indexed).
         """
-        images = [img for img in pixel_values.unbind(0)]
+        images = list(pixel_values.unbind(0))
 
         if self._model.training and labels is not None:
-            targets = [{"boxes": t["boxes"], "labels": t["labels"]} for t in labels]
+            targets = [
+                {"boxes": t["boxes"], "labels": t["class_labels"]} for t in labels
+            ]
             losses = self._model(images, targets)
             return {"loss": sum(losses.values())}
 
@@ -94,6 +88,29 @@ class SSDLiteModel(IDetectionModel):
                 }
             )
         return {"predictions": predictions}
+
+    def save(self, save_dir: str | Path) -> None:
+        """モデルを state_dict 形式で保存.
+
+        Args:
+            save_dir: 保存先ディレクトリパス.
+        """
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        torch.save(self._model.state_dict(), save_dir / "model.pth")
+
+    def load(self, load_dir: str | Path) -> None:
+        """state_dict 形式のディレクトリからモデルを復元.
+
+        Args:
+            load_dir: 読み込み元ディレクトリパス.
+        """
+        state_dict = torch.load(
+            Path(load_dir) / "model.pth",
+            map_location="cpu",
+            weights_only=True,
+        )
+        self._model.load_state_dict(state_dict)
 
     @property
     def num_classes(self) -> int:

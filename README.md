@@ -1,18 +1,20 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.6.1-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Transformers-orange.svg)](https://huggingface.co/docs/transformers)
+[![torchvision](https://img.shields.io/badge/torchvision-SSDLite-ee4c2c.svg)](https://pytorch.org/vision/)
 
 **pochi_series 物体検出フレームワーク**
 
 ## 🎯 特徴
 
-- **HuggingFace Transformers ベース**: RT-DETR などの最新モデルをすぐに利用可能
+- **マルチアーキテクチャ対応**: RT-DETR (Transformer) と SSDLite (CNN) を設定ファイルで切り替え可能
 - **COCO フォーマット対応**: 標準的なアノテーション形式でデータセットを管理
 - **学習の可視化**: Loss 曲線, mAP 曲線, PR 曲線を HTML で自動出力
+- **Early Stopping**: mAP または val_loss を監視し, 改善がなければ学習を自動停止
 - **CLI ツール**: コマンドひとつで学習・推論を実行
 
 ## 🚀 クイックスタート
@@ -47,40 +49,46 @@ data/
 
 ### 3. 設定ファイルの編集
 
+#### RT-DETR (Transformer ベース)
+
 `configs/rtdetr_coco.py` を編集してください:
 
 ```python
-# モデル
+architecture = "RTDetr"
 model_name = "PekingU/rtdetr_r50vd"
 num_classes = 4
 class_names = ["pochi", "pochi2", "pochi3", "pochi4"]
-
-# 画像サイズ
 image_size = {"height": 640, "width": 640}
-
-# データ
-data_root = "data"
-train_split = "train"
-val_split = "val"
 batch_size = 8
-
-# 学習
 epochs = 5
 learning_rate = 1e-4
-
-# デバイス
 device = "cuda"
-use_fp16 = False
+```
+
+#### SSDLite (CNN ベース, 軽量)
+
+`configs/ssdlite_coco.py` を編集してください:
+
+```python
+architecture = "SSDLite"
+model_name = "ssdlite320_mobilenet_v3_large"
+num_classes = 4
+class_names = ["pochi", "pochi2", "pochi3", "pochi4"]
+image_size = {"height": 320, "width": 320}
+batch_size = 16
+epochs = 100
+learning_rate = 1e-3
+device = "cuda"
 ```
 
 ### 4. 学習の実行
 
 ```bash
-# デフォルト設定で学習
-uv run pochi train
-
-# 設定ファイルを指定して学習
+# RT-DETR で学習 (デフォルト)
 uv run pochi train -c configs/rtdetr_coco.py
+
+# SSDLite で学習
+uv run pochi train -c configs/ssdlite_coco.py
 ```
 
 ### 5. 結果の確認
@@ -118,9 +126,10 @@ uv run pochi infer -d images/ -m work_dirs/20260124_001/best
 
 ### モデル
 
-| モデル | 説明 |
-|--------|------|
-| RT-DETR (R50) | `PekingU/rtdetr_r50vd` - HuggingFace Pretrained |
+| モデル | 設定値 | 説明 |
+|--------|--------|------|
+| RT-DETR (R50) | `architecture = "RTDetr"` | HuggingFace Pretrained Transformer モデル (640x640) |
+| SSDLite MobileNetV3 | `architecture = "SSDLite"` | torchvision 軽量 CNN モデル (320x320) |
 
 ### 評価指標
 
@@ -131,6 +140,8 @@ uv run pochi infer -d images/ -m work_dirs/20260124_001/best
 
 ### 高度な機能
 
+- **Early Stopping**: `early_stopping_patience = 10` で mAP/val_loss の改善を監視し自動停止
+- **Learning Rate Scheduler**: `lr_scheduler = "CosineAnnealingLR"` 等の PyTorch 標準スケジューラ対応
 - **FP16 混合精度**: CUDA 環境で `use_fp16 = True` により高速学習・推論
 - **cuDNN Benchmark**: `cudnn_benchmark = True` で GPU 推論を最適化
 - **自動ワークスペース管理**: `work_dirs/yyyymmdd_xxx/` で学習結果を自動管理

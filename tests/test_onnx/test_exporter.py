@@ -80,7 +80,7 @@ class TestOnnxExporterLoadModel:
     ) -> None:
         """save_pretrained形式からload_modelでモデルを復元できることを検証する."""
         save_dir = tmp_path / "saved_model"
-        rtdetr_model.model.save_pretrained(save_dir)
+        rtdetr_model.save(save_dir)
 
         exporter = OnnxExporter()
         exporter.load_model(save_dir)

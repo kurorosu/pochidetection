@@ -1,9 +1,10 @@
 """RT-DETR物体検出モデル."""
 
+from pathlib import Path
 from typing import Any
 
 import torch
-from transformers import RTDetrForObjectDetection
+from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
 
 from pochidetection.interfaces.model import IDetectionModel
 
@@ -16,6 +17,7 @@ class RTDetrModel(IDetectionModel):
 
     Attributes:
         _model: transformersのRTDetrForObjectDetectionインスタンス.
+        _processor: 画像前処理プロセッサ.
         _num_classes: クラス数.
     """
 
@@ -24,6 +26,7 @@ class RTDetrModel(IDetectionModel):
         model_name: str = "PekingU/rtdetr_r50vd",
         num_classes: int | None = None,
         pretrained: bool = True,
+        image_size: dict[str, int] | None = None,
     ) -> None:
         """RTDetrModelを初期化.
 
@@ -31,6 +34,8 @@ class RTDetrModel(IDetectionModel):
             model_name: HuggingFaceモデル名またはローカルパス.
             num_classes: クラス数. Noneの場合は事前学習済みモデルの設定を使用.
             pretrained: 事前学習済み重みを使用するかどうか.
+            image_size: 画像サイズ {"height": int, "width": int}.
+                Noneの場合はモデルのデフォルト設定を使用.
         """
         super().__init__()
 
@@ -49,6 +54,13 @@ class RTDetrModel(IDetectionModel):
             self._model = RTDetrForObjectDetection(config)
 
         self._num_classes = num_classes or self._model.config.num_labels
+
+        proc_kwargs: dict[str, Any] = {}
+        if image_size is not None:
+            proc_kwargs["size"] = image_size
+        self._processor = RTDetrImageProcessor.from_pretrained(
+            model_name, **proc_kwargs
+        )
 
     def forward(
         self,
@@ -81,6 +93,24 @@ class RTDetrModel(IDetectionModel):
 
         return result
 
+    def save(self, save_dir: str | Path) -> None:
+        """モデルと processor を save_pretrained 形式で保存.
+
+        Args:
+            save_dir: 保存先ディレクトリパス.
+        """
+        self._model.save_pretrained(save_dir)
+        self._processor.save_pretrained(save_dir)
+
+    def load(self, load_dir: str | Path) -> None:
+        """save_pretrained 形式のディレクトリからモデルと processor を復元.
+
+        Args:
+            load_dir: 読み込み元ディレクトリパス.
+        """
+        self._model = RTDetrForObjectDetection.from_pretrained(load_dir)
+        self._processor = RTDetrImageProcessor.from_pretrained(load_dir)
+
     @property
     def num_classes(self) -> int:
         """クラス数を取得.
@@ -89,6 +119,15 @@ class RTDetrModel(IDetectionModel):
             クラス数.
         """
         return self._num_classes
+
+    @property
+    def processor(self) -> RTDetrImageProcessor:
+        """画像前処理プロセッサを取得.
+
+        Returns:
+            RTDetrImageProcessorインスタンス.
+        """
+        return self._processor
 
     @property
     def model(self) -> RTDetrForObjectDetection:

@@ -110,7 +110,7 @@ class TestSsdCocoDataset:
         assert "pixel_values" in sample
         assert "labels" in sample
         assert "boxes" in sample["labels"]
-        assert "labels" in sample["labels"]
+        assert "class_labels" in sample["labels"]
 
     def test_getitem_pixel_values_shape(
         self, sample_dataset_dir: Path, image_size: dict[str, int]
@@ -145,14 +145,14 @@ class TestSsdCocoDataset:
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
         sample = dataset[0]
 
-        labels = sample["labels"]["labels"]
-        assert isinstance(labels, torch.Tensor)
-        assert labels.dtype == torch.int64
-        assert labels.shape == (2,)
+        class_labels = sample["labels"]["class_labels"]
+        assert isinstance(class_labels, torch.Tensor)
+        assert class_labels.dtype == torch.int64
+        assert class_labels.shape == (2,)
 
         # category_id 1 → idx 0 → label 1, category_id 2 → idx 1 → label 2
-        assert labels[0].item() == 1  # cat
-        assert labels[1].item() == 2  # dog
+        assert class_labels[0].item() == 1  # cat
+        assert class_labels[1].item() == 2  # dog
 
     def test_getitem_no_annotations(
         self, sample_dataset_dir: Path, image_size: dict[str, int]
@@ -162,10 +162,10 @@ class TestSsdCocoDataset:
         sample = dataset[2]
 
         boxes = sample["labels"]["boxes"]
-        labels = sample["labels"]["labels"]
+        class_labels = sample["labels"]["class_labels"]
 
         assert boxes.shape == (0, 4)
-        assert labels.shape == (0,)
+        assert class_labels.shape == (0,)
 
     def test_get_categories(
         self, sample_dataset_dir: Path, image_size: dict[str, int]
@@ -232,4 +232,4 @@ class TestSsdCocoDataset:
         sample = dataset[0]
 
         assert sample["labels"]["boxes"].shape == (1, 4)
-        assert sample["labels"]["labels"].shape == (1,)
+        assert sample["labels"]["class_labels"].shape == (1,)
