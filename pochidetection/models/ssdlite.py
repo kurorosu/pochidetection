@@ -113,4 +113,4 @@ class SSDLiteModel(IDetectionModel):
         Returns:
             torchvision の SSD モデルインスタンス.
         """
-        return self._model
+        return self._model  # type: ignore[no-any-return]
