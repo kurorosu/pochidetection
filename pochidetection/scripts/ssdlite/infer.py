@@ -118,7 +118,15 @@ def _setup_pipeline(
 
     precision = "fp16" if fp16 else "fp32"
 
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+            ),
+        ]
+    )
 
     phased_timer = PhasedTimer(phases=PHASES, device=device)
 
