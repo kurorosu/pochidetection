@@ -12,7 +12,7 @@
 - 無し.
 
 ### Fixed
-- 無し.
+- `DetectionConfig` で SSDLite が無視する設定項目 (`model_name`, `pretrained`, `nms_iou_threshold`) にデフォルト以外の値を指定した場合に `UserWarning` を発行するバリデーションを追加. サンプル設定 `ssdlite_coco.py` から該当項目を削除. (N/A.)
 
 ### Removed
 - 無し.

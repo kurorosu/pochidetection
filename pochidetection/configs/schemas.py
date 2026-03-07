@@ -1,5 +1,6 @@
 """Pydantic 設定スキーマ."""
 
+import warnings
 from typing import Any, Literal
 
 from pydantic import (
@@ -21,7 +22,7 @@ class ImageSizeConfig(BaseModel):
 
 
 class DetectionConfig(BaseModel):
-    """RT-DETR 設定スキーマ."""
+    """物体検出設定スキーマ."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -76,4 +77,33 @@ class DetectionConfig(BaseModel):
             raise ValueError(
                 "class_names の要素数は num_classes と一致する必要があります"
             )
+        return self
+
+    @model_validator(mode="after")
+    def warn_ssdlite_ignored_fields(self) -> "DetectionConfig":
+        """Warn about config fields ignored by SSDLite."""
+        if self.architecture != "SSDLite":
+            return self
+
+        ignored: list[str] = []
+        defaults = {
+            "model_name": "PekingU/rtdetr_r50vd",
+            "nms_iou_threshold": 0.5,
+        }
+
+        for field_name, default_value in defaults.items():
+            value = getattr(self, field_name)
+            if value != default_value:
+                ignored.append(field_name)
+
+        if not self.pretrained:
+            ignored.append("pretrained")
+
+        for name in ignored:
+            warnings.warn(
+                f"SSDLite では '{name}' は無視されます.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         return self

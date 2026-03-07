@@ -1,5 +1,7 @@
 """DetectionConfig のテスト."""
 
+import warnings
+
 import pytest
 
 from pochidetection.configs.schemas import DetectionConfig
@@ -78,3 +80,78 @@ class TestDetectionConfigEarlyStopping:
         """min_delta=0.0 は受け入れる."""
         config = DetectionConfig(**REQUIRED_FIELDS, early_stopping_min_delta=0.0)
         assert config.early_stopping_min_delta == 0.0
+
+
+class TestSSDLiteIgnoredFieldWarnings:
+    """SSDLite で無視される設定項目の警告テスト."""
+
+    SSDLITE_FIELDS: dict = {
+        **REQUIRED_FIELDS,
+        "architecture": "SSDLite",
+    }
+
+    def test_no_warning_with_defaults(self) -> None:
+        """デフォルト値ならば警告なし."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DetectionConfig(**self.SSDLITE_FIELDS)
+            ssdlite_warnings = [x for x in w if "SSDLite" in str(x.message)]
+            assert len(ssdlite_warnings) == 0
+
+    def test_model_name_warns(self) -> None:
+        """model_name を変更すると警告."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DetectionConfig(**self.SSDLITE_FIELDS, model_name="custom_model")
+            msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
+            assert any("model_name" in m for m in msgs)
+
+    def test_nms_iou_threshold_warns(self) -> None:
+        """nms_iou_threshold を変更すると警告."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DetectionConfig(**self.SSDLITE_FIELDS, nms_iou_threshold=0.3)
+            msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
+            assert any("nms_iou_threshold" in m for m in msgs)
+
+    def test_pretrained_false_warns(self) -> None:
+        """pretrained=False で警告."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DetectionConfig(**self.SSDLITE_FIELDS, pretrained=False)
+            msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
+            assert any("pretrained" in m for m in msgs)
+
+    def test_pretrained_true_no_warning(self) -> None:
+        """pretrained=True (デフォルト) なら警告なし."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DetectionConfig(**self.SSDLITE_FIELDS, pretrained=True)
+            msgs = [str(x.message) for x in w if "pretrained" in str(x.message)]
+            assert len(msgs) == 0
+
+    def test_rtdetr_no_warning(self) -> None:
+        """RTDetr アーキテクチャでは警告なし."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DetectionConfig(
+                **REQUIRED_FIELDS,
+                architecture="RTDetr",
+                model_name="custom_model",
+                nms_iou_threshold=0.3,
+            )
+            ssdlite_warnings = [x for x in w if "SSDLite" in str(x.message)]
+            assert len(ssdlite_warnings) == 0
+
+    def test_multiple_ignored_fields_warn(self) -> None:
+        """複数の無視される項目を同時に設定すると各フィールドで警告."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DetectionConfig(
+                **self.SSDLITE_FIELDS,
+                model_name="custom_model",
+                nms_iou_threshold=0.3,
+                pretrained=False,
+            )
+            msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
+            assert len(msgs) == 3
