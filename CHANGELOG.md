@@ -12,7 +12,7 @@
 - 無し.
 
 ### Fixed
-- 無し.
+- SSDLite の `_validate` で `model.train()` に切り替えた際に BatchNorm の `running_mean` / `running_var` が検証データで更新される問題を修正. BN 統計を退避・復元する方式で保護. (N/A.)
 
 ### Removed
 - 無し.
