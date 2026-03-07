@@ -6,10 +6,24 @@
 ## [Unreleased]
 
 ### Added
+- 無し.
+
+### Changed
+- 無し.
+
+### Fixed
+- 無し.
+
+### Removed
+- 無し.
+
+## v0.6.1 (2026-03-07)
+
+### Added
 - README に SSDLite の使い方, Early Stopping, LR Scheduler の説明を追加. torchvision バッジを追加. ([#161](https://github.com/kurorosu/pochidetection/pull/161).)
 
 ### Changed
-- SSDLite / RT-DETR 間の重複コード解消. (N/A.)
+- SSDLite / RT-DETR 間の重複コード解消. ([#162](https://github.com/kurorosu/pochidetection/pull/162).)
   - `BaseCocoDataset` 基底クラスを新設し, `CocoDetectionDataset` / `SsdCocoDataset` の共通ロジック (アノテーション読み込み, カテゴリ管理, 画像ロード) を集約.
   - `scripts/common/training.py` に学習ループ共通ロジック (`run_training_loop`, `train_one_epoch`, `build_early_stopping`, `save_results`) を抽出し, `rtdetr/train.py` / `ssdlite/train.py` から重複コードを除去.
   - `scripts/common/inference.py` に推論共通ロジック (`resolve_model_path`, `collect_image_files`, `write_reports`) を抽出し, `rtdetr/infer.py` / `ssdlite/infer.py` から重複コードを除去.
