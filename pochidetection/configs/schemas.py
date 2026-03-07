@@ -25,7 +25,7 @@ class DetectionConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    architecture: Literal["RTDetr"] = "RTDetr"
+    architecture: Literal["RTDetr", "SSDLite"] = "RTDetr"
     model_name: str = Field(default="PekingU/rtdetr_r50vd", min_length=1)
     pretrained: bool = True
     image_size: ImageSizeConfig = Field(default_factory=ImageSizeConfig)
