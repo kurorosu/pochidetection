@@ -1,14 +1,12 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Transformers-orange.svg)](https://huggingface.co/docs/transformers)
 
-A tiny but clever object detection pipeline — as friendly as Pochi!
-
-**pochi_series の設計思想に基づいた, Python 3.13+ 向け物体検出フレームワーク**
+**pochi_series 物体検出フレームワーク**
 
 ## 🎯 特徴
 

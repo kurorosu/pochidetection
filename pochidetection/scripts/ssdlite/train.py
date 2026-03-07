@@ -1,6 +1,6 @@
-"""RT-DETR 学習スクリプト.
+"""SSDLite MobileNetV3 学習スクリプト.
 
-transformersのRT-DETRをCOCO形式データセットでファインチューニングする.
+torchvision の SSDLite を COCO 形式データセットでファインチューニングする.
 """
 
 from pathlib import Path
@@ -10,12 +10,11 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torchmetrics.detection import MeanAveragePrecision
-from transformers import RTDetrImageProcessor
 
 from pochidetection.core import DetectionCollator
-from pochidetection.datasets import CocoDetectionDataset
+from pochidetection.datasets import SsdCocoDataset
 from pochidetection.logging import LoggerManager
-from pochidetection.models import RTDetrModel
+from pochidetection.models import SSDLiteModel
 from pochidetection.utils import (
     EarlyStopping,
     TrainingHistory,
@@ -131,8 +130,8 @@ def _save_best_model(
         logger: ロガー.
     """
     best_dir = ctx.workspace_manager.get_best_dir()
-    ctx.model.model.save_pretrained(best_dir)
-    ctx.processor.save_pretrained(best_dir)
+    best_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(ctx.model.model.state_dict(), best_dir / "model.pth")
     logger.info(f"Best model saved to {best_dir} ({metric_name}: {metric_value:.4f})")
 
 
@@ -159,8 +158,7 @@ def _build_early_stopping(config: dict[str, Any]) -> EarlyStopping | None:
 class _TrainingContext(NamedTuple):
     """_setup_training の戻り値."""
 
-    model: RTDetrModel
-    processor: RTDetrImageProcessor
+    model: SSDLiteModel
     train_loader: DataLoader  # type: ignore[type-arg]
     val_loader: DataLoader  # type: ignore[type-arg]
     optimizer: torch.optim.Optimizer
@@ -190,8 +188,7 @@ def _setup_training(
     """
     device = config["device"]
     num_classes = config["num_classes"]
-    model_name = config["model_name"]
-    image_size = config.get("image_size", {"height": 640, "width": 640})
+    image_size = config.get("image_size", {"height": 320, "width": 320})
     epochs = config["epochs"]
     learning_rate = config["learning_rate"]
     train_score_threshold = config["train_score_threshold"]
@@ -200,16 +197,16 @@ def _setup_training(
     workspace = workspace_manager.create_workspace()
     workspace_manager.save_config(config_path)
 
+    logger.info(f"Architecture: SSDLite MobileNetV3")
     logger.info(f"Device: {device}")
     logger.info(f"Num classes: {num_classes}")
     logger.info(f"Image size: {image_size}")
     logger.info(f"Workspace: {workspace}")
 
-    processor = RTDetrImageProcessor.from_pretrained(model_name, size=image_size)
-    model = RTDetrModel(model_name, num_classes=num_classes)
+    model = SSDLiteModel(num_classes=num_classes)
     model.to(device)
 
-    train_loader, val_loader = _build_data_loaders(config, processor, logger)
+    train_loader, val_loader = _build_data_loaders(config, image_size, logger)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -227,7 +224,6 @@ def _setup_training(
 
     return _TrainingContext(
         model=model,
-        processor=processor,
         train_loader=train_loader,
         val_loader=val_loader,
         optimizer=optimizer,
@@ -243,14 +239,14 @@ def _setup_training(
 
 def _build_data_loaders(
     config: dict[str, Any],
-    processor: RTDetrImageProcessor,
+    image_size: dict[str, int],
     logger: Any,
 ) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
     """学習・検証用データローダーを構築.
 
     Args:
         config: 設定辞書.
-        processor: 画像前処理プロセッサ.
+        image_size: 画像サイズ.
         logger: ロガー.
 
     Returns:
@@ -264,8 +260,8 @@ def _build_data_loaders(
     val_dir = data_root / config["val_split"]
     batch_size = config["batch_size"]
 
-    train_dataset = CocoDetectionDataset(train_dir, processor)
-    val_dataset = CocoDetectionDataset(val_dir, processor)
+    train_dataset = SsdCocoDataset(train_dir, image_size)
+    val_dataset = SsdCocoDataset(val_dir, image_size)
 
     logger.info(f"Train samples: {len(train_dataset)}")
     logger.info(f"Val samples: {len(val_dataset)}")
@@ -351,41 +347,37 @@ def _validate(
             labels = [
                 {k: v.to(ctx.device) for k, v in t.items()} for t in batch["labels"]
             ]
-            outputs = ctx.model.model(pixel_values=pixel_values, labels=labels)
-            val_loss += outputs.loss.item()
 
-            results = ctx.processor.post_process_object_detection(
-                outputs,
-                threshold=ctx.train_score_threshold,
-                target_sizes=None,
-            )
+            # 学習モードで loss を計算
+            ctx.model.train()
+            train_outputs = ctx.model(pixel_values=pixel_values, labels=labels)
+            val_loss += train_outputs["loss"].item()
 
-            for i, result in enumerate(results):
-                pred_boxes_xyxy = result["boxes"]
-                pred_scores = result["scores"]
-                pred_labels_filtered = result["labels"]
+            # 推論モードで予測を取得
+            ctx.model.eval()
+            infer_outputs = ctx.model(pixel_values=pixel_values)
 
+            for i, pred in enumerate(infer_outputs["predictions"]):
+                # スコア閾値でフィルタ
+                mask = pred["scores"] >= ctx.train_score_threshold
+                pred_boxes = pred["boxes"][mask]
+                pred_scores = pred["scores"][mask]
+                pred_labels = pred["labels"][mask]
+
+                # ターゲット: 1-indexed → 0-indexed
                 target_boxes = labels[i]["boxes"]
-                target_labels = labels[i]["class_labels"]
-                if target_boxes.numel() > 0:
-                    tcx, tcy, tw, th = target_boxes.unbind(-1)
-                    target_boxes_xyxy = torch.stack(
-                        [tcx - tw / 2, tcy - th / 2, tcx + tw / 2, tcy + th / 2],
-                        dim=-1,
-                    )
-                else:
-                    target_boxes_xyxy = target_boxes
+                target_labels = labels[i]["labels"] - 1
 
                 preds = [
                     {
-                        "boxes": pred_boxes_xyxy.cpu(),
+                        "boxes": pred_boxes.cpu(),
                         "scores": pred_scores.cpu(),
-                        "labels": pred_labels_filtered.cpu(),
+                        "labels": pred_labels.cpu(),
                     }
                 ]
                 targets = [
                     {
-                        "boxes": target_boxes_xyxy.cpu(),
+                        "boxes": target_boxes.cpu(),
                         "labels": target_labels.cpu(),
                     }
                 ]
@@ -411,8 +403,8 @@ def _save_results(
         logger: ロガー.
     """
     last_dir = ctx.workspace_manager.get_last_dir()
-    ctx.model.model.save_pretrained(last_dir)
-    ctx.processor.save_pretrained(last_dir)
+    last_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(ctx.model.model.state_dict(), last_dir / "model.pth")
     logger.info(f"Last model saved to {last_dir}")
 
     history_path = ctx.workspace / "training_history.csv"

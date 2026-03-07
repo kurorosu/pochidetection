@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pochidetection"
-version = "0.5.0"
+version = "0.6.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pochi = "pochidetection.cli.rtdetr:main"
+pochi = "pochidetection.cli.main:main"
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
@@ -62,6 +62,16 @@ python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "torchvision"
+ignore_missing_imports = true
+follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = "torchvision.*"
+ignore_missing_imports = true
+follow_untyped_imports = true
 
 [tool.pydocstyle]
 convention = "google"

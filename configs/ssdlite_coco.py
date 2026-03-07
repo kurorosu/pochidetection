@@ -1,36 +1,37 @@
-"""RT-DETR + COCO形式データセット用設定ファイル.
+"""SSDLite MobileNetV3 + COCO形式データセット用設定ファイル.
 
 使用方法:
     from pochidetection.utils import ConfigLoader
-    config = ConfigLoader.load("configs/rtdetr_coco.py")
+    config = ConfigLoader.load("configs/ssdlite_coco.py")
 """
 
 # モデル設定
-model_name = "PekingU/rtdetr_r18vd"
+architecture = "SSDLite"
+model_name = "ssdlite320_mobilenet_v3_large"
 num_classes = 4
 
 # クラス名設定 (推論時の可視化に使用)
 class_names = ["pochi", "pochi2", "pochi3", "pochi4"]
 
 # 画像サイズ設定
-image_size = {"height": 640, "width": 640}
+image_size = {"height": 320, "width": 320}
 
 # データ設定
 data_root = "data"
 train_split = "train"
 val_split = "val"
-batch_size = 8
+batch_size = 16
 
 # 学習設定
 epochs = 100
-learning_rate = 1e-4
+learning_rate = 1e-3
 lr_scheduler = "CosineAnnealingLR"  # None で無効 (デフォルト)
 lr_scheduler_params = {"eta_min": 1e-7}  # Scheduler 固有パラメータ
 
 # Early Stopping 設定
-early_stopping_patience = 15  # 改善なしで停止するまでのエポック数 (None or 0 で無効)
+early_stopping_patience = 10  # 改善なしで停止するまでのエポック数 (None or 0 で無効)
 early_stopping_metric = "mAP"  # "mAP" (高い方が良い) or "val_loss" (低い方が良い)
-early_stopping_min_delta = 0.01  # 改善と見なす最小変化量
+early_stopping_min_delta = 0.001  # 改善と見なす最小変化量
 
 # デバイス設定
 device = "cuda"

@@ -8,6 +8,7 @@ from pydantic import (
     Field,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
 
@@ -24,7 +25,7 @@ class DetectionConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    architecture: Literal["RTDetr"] = "RTDetr"
+    architecture: Literal["RTDetr", "SSDLite"] = "RTDetr"
     model_name: str = Field(default="PekingU/rtdetr_r50vd", min_length=1)
     pretrained: bool = True
     image_size: ImageSizeConfig = Field(default_factory=ImageSizeConfig)
@@ -52,9 +53,21 @@ class DetectionConfig(BaseModel):
     lr_scheduler: str | None = None
     lr_scheduler_params: dict[str, Any] | None = None
 
+    early_stopping_patience: int | None = None
+    early_stopping_metric: Literal["mAP", "val_loss"] = "mAP"
+    early_stopping_min_delta: float = Field(default=0.0, ge=0)
+
     annotation_path: str | None = None
 
     work_dir: str = Field(default="work_dirs", min_length=1)
+
+    @field_validator("early_stopping_patience", mode="before")
+    @classmethod
+    def normalize_early_stopping_patience(cls, v: int | None) -> int | None:
+        """patience=0 を None (無効) に正規化."""
+        if v is not None and v <= 0:
+            return None
+        return v
 
     @model_validator(mode="after")
     def validate_class_names(self) -> "DetectionConfig":
