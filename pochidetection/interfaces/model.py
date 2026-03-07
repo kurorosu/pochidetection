@@ -1,6 +1,7 @@
 """物体検出モデルのインターフェース."""
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -36,5 +37,25 @@ class IDetectionModel(ABC, nn.Module):
                 labels (M,) を含む. labels は 0-indexed.
             上記に加え, モデル固有のキー (pred_logits, pred_boxes 等)
             を含んでもよい.
+        """
+        pass
+
+    @abstractmethod
+    def save(self, save_dir: str | Path) -> None:
+        """モデルを指定ディレクトリに保存.
+
+        各実装はアーキテクチャ固有の永続化戦略をカプセル化する.
+
+        Args:
+            save_dir: 保存先ディレクトリパス.
+        """
+        pass
+
+    @abstractmethod
+    def load(self, load_dir: str | Path) -> None:
+        """指定ディレクトリからモデルを復元.
+
+        Args:
+            load_dir: 読み込み元ディレクトリパス.
         """
         pass

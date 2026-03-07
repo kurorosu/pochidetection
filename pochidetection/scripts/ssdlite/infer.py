@@ -106,10 +106,8 @@ def _setup_pipeline(
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 
-    model = SSDLiteModel(
-        num_classes=num_classes,
-        model_path=model_path,
-    )
+    model = SSDLiteModel(num_classes=num_classes)
+    model.load(model_path)
     model.to(device)
     model.eval()
 

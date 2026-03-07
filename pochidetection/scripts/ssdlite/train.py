@@ -33,23 +33,12 @@ def train(config: dict[str, Any], config_path: str) -> None:
     """
     logger = LoggerManager().get_logger(__name__)
     ctx = _setup_training(config, config_path, logger)
-    run_training_loop(config, ctx, _validate, _save_model)
+    run_training_loop(config, ctx, _validate)
 
 
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
-
-
-def _save_model(ctx: TrainingContext, save_dir: Path) -> None:
-    """State_dict 形式で SSDLite モデルを保存.
-
-    Args:
-        ctx: 学習コンテキスト.
-        save_dir: 保存先ディレクトリ.
-    """
-    save_dir.mkdir(parents=True, exist_ok=True)
-    torch.save(ctx.model.model.state_dict(), save_dir / "model.pth")
 
 
 def _setup_training(

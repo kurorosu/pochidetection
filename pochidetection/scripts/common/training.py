@@ -43,19 +43,6 @@ class TrainingContext(NamedTuple):
     train_score_threshold: float
 
 
-class ModelSaver(Protocol):
-    """モデル保存のプロトコル."""
-
-    def __call__(self, ctx: TrainingContext, save_dir: Path) -> None:
-        """モデルを指定ディレクトリに保存する.
-
-        Args:
-            ctx: 学習コンテキスト.
-            save_dir: 保存先ディレクトリ.
-        """
-        ...
-
-
 class Validator(Protocol):
     """検証ループのプロトコル."""
 
@@ -78,7 +65,6 @@ def run_training_loop(
     config: dict[str, Any],
     ctx: TrainingContext,
     validate: Validator,
-    save_model: ModelSaver,
 ) -> None:
     """共通学習ループ.
 
@@ -86,7 +72,6 @@ def run_training_loop(
         config: 設定辞書.
         ctx: 学習コンテキスト.
         validate: 検証関数.
-        save_model: モデル保存関数.
     """
     logger = LoggerManager().get_logger(__name__)
 
@@ -142,7 +127,7 @@ def run_training_loop(
             should_stop = early_stopping.step(value, epoch + 1)
 
             if early_stopping.counter == 0:
-                _save_best(ctx, save_model, metric, value, logger)
+                _save_best(ctx, metric, value, logger)
 
             if should_stop:
                 logger.info(
@@ -155,9 +140,9 @@ def run_training_loop(
         else:
             if mAP > best_map:
                 best_map = mAP
-                _save_best(ctx, save_model, "mAP", mAP, logger)
+                _save_best(ctx, "mAP", mAP, logger)
 
-    save_results(ctx, history, map_result, save_model, logger)
+    save_results(ctx, history, map_result, logger)
 
 
 def build_early_stopping(config: dict[str, Any]) -> EarlyStopping | None:
@@ -214,7 +199,6 @@ def save_results(
     ctx: TrainingContext,
     history: TrainingHistory,
     map_result: dict[str, Any],
-    save_model: ModelSaver,
     logger: Any,
 ) -> None:
     """モデル保存 + レポート出力.
@@ -223,11 +207,10 @@ def save_results(
         ctx: 学習コンテキスト.
         history: 学習履歴.
         map_result: 最後に検証されたエポックの mAP 計算結果.
-        save_model: モデル保存関数.
         logger: ロガー.
     """
     last_dir = ctx.workspace_manager.get_last_dir()
-    save_model(ctx, last_dir)
+    ctx.model.save(last_dir)
     logger.info(f"Last model saved to {last_dir}")
 
     history_path = ctx.workspace / "training_history.csv"
@@ -255,7 +238,6 @@ def save_results(
 
 def _save_best(
     ctx: TrainingContext,
-    save_model: ModelSaver,
     metric_name: str,
     metric_value: float,
     logger: Any,
@@ -264,11 +246,10 @@ def _save_best(
 
     Args:
         ctx: 学習コンテキスト.
-        save_model: モデル保存関数.
         metric_name: メトリクス名 (ログ用).
         metric_value: メトリクス値 (ログ用).
         logger: ロガー.
     """
     best_dir = ctx.workspace_manager.get_best_dir()
-    save_model(ctx, best_dir)
+    ctx.model.save(best_dir)
     logger.info(f"Best model saved to {best_dir} ({metric_name}: {metric_value:.4f})")

@@ -33,13 +33,8 @@ def train(config: dict[str, Any], config_path: str) -> None:
         config_path: 設定ファイルのパス (ワークスペースにコピーするため).
     """
     logger = LoggerManager().get_logger(__name__)
-    ctx, processor = _setup_training(config, config_path, logger)
-    run_training_loop(
-        config,
-        ctx,
-        validate=lambda c, l: _validate(c, l, processor),
-        save_model=lambda c, d: _save_model(c, d, processor),
-    )
+    ctx = _setup_training(config, config_path, logger)
+    run_training_loop(config, ctx, _validate)
 
 
 # ---------------------------------------------------------------------------
@@ -47,28 +42,11 @@ def train(config: dict[str, Any], config_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _save_model(
-    ctx: TrainingContext, save_dir: Path, processor: RTDetrImageProcessor
-) -> None:
-    """RT-DETR モデルを save_pretrained で保存.
-
-    Args:
-        ctx: 学習コンテキスト.
-        save_dir: 保存先ディレクトリ.
-        processor: 画像前処理プロセッサ.
-    """
-    model = ctx.model
-    if not isinstance(model, RTDetrModel):
-        raise TypeError(f"Expected RTDetrModel, got {type(model).__name__}")
-    model.model.save_pretrained(save_dir)
-    processor.save_pretrained(save_dir)
-
-
 def _setup_training(
     config: dict[str, Any],
     config_path: str,
     logger: Any,
-) -> tuple[TrainingContext, RTDetrImageProcessor]:
+) -> TrainingContext:
     """学習環境の構築.
 
     Args:
@@ -77,7 +55,7 @@ def _setup_training(
         logger: ロガー.
 
     Returns:
-        (学習コンテキスト, プロセッサ) のタプル.
+        構築済みの学習コンテキスト.
     """
     device = config["device"]
     num_classes = config["num_classes"]
@@ -96,11 +74,10 @@ def _setup_training(
     logger.info(f"Image size: {image_size}")
     logger.info(f"Workspace: {workspace}")
 
-    processor = RTDetrImageProcessor.from_pretrained(model_name, size=image_size)
-    model = RTDetrModel(model_name, num_classes=num_classes)
+    model = RTDetrModel(model_name, num_classes=num_classes, image_size=image_size)
     model.to(device)
 
-    train_loader, val_loader = _build_data_loaders(config, processor, logger)
+    train_loader, val_loader = _build_data_loaders(config, model.processor, logger)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -129,7 +106,7 @@ def _setup_training(
         epochs=epochs,
         train_score_threshold=train_score_threshold,
     )
-    return ctx, processor
+    return ctx
 
 
 def _build_data_loaders(
@@ -188,14 +165,12 @@ def _build_data_loaders(
 def _validate(
     ctx: TrainingContext,
     logger: Any,
-    processor: RTDetrImageProcessor,
 ) -> tuple[float, dict[str, Any]]:
     """検証ループ + mAP 計算.
 
     Args:
         ctx: 学習コンテキスト.
         logger: ロガー.
-        processor: 画像前処理プロセッサ.
 
     Returns:
         (平均検証損失, mAP 計算結果辞書) のタプル.
@@ -203,6 +178,8 @@ def _validate(
     model = ctx.model
     if not isinstance(model, RTDetrModel):
         raise TypeError(f"Expected RTDetrModel, got {type(model).__name__}")
+
+    processor = model.processor
 
     model.eval()
     val_loss = 0.0
