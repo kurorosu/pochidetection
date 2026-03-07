@@ -18,7 +18,8 @@ class SSDLiteModel(IDetectionModel):
 
     SSD は背景クラス (label=0) を内部で使用するため,
     torchvision に渡す num_classes は ユーザ指定値 + 1 となる.
-    forward の出力では label を -1 して 0-indexed に戻す.
+    label オフセット (+1/-1) は本クラスに集約し,
+    外部との入出力は全て 0-indexed で統一する.
 
     Attributes:
         _model: torchvision の SSD モデルインスタンス.
@@ -59,7 +60,7 @@ class SSDLiteModel(IDetectionModel):
             pixel_values: 入力画像テンソル, 形状は (B, C, H, W).
             labels: 学習時のターゲット. 各要素は以下のキーを含む辞書:
                 - boxes: バウンディングボックス (N, 4), xyxy ピクセル座標
-                - class_labels: クラスラベル (N,), 1-indexed (背景=0)
+                - class_labels: クラスラベル (N,), 0-indexed
 
         Returns:
             以下のキーを含む辞書:
@@ -72,7 +73,11 @@ class SSDLiteModel(IDetectionModel):
 
         if self._model.training and labels is not None:
             targets = [
-                {"boxes": t["boxes"], "labels": t["class_labels"]} for t in labels
+                {
+                    "boxes": t["boxes"],
+                    "labels": t["class_labels"] + 1,  # 0-indexed → 1-indexed
+                }
+                for t in labels
             ]
             losses = self._model(images, targets)
             return {"loss": sum(losses.values())}
@@ -80,11 +85,14 @@ class SSDLiteModel(IDetectionModel):
         detections = self._model(images)
         predictions = []
         for det in detections:
+            raw_labels = det["labels"] - 1  # 1-indexed → 0-indexed
+            # 背景クラス (torchvision label=0 → -1) を除去
+            fg_mask = raw_labels >= 0
             predictions.append(
                 {
-                    "boxes": det["boxes"],
-                    "scores": det["scores"],
-                    "labels": det["labels"] - 1,  # 0-indexed に戻す
+                    "boxes": det["boxes"][fg_mask],
+                    "scores": det["scores"][fg_mask],
+                    "labels": raw_labels[fg_mask],
                 }
             )
         return {"predictions": predictions}
