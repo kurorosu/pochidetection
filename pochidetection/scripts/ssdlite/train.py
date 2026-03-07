@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchmetrics.detection import MeanAveragePrecision
 
@@ -177,6 +178,9 @@ def _validate(
     val_loss = 0.0
     ctx.map_metric.reset()
 
+    # BN の running statistics を退避 (train モード切替による汚染を防止)
+    bn_states = _save_bn_states(ctx.model)
+
     with torch.no_grad():
         for batch in ctx.val_loader:
             pixel_values = batch["pixel_values"].to(ctx.device)
@@ -184,7 +188,7 @@ def _validate(
                 {k: v.to(ctx.device) for k, v in t.items()} for t in batch["labels"]
             ]
 
-            # 学習モードで loss を計算
+            # 学習モードで loss を計算 (torchvision SSD は train モード必須)
             ctx.model.train()
             train_outputs = ctx.model(pixel_values=pixel_values, labels=labels)
             val_loss += train_outputs["loss"].item()
@@ -218,6 +222,49 @@ def _validate(
                 ]
                 ctx.map_metric.update(preds, targets)
 
+    # BN の running statistics を復元
+    _restore_bn_states(ctx.model, bn_states)
+
     avg_val_loss = val_loss / len(ctx.val_loader)
     map_result = ctx.map_metric.compute()
     return avg_val_loss, map_result
+
+
+def _save_bn_states(model: nn.Module) -> dict[str, torch.Tensor]:
+    """BN の running statistics を退避する.
+
+    Args:
+        model: 対象モデル.
+
+    Returns:
+        モジュール名をキー, running statistics のクローンを値とする辞書.
+    """
+    states: dict[str, torch.Tensor] = {}
+    for name, module in model.named_modules():
+        if isinstance(module, (nn.BatchNorm2d, nn.BatchNorm1d, nn.SyncBatchNorm)):
+            if module.running_mean is not None:
+                states[f"{name}.running_mean"] = module.running_mean.clone()
+            if module.running_var is not None:
+                states[f"{name}.running_var"] = module.running_var.clone()
+            if module.num_batches_tracked is not None:
+                states[f"{name}.num_batches_tracked"] = (
+                    module.num_batches_tracked.clone()
+                )
+    return states
+
+
+def _restore_bn_states(model: nn.Module, states: dict[str, torch.Tensor]) -> None:
+    """退避した BN の running statistics を復元する.
+
+    Args:
+        model: 対象モデル.
+        states: _save_bn_states で退避した辞書.
+    """
+    for name, module in model.named_modules():
+        if isinstance(module, (nn.BatchNorm2d, nn.BatchNorm1d, nn.SyncBatchNorm)):
+            if f"{name}.running_mean" in states:
+                module.running_mean.copy_(states[f"{name}.running_mean"])
+            if f"{name}.running_var" in states:
+                module.running_var.copy_(states[f"{name}.running_var"])
+            if f"{name}.num_batches_tracked" in states:
+                module.num_batches_tracked.copy_(states[f"{name}.num_batches_tracked"])
