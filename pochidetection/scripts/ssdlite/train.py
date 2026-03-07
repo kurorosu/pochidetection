@@ -213,7 +213,7 @@ def _validate(
 
                 # ターゲット: 1-indexed → 0-indexed
                 target_boxes = labels[i]["boxes"]
-                target_labels = labels[i]["labels"] - 1
+                target_labels = labels[i]["class_labels"] - 1
 
                 preds = [
                     {

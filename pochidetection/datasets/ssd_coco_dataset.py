@@ -63,7 +63,7 @@ class SsdCocoDataset(BaseCocoDataset):
             orig_h: 元画像の高さ.
 
         Returns:
-            pixel_values と labels (boxes: xyxy, labels: 1-indexed) を含む辞書.
+            pixel_values と labels (boxes: xyxy, class_labels: 1-indexed) を含む辞書.
         """
         target_h, target_w = self._image_size
         image_resized = image.resize((target_w, target_h))
@@ -91,7 +91,7 @@ class SsdCocoDataset(BaseCocoDataset):
                 if boxes
                 else torch.zeros((0, 4), dtype=torch.float32)
             ),
-            "labels": (
+            "class_labels": (
                 torch.tensor(labels, dtype=torch.int64)
                 if labels
                 else torch.zeros((0,), dtype=torch.int64)

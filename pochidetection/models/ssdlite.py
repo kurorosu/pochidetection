@@ -69,17 +69,21 @@ class SSDLiteModel(IDetectionModel):
             pixel_values: 入力画像テンソル, 形状は (B, C, H, W).
             labels: 学習時のターゲット. 各要素は以下のキーを含む辞書:
                 - boxes: バウンディングボックス (N, 4), xyxy ピクセル座標
-                - labels: クラスラベル (N,), 1-indexed (背景=0)
+                - class_labels: クラスラベル (N,), 1-indexed (背景=0)
 
         Returns:
-            学習時: {"loss": Tensor}
-            推論時: {"predictions": list[dict]} 各要素は
-                boxes (M, 4), scores (M,), labels (M,) を含む (0-indexed).
+            以下のキーを含む辞書:
+            - loss: 学習時の損失 (labels が指定された場合)
+            - predictions: 推論時の検出結果 (labels が None の場合).
+                list[dict] で各要素は boxes (M, 4), scores (M,),
+                labels (M,) を含む (0-indexed).
         """
-        images = [img for img in pixel_values.unbind(0)]
+        images = list(pixel_values.unbind(0))
 
         if self._model.training and labels is not None:
-            targets = [{"boxes": t["boxes"], "labels": t["labels"]} for t in labels]
+            targets = [
+                {"boxes": t["boxes"], "labels": t["class_labels"]} for t in labels
+            ]
             losses = self._model(images, targets)
             return {"loss": sum(losses.values())}
 
