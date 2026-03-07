@@ -67,11 +67,11 @@ class TestSSDLiteModel:
                 "boxes": torch.tensor(
                     [[50.0, 50.0, 100.0, 100.0]], dtype=torch.float32
                 ),
-                "labels": torch.tensor([1], dtype=torch.int64),
+                "class_labels": torch.tensor([1], dtype=torch.int64),
             },
             {
                 "boxes": torch.tensor([[30.0, 30.0, 80.0, 80.0]], dtype=torch.float32),
-                "labels": torch.tensor([2], dtype=torch.int64),
+                "class_labels": torch.tensor([2], dtype=torch.int64),
             },
         ]
 
