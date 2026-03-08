@@ -35,6 +35,8 @@ class InferenceSaver:
         # 既存の inference_XXX ディレクトリを検索 (任意桁数に対応)
         pattern = re.compile(r"^inference_(\d+)$")
         max_num = 0
+        if not base_dir.exists():
+            base_dir.mkdir(parents=True)
         for d in base_dir.iterdir():
             if d.is_dir():
                 m = pattern.match(d.name)
