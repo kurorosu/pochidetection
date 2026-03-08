@@ -80,7 +80,7 @@ class Visualizer:
         try:
             font = ImageFont.truetype("arial.ttf", font_size)
         except OSError:
-            font = ImageFont.load_default()
+            font = ImageFont.load_default(size=font_size)
 
         for detection in detections:
             x1, y1, x2, y2 = detection.box
