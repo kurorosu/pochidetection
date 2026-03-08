@@ -1,5 +1,7 @@
 """RTDetrModelのテスト."""
 
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 
@@ -88,3 +90,21 @@ class TestRTDetrModel:
             outputs = model(pixel_values)
 
         assert outputs["pred_logits"].shape[2] == 10
+
+    def test_load_updates_num_classes(self, tmp_path: Path) -> None:
+        """load 後に _num_classes が更新されることを確認."""
+        # num_classes=5 のモデルを保存
+        model_5 = RTDetrModel(
+            model_name="PekingU/rtdetr_r18vd", num_classes=5, pretrained=False
+        )
+        save_dir = tmp_path / "saved_model"
+        model_5.save(save_dir)
+
+        # num_classes=2 のモデルから load して num_classes が 5 に更新される
+        model_2 = RTDetrModel(
+            model_name="PekingU/rtdetr_r18vd", num_classes=2, pretrained=False
+        )
+        assert model_2.num_classes == 2
+
+        model_2.load(save_dir)
+        assert model_2.num_classes == 5
