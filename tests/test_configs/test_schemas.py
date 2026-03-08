@@ -184,3 +184,24 @@ class TestSSDLiteIgnoredFieldWarnings:
             )
             msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
             assert len(msgs) == 3
+
+
+class TestInferImageDir:
+    """infer_image_dir フィールドのテスト."""
+
+    def test_default_is_none(self) -> None:
+        """デフォルトでは None."""
+        config = DetectionConfig(**REQUIRED_FIELDS)
+        assert config.infer_image_dir is None
+
+    def test_set_infer_image_dir(self) -> None:
+        """infer_image_dir を設定できる."""
+        config = DetectionConfig(
+            **REQUIRED_FIELDS, infer_image_dir="data/val/JPEGImages"
+        )
+        assert config.infer_image_dir == "data/val/JPEGImages"
+
+    def test_existing_configs_without_field_still_valid(self) -> None:
+        """infer_image_dir 未指定の既存 config でもバリデーションが通る."""
+        config = DetectionConfig(**REQUIRED_FIELDS)
+        assert config.infer_image_dir is None

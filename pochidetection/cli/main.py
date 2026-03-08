@@ -86,8 +86,8 @@ def _create_parser() -> argparse.ArgumentParser:
         "-d",
         "--dir",
         type=str,
-        required=True,
-        help="推論対象の画像フォルダパス",
+        default=None,
+        help="推論対象の画像フォルダパス (未指定時は config の infer_image_dir を使用)",
     )
     infer_parser.add_argument(
         "-m",
@@ -279,8 +279,16 @@ def main() -> None:
     elif args.command == "infer":
         config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
+        image_dir = args.dir or config.get("infer_image_dir")
+        if image_dir is None:
+            print(
+                "Error: 推論対象の画像ディレクトリが未指定です. "
+                "-d オプションまたは config の infer_image_dir を設定してください.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         infer_fn = _resolve_infer(config)
-        infer_fn(config, args.dir, args.model_dir)
+        infer_fn(config, image_dir, args.model_dir)
     elif args.command == "export":
         config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
