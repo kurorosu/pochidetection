@@ -11,9 +11,10 @@
 ### Changed
 - `LoggerManager._loggers` をクラス変数からインスタンス変数に変更し, テスト時のシングルトンリセットを容易にした. ([#192](https://github.com/kurorosu/pochidetection/pull/192).)
 - `_build_data_loaders` を `rtdetr/train.py` と `ssdlite/train.py` から `scripts/common/training.py` の `build_data_loaders` に共通化. データセット生成はファクトリ関数で注入. ([#193](https://github.com/kurorosu/pochidetection/pull/193).)
-- `Visualizer`, `InferenceSaver`, `DetectionSummary`, `DetectionResultRow` 等の推論共通コンポーネントを `scripts/rtdetr/inference/` から `scripts/common/` に移動. `ssdlite/infer.py` が `rtdetr` パッケージに依存しなくなった. (N/A.)
+- `Visualizer`, `InferenceSaver`, `DetectionSummary`, `DetectionResultRow` 等の推論共通コンポーネントを `scripts/rtdetr/inference/` から `scripts/common/` に移動. `ssdlite/infer.py` が `rtdetr` パッケージに依存しなくなった. ([#195](https://github.com/kurorosu/pochidetection/pull/195).)
 
 ### Fixed
+- `cli/main.py` で `export_onnx` / `export_trt` がトップレベル import されていたのを lazy import に変更. TensorRT 未インストール環境で `pochi train` / `pochi infer` 実行時に不要なモジュール読み込みが発生しなくなった. (N/A.)
 - SSDLite の `_validate` で `model.train()` に切り替えた際に BatchNorm の `running_mean` / `running_var` が検証データで更新される問題を修正. BN 統計を退避・復元する方式で保護. ([#191](https://github.com/kurorosu/pochidetection/pull/191).)
 
 ### Removed

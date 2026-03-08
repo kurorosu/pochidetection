@@ -16,8 +16,6 @@ from collections.abc import Callable
 from typing import Any
 
 from pochidetection.logging import LoggerManager, LogLevel
-from pochidetection.scripts.rtdetr.export_onnx import export_onnx
-from pochidetection.scripts.rtdetr.export_trt import export_trt
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 
@@ -270,6 +268,8 @@ def main() -> None:
         infer_fn = _resolve_infer(config)
         infer_fn(config, args.dir, args.model_dir)
     elif args.command == "export":
+        from pochidetection.scripts.rtdetr.export_onnx import export_onnx
+
         config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
         input_size = tuple(args.input_size) if args.input_size else None
@@ -282,6 +282,8 @@ def main() -> None:
             args.skip_verify,
         )
     elif args.command == "export-trt":
+        from pochidetection.scripts.rtdetr.export_trt import export_trt
+
         config_path = resolve_config_path(args.config, args.onnx_path, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
         input_size_tgt: tuple[int, int] = (
