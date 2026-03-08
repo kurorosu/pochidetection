@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- `scripts/common/training.py` の `build_early_stopping` と `scripts/common/inference.py` の `resolve_model_path`, `collect_image_files` のユニットテストを追加. (N/A.)
+- `scripts/common/training.py` の `build_early_stopping` と `scripts/common/inference.py` の `resolve_model_path`, `collect_image_files` のユニットテストを追加. ([#202](https://github.com/kurorosu/pochidetection/pull/202).)
 
 ### Changed
 - `LoggerManager._loggers` をクラス変数からインスタンス変数に変更し, テスト時のシングルトンリセットを容易にした. ([#192](https://github.com/kurorosu/pochidetection/pull/192).)
@@ -14,6 +14,7 @@
 - `Visualizer`, `InferenceSaver`, `DetectionSummary`, `DetectionResultRow` 等の推論共通コンポーネントを `scripts/rtdetr/inference/` から `scripts/common/` に移動. `ssdlite/infer.py` が `rtdetr` パッケージに依存しなくなった. ([#195](https://github.com/kurorosu/pochidetection/pull/195).)
 
 ### Fixed
+- `test_map_evaluator.py` から `test_coco_utils.py` と重複する `TestExtractBasename`, `TestXywhToXyxy` を削除. (N/A.)
 - `cli/main.py` で `export_onnx` / `export_trt` がトップレベル import されていたのを lazy import に変更. TensorRT 未インストール環境で `pochi train` / `pochi infer` 実行時に不要なモジュール読み込みが発生しなくなった. ([#196](https://github.com/kurorosu/pochidetection/pull/196).)
 - `RTDetrModel.load()` で `_num_classes` が更新されず, load 前のクラス数が残る問題を修正. ([#197](https://github.com/kurorosu/pochidetection/pull/197).)
 - `Visualizer` のフォールバックフォントで `ImageFont.load_default()` が `size` 引数なしで呼ばれ, Linux/Docker 環境でラベルが極小になる問題を修正. `load_default(size=font_size)` に変更. ([#198](https://github.com/kurorosu/pochidetection/pull/198).)
