@@ -2,7 +2,7 @@
 
 import torch
 from PIL import Image
-from torchvision import transforms
+from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.pipeline import IDetectionPipeline
@@ -36,7 +36,7 @@ class SSDLitePipeline(IDetectionPipeline):
     def __init__(
         self,
         model: SSDLiteModel,
-        transform: transforms.Compose,
+        transform: v2.Compose,
         image_size: tuple[int, int],
         device: str = "cuda",
         threshold: float = 0.5,

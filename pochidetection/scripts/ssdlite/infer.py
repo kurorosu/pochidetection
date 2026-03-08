@@ -8,7 +8,7 @@ from typing import Any, NamedTuple
 
 import torch
 from PIL import Image
-from torchvision import transforms
+from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
 from pochidetection.logging import LoggerManager
@@ -113,10 +113,11 @@ def _setup_pipeline(
 
     precision = "fp16" if fp16 else "fp32"
 
-    transform = transforms.Compose(
+    transform = v2.Compose(
         [
-            transforms.ToTensor(),
-            transforms.Normalize(
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225],
             ),
