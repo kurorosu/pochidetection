@@ -9,7 +9,8 @@
 - 無し.
 
 ### Changed
-- CLI の description を汎用化し, ヘルプに SSDLite の使用例と export の RT-DETR 限定注記を追加. `export` / `export-trt` コマンドに SSDLite 設定ファイル指定時のガードを追加. (N/A.)
+- CLI の description を汎用化し, ヘルプに SSDLite の使用例と export の RT-DETR 限定注記を追加. `export` / `export-trt` コマンドに SSDLite 設定ファイル指定時のガードを追加. ([#209](https://github.com/kurorosu/pochidetection/pull/209).)
+- `DetectionConfig.architecture` に `field_validator(mode="before")` を追加し, 大文字小文字を問わず `"RTDetr"` / `"SSDLite"` に正規化. (N/A.)
 
 ### Fixed
 - 無し.
