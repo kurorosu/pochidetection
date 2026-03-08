@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pochidetection.scripts.rtdetr.inference.saver import InferenceSaver
+from pochidetection.scripts.common.saver import InferenceSaver
 
 
 class TestCreateNumberedDir:

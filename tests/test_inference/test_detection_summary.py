@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from pochidetection.core.detection import Detection
 from pochidetection.scripts.common.inference import _log_detection_summary
-from pochidetection.scripts.rtdetr.inference.summary import (
+from pochidetection.scripts.common.summary import (
     DETECTION_SUMMARY_SCHEMA_VERSION,
     ClassCount,
     DetectionSummary,
