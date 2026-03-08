@@ -11,7 +11,8 @@
 ### Changed
 - CLI の description を汎用化し, ヘルプに SSDLite の使用例と export の RT-DETR 限定注記を追加. `export` / `export-trt` コマンドに SSDLite 設定ファイル指定時のガードを追加. ([#209](https://github.com/kurorosu/pochidetection/pull/209).)
 - `DetectionConfig.architecture` に `field_validator(mode="before")` を追加し, 大文字小文字を問わず `"RTDetr"` / `"SSDLite"` に正規化. ([#210](https://github.com/kurorosu/pochidetection/pull/210).)
-- `WorkspaceManager.save_config()` が元のファイル名を保持してコピーするように変更. `resolve_config_path()` が `config.py` 以外の `.py` ファイルも自動検出するように拡張. (N/A.)
+- `WorkspaceManager.save_config()` が元のファイル名を保持してコピーするように変更. `resolve_config_path()` が `config.py` 以外の `.py` ファイルも自動検出するように拡張. ([#211](https://github.com/kurorosu/pochidetection/pull/211).)
+- `TensorRTExporter.export()` のメモリプール制限を `build_memory` パラメータとして外部化. CLI に `--build-memory` オプションを追加. (N/A.)
 
 ### Fixed
 - 無し.

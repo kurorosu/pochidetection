@@ -186,6 +186,12 @@ def _create_parser() -> argparse.ArgumentParser:
         help="FP16 精度でエンジンをビルド (非対応GPUではFP32にフォールバック)",
     )
     export_trt_parser.add_argument(
+        "--build-memory",
+        type=int,
+        default=4 * 1024 * 1024 * 1024,
+        help="TensorRT ビルド時の最大メモリ (bytes, default: 4GB)",
+    )
+    export_trt_parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -326,6 +332,7 @@ def main() -> None:
             args.opt_batch,
             args.max_batch,
             args.fp16,
+            args.build_memory,
         )
     else:
         _create_parser().print_help()
