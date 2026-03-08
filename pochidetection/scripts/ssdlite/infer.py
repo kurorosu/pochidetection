@@ -22,13 +22,12 @@ from pochidetection.scripts.common.inference import (
     resolve_model_path,
     write_reports,
 )
+from pochidetection.scripts.ssdlite.inference import SSDLitePipeline
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
-
-PHASES = ["preprocess", "inference", "postprocess"]
 
 
 def infer(
@@ -68,18 +67,14 @@ def infer(
 class _PipelineContext(NamedTuple):
     """_setup_pipeline の戻り値."""
 
-    model: SSDLiteModel
-    transform: transforms.Compose
-    image_size: tuple[int, int]
-    threshold: float
-    device: str
-    precision: str
+    pipeline: SSDLitePipeline
     phased_timer: PhasedTimer
     visualizer: Visualizer
     saver: InferenceSaver
     label_mapper: LabelMapper | None
     class_names: list[str] | None
     actual_device: str
+    precision: str
 
 
 def _setup_pipeline(
@@ -128,7 +123,16 @@ def _setup_pipeline(
         ]
     )
 
-    phased_timer = PhasedTimer(phases=PHASES, device=device)
+    phased_timer = PhasedTimer(phases=SSDLitePipeline.PHASES, device=device)
+    pipeline = SSDLitePipeline(
+        model=model,
+        transform=transform,
+        image_size=image_size,
+        device=device,
+        threshold=threshold,
+        use_fp16=use_fp16,
+        phased_timer=phased_timer,
+    )
 
     class_names = config.get("class_names")
     label_mapper = LabelMapper(class_names) if class_names else None
@@ -136,18 +140,14 @@ def _setup_pipeline(
     saver = InferenceSaver(model_path)
 
     return _PipelineContext(
-        model=model,
-        transform=transform,
-        image_size=image_size,
-        threshold=threshold,
-        device=device,
-        precision=precision,
+        pipeline=pipeline,
         phased_timer=phased_timer,
         visualizer=visualizer,
         saver=saver,
         label_mapper=label_mapper,
         class_names=class_names,
         actual_device=device,
+        precision=precision,
     )
 
 
@@ -165,33 +165,10 @@ def _run_inference(
         ファイル名をキー, 検出結果リストを値とする辞書.
     """
     all_predictions: dict[str, list[Detection]] = {}
-    target_h, target_w = ctx.image_size
 
     for image_file in image_files:
         image = Image.open(image_file).convert("RGB")
-        orig_w, orig_h = image.size
-
-        # 前処理
-        with ctx.phased_timer.measure("preprocess"):
-            image_resized = image.resize((target_w, target_h))
-            pixel_values = ctx.transform(image_resized).unsqueeze(0).to(ctx.device)
-
-        # 推論
-        with ctx.phased_timer.measure("inference"):
-            with torch.no_grad():
-                outputs = ctx.model(pixel_values)
-
-        # 後処理
-        with ctx.phased_timer.measure("postprocess"):
-            detections = _postprocess(
-                outputs["predictions"][0],
-                ctx.threshold,
-                orig_w,
-                orig_h,
-                target_w,
-                target_h,
-            )
-
+        detections = ctx.pipeline.run(image)
         all_predictions[image_file.name] = detections
         result_image = ctx.visualizer.draw(image, detections)
         output_path = ctx.saver.save(result_image, image_file.name)
@@ -203,51 +180,3 @@ def _run_inference(
         )
 
     return all_predictions
-
-
-def _postprocess(
-    pred: dict[str, torch.Tensor],
-    threshold: float,
-    orig_w: int,
-    orig_h: int,
-    target_w: int,
-    target_h: int,
-) -> list[Detection]:
-    """予測結果をフィルタリングし, 元画像座標に変換.
-
-    Note:
-        NMS は torchvision の SSD 内部 (``postprocess_detections``) で
-        適用済みのため, ここではスコア閾値フィルタと座標リスケールのみ行う.
-
-    Args:
-        pred: モデル出力 (boxes, scores, labels).
-        threshold: 検出信頼度閾値.
-        orig_w: 元画像の幅.
-        orig_h: 元画像の高さ.
-        target_w: リサイズ後の幅.
-        target_h: リサイズ後の高さ.
-
-    Returns:
-        検出結果のリスト.
-    """
-    mask = pred["scores"] >= threshold
-    boxes = pred["boxes"][mask]
-    scores = pred["scores"][mask]
-    labels = pred["labels"][mask]
-
-    # リサイズ座標 → 元画像座標
-    scale_x = orig_w / target_w
-    scale_y = orig_h / target_h
-    boxes[:, 0] *= scale_x
-    boxes[:, 2] *= scale_x
-    boxes[:, 1] *= scale_y
-    boxes[:, 3] *= scale_y
-
-    return [
-        Detection(
-            box=box.tolist(),
-            score=score.item(),
-            label=label.item(),
-        )
-        for box, score, label in zip(boxes, scores, labels)
-    ]

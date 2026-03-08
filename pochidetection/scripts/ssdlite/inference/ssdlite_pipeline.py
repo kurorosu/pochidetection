@@ -1,0 +1,184 @@
+"""SSDLite E2E 推論パイプライン."""
+
+import torch
+from PIL import Image
+from torchvision import transforms
+
+from pochidetection.core.detection import Detection
+from pochidetection.interfaces.pipeline import IDetectionPipeline
+from pochidetection.models import SSDLiteModel
+from pochidetection.utils import PhasedTimer
+from pochidetection.utils.device import is_fp16_available
+
+
+class SSDLitePipeline(IDetectionPipeline):
+    """SSDLite E2E 推論パイプライン.
+
+    前処理・推論・後処理を明示的に分離し,
+    PhasedTimer によるフェーズ別プロファイリングを提供する.
+
+    Note:
+        NMS は torchvision の SSD 内部 (``postprocess_detections``) で
+        自動適用されるため, 後処理ではスコア閾値フィルタと座標リスケールのみ行う.
+
+    Attributes:
+        _model: SSDLite モデル.
+        _transform: torchvision 前処理パイプライン.
+        _image_size: リサイズ先の (height, width).
+        _device: 実行デバイス.
+        _threshold: 検出信頼度閾値.
+        _use_fp16: FP16 推論を使用するか.
+        _phased_timer: フェーズ別タイマー.
+    """
+
+    PHASES = ["preprocess", "inference", "postprocess"]
+
+    def __init__(
+        self,
+        model: SSDLiteModel,
+        transform: transforms.Compose,
+        image_size: tuple[int, int],
+        device: str = "cuda",
+        threshold: float = 0.5,
+        use_fp16: bool = False,
+        phased_timer: PhasedTimer | None = None,
+    ) -> None:
+        """初期化.
+
+        Args:
+            model: SSDLite モデルインスタンス.
+            transform: torchvision 前処理パイプライン.
+            image_size: リサイズ先の (height, width).
+            device: 実行デバイス.
+            threshold: 検出信頼度閾値.
+            use_fp16: FP16 推論を使用するか. CUDA デバイスでのみ有効.
+            phased_timer: フェーズ別タイマー. None の場合は計測しない.
+
+        Raises:
+            ValueError: phased_timer に必須フェーズが含まれていない場合.
+        """
+        if phased_timer is not None:
+            missing = set(self.PHASES) - set(phased_timer.phases)
+            if missing:
+                raise ValueError(
+                    f"phased_timer is missing required phases: {sorted(missing)}. "
+                    f"Required: {self.PHASES}"
+                )
+
+        self._model = model
+        self._transform = transform
+        self._image_size = image_size
+        self._device = device
+        self._threshold = threshold
+        self._use_fp16 = is_fp16_available(use_fp16, device)
+        self._phased_timer = phased_timer
+
+    def preprocess(self, image: Image.Image) -> tuple[torch.Tensor, int, int]:
+        """画像を前処理し, モデル入力テンソルを返す.
+
+        Args:
+            image: 入力画像 (PIL Image).
+
+        Returns:
+            (pixel_values, orig_w, orig_h) のタプル.
+            pixel_values は (1, C, H, W) 形状のテンソル.
+        """
+        orig_w, orig_h = image.size
+        target_h, target_w = self._image_size
+        image_resized = image.resize((target_w, target_h))
+        pixel_values = self._transform(image_resized).unsqueeze(0).to(self._device)
+
+        if self._use_fp16:
+            pixel_values = pixel_values.half()
+
+        return pixel_values, orig_w, orig_h
+
+    def infer(self, pixel_values: torch.Tensor) -> dict[str, torch.Tensor]:
+        """推論を実行.
+
+        torch.no_grad() コンテキストで推論し, CUDA デバイスの場合は同期を行う.
+
+        Args:
+            pixel_values: 前処理済みの入力テンソル (1, C, H, W).
+
+        Returns:
+            モデル出力の予測辞書 (boxes, scores, labels).
+        """
+        with torch.no_grad():
+            outputs = self._model(pixel_values)
+            if self._device == "cuda":
+                torch.cuda.synchronize()
+        pred: dict[str, torch.Tensor] = outputs["predictions"][0]
+        return pred
+
+    def postprocess(
+        self,
+        pred: dict[str, torch.Tensor],
+        orig_w: int,
+        orig_h: int,
+    ) -> list[Detection]:
+        """後処理. スコア閾値フィルタと座標リスケールを行う.
+
+        Note:
+            NMS は torchvision の SSD 内部 (``postprocess_detections``) で
+            適用済みのため, ここではスコア閾値フィルタと座標リスケールのみ行う.
+
+        Args:
+            pred: モデル出力 (boxes, scores, labels).
+            orig_w: 元画像の幅.
+            orig_h: 元画像の高さ.
+
+        Returns:
+            検出結果のリスト.
+        """
+        mask = pred["scores"] >= self._threshold
+        boxes = pred["boxes"][mask]
+        scores = pred["scores"][mask]
+        labels = pred["labels"][mask]
+
+        target_h, target_w = self._image_size
+        scale_x = orig_w / target_w
+        scale_y = orig_h / target_h
+        boxes[:, 0] *= scale_x
+        boxes[:, 2] *= scale_x
+        boxes[:, 1] *= scale_y
+        boxes[:, 3] *= scale_y
+
+        return [
+            Detection(
+                box=box.tolist(),
+                score=score.item(),
+                label=label.item(),
+            )
+            for box, score, label in zip(boxes, scores, labels)
+        ]
+
+    def run(self, image: Image.Image) -> list[Detection]:
+        """E2E 実行. preprocess → infer → postprocess を順に実行する.
+
+        PhasedTimer が設定されている場合, 各フェーズを個別に計測する.
+
+        Args:
+            image: 入力画像 (PIL Image).
+
+        Returns:
+            検出結果のリスト.
+        """
+        if self._phased_timer is not None:
+            with self._phased_timer.measure("preprocess"):
+                pixel_values, orig_w, orig_h = self.preprocess(image)
+            with self._phased_timer.measure("inference"):
+                pred = self.infer(pixel_values)
+            with self._phased_timer.measure("postprocess"):
+                detections = self.postprocess(pred, orig_w, orig_h)
+        else:
+            pixel_values, orig_w, orig_h = self.preprocess(image)
+            pred = self.infer(pixel_values)
+            detections = self.postprocess(pred, orig_w, orig_h)
+
+        return detections
+
+    @property
+    def phased_timer(self) -> PhasedTimer | None:
+        """フェーズ別タイマーを取得."""
+        return self._phased_timer
