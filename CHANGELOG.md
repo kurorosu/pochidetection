@@ -9,7 +9,7 @@
 - 無し.
 
 ### Changed
-- 無し.
+- CLI の description を汎用化し, ヘルプに SSDLite の使用例と export の RT-DETR 限定注記を追加. `export` / `export-trt` コマンドに SSDLite 設定ファイル指定時のガードを追加. (N/A.)
 
 ### Fixed
 - 無し.
