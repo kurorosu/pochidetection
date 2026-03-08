@@ -13,14 +13,14 @@ from torchvision import transforms
 from pochidetection.core.detection import Detection
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
+from pochidetection.scripts.common import (
+    InferenceSaver,
+    Visualizer,
+)
 from pochidetection.scripts.common.inference import (
     collect_image_files,
     resolve_model_path,
     write_reports,
-)
-from pochidetection.scripts.rtdetr.inference import (
-    InferenceSaver,
-    Visualizer,
 )
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available

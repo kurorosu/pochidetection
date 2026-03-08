@@ -9,7 +9,7 @@ from typing import Any, Protocol
 
 from pochidetection.core.detection import Detection
 from pochidetection.logging import LoggerManager
-from pochidetection.scripts.rtdetr.inference import (
+from pochidetection.scripts.common import (
     DetectionSummary,
     InferenceSaver,
     build_detection_results,

@@ -22,6 +22,10 @@ from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
+from pochidetection.scripts.common import (
+    InferenceSaver,
+    Visualizer,
+)
 from pochidetection.scripts.common.inference import (
     collect_image_files,
     resolve_model_path,
@@ -29,8 +33,6 @@ from pochidetection.scripts.common.inference import (
 )
 from pochidetection.scripts.rtdetr.inference import (
     DetectionPipeline,
-    InferenceSaver,
-    Visualizer,
 )
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available

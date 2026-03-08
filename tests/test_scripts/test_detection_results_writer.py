@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from pochidetection.core.detection import Detection
-from pochidetection.scripts.rtdetr.inference.detection_results_writer import (
+from pochidetection.scripts.common.detection_results_writer import (
     CSV_COLUMNS,
     DetectionResultRow,
     build_detection_results,
