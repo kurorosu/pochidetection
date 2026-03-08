@@ -28,10 +28,8 @@ class IDetectionDataset(ABC):
 
         Returns:
             以下のキーを含む辞書:
-            - image: 画像テンソル (C, H, W)
-            - boxes: バウンディングボックス (N, 4) [x_min, y_min, x_max, y_max]
-            - labels: クラスラベル (N,)
-            - image_id: 画像ID
+            - pixel_values: 前処理済み画像テンソル (C, H, W)
+            - labels: ターゲット辞書 (boxes, class_labels を含む)
         """
         pass
 
