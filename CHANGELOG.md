@@ -18,7 +18,8 @@
 - `RTDetrModel.load()` で `_num_classes` が更新されず, load 前のクラス数が残る問題を修正. ([#197](https://github.com/kurorosu/pochidetection/pull/197).)
 - `Visualizer` のフォールバックフォントで `ImageFont.load_default()` が `size` 引数なしで呼ばれ, Linux/Docker 環境でラベルが極小になる問題を修正. `load_default(size=font_size)` に変更. ([#198](https://github.com/kurorosu/pochidetection/pull/198).)
 - `InferenceSaver` で `base_dir` が存在しない場合に `FileNotFoundError` が発生する問題を修正. ディレクトリを自動作成するよう変更. ([#199](https://github.com/kurorosu/pochidetection/pull/199).)
-- `IDetectionDataset.__getitem__` の docstring が実装と不一致だったのを修正. 返り値を `pixel_values` と `labels` に更新. (N/A.)
+- `IDetectionDataset.__getitem__` の docstring が実装と不一致だったのを修正. 返り値を `pixel_values` と `labels` に更新. ([#200](https://github.com/kurorosu/pochidetection/pull/200).)
+- `IDetectionModel.forward` の docstring が `RTDetrModel` の実装と不一致だったのを修正. モデル固有の返り値 (RT-DETR: `pred_logits`/`pred_boxes`, SSDLite: `predictions`) を明記. (N/A.)
 - SSDLite の `_validate` で `model.train()` に切り替えた際に BatchNorm の `running_mean` / `running_var` が検証データで更新される問題を修正. BN 統計を退避・復元する方式で保護. ([#191](https://github.com/kurorosu/pochidetection/pull/191).)
 
 ### Removed
