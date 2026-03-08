@@ -59,6 +59,7 @@ class DetectionConfig(BaseModel):
     early_stopping_min_delta: float = Field(default=0.0, ge=0)
 
     annotation_path: str | None = None
+    infer_image_dir: str | None = None
 
     work_dir: str = Field(default="work_dirs", min_length=1)
 

@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し.
+- `DetectionConfig` に `infer_image_dir` フィールドを追加. CLI `-d` 未指定時に config から推論対象の画像フォルダパスを解決できるようにした. (N/A.)
 
 ### Changed
 - 無し.
