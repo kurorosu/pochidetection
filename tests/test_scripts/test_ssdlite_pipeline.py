@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 import torch
 from PIL import Image
-from torchvision import transforms
+from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.pipeline import IDetectionPipeline
@@ -39,12 +39,13 @@ class DummySSDLiteModel:
         return {"predictions": self._predictions}
 
 
-def _make_transform() -> transforms.Compose:
+def _make_transform() -> v2.Compose:
     """テスト用の transform を生成."""
-    return transforms.Compose(
+    return v2.Compose(
         [
-            transforms.ToTensor(),
-            transforms.Normalize(
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225],
             ),

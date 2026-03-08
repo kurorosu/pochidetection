@@ -10,7 +10,8 @@
 
 ### Changed
 - `SSDLiteModel` と `ssdlite/infer.py` の docstring に, NMS が torchvision 内部で自動適用される旨の Note を追加. ([#205](https://github.com/kurorosu/pochidetection/pull/205).)
-- SSDLite 推論を `SSDLitePipeline` クラスに抽出し, RT-DETR の `DetectionPipeline` と同じ 3 フェーズ構成に統一. 共通インターフェース `IDetectionPipeline` を新設し, 両パイプラインが実装. (N/A.)
+- SSDLite 推論を `SSDLitePipeline` クラスに抽出し, RT-DETR の `DetectionPipeline` と同じ 3 フェーズ構成に統一. 共通インターフェース `IDetectionPipeline` を新設し, 両パイプラインが実装. ([#206](https://github.com/kurorosu/pochidetection/pull/206).)
+- `SsdCocoDataset` の画像リサイズとボックス座標変換を `torchvision.transforms.v2` + `tv_tensors.BoundingBoxes` に移行し, 手動スケール計算を削除. 推論側 (`ssdlite/infer.py`, `SSDLitePipeline`) の transform も v2 に統一. (N/A.)
 
 ### Fixed
 - 無し.
