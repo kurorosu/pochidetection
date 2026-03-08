@@ -61,8 +61,45 @@ class TestResolveConfigPath:
         result = resolve_config_path(None, str(engine_file), DEFAULT_CONFIG)
         assert result == str(config_file)
 
+    def test_auto_resolve_original_filename(self, tmp_path: Path) -> None:
+        """元のファイル名で保存された config を自動検出することを確認."""
+        workspace = tmp_path / "work_dirs" / "20260228_001"
+        best_dir = workspace / "best"
+        best_dir.mkdir(parents=True)
+        config_file = workspace / "ssdlite_coco.py"
+        config_file.write_text('data_root = "data"\n', encoding="utf-8")
+
+        result = resolve_config_path(None, str(best_dir), DEFAULT_CONFIG)
+        assert result == str(config_file)
+
+    def test_config_py_takes_precedence_over_original_filename(
+        self, tmp_path: Path
+    ) -> None:
+        """config.py と元ファイル名が両方ある場合 config.py を優先することを確認."""
+        workspace = tmp_path / "work_dirs" / "20260228_001"
+        best_dir = workspace / "best"
+        best_dir.mkdir(parents=True)
+        config_py = workspace / "config.py"
+        config_py.write_text('data_root = "data"\n', encoding="utf-8")
+        original = workspace / "ssdlite_coco.py"
+        original.write_text('data_root = "data"\n', encoding="utf-8")
+
+        result = resolve_config_path(None, str(best_dir), DEFAULT_CONFIG)
+        assert result == str(config_py)
+
+    def test_fallback_when_multiple_py_files(self, tmp_path: Path) -> None:
+        """複数の .py ファイルがある場合にデフォルトにフォールバックすることを確認."""
+        workspace = tmp_path / "work_dirs" / "20260228_001"
+        best_dir = workspace / "best"
+        best_dir.mkdir(parents=True)
+        (workspace / "a.py").write_text("# a", encoding="utf-8")
+        (workspace / "b.py").write_text("# b", encoding="utf-8")
+
+        result = resolve_config_path(None, str(best_dir), DEFAULT_CONFIG)
+        assert result == DEFAULT_CONFIG
+
     def test_fallback_when_config_not_found(self, tmp_path: Path) -> None:
-        """workspace に config.py がない場合にデフォルトにフォールバックすることを確認."""
+        """workspace に config がない場合にデフォルトにフォールバックすることを確認."""
         best_dir = tmp_path / "work_dirs" / "20260228_001" / "best"
         best_dir.mkdir(parents=True)
 
