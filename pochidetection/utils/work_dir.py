@@ -195,14 +195,13 @@ class WorkspaceManager:
         """
         return self._ensure_workspace_created() / "last"
 
-    def save_config(
-        self, config_path: str | Path, target_name: str = "config.py"
-    ) -> Path:
+    def save_config(self, config_path: str | Path) -> Path:
         """設定ファイルをワークスペースにコピー.
+
+        元のファイル名を保持してコピーする.
 
         Args:
             config_path: コピー元の設定ファイルパス.
-            target_name: コピー先のファイル名.
 
         Returns:
             コピー先のファイルパス.
@@ -217,7 +216,7 @@ class WorkspaceManager:
         if not config_path.exists():
             raise FileNotFoundError(f"設定ファイルが見つかりません: {config_path}")
 
-        target_path = workspace / target_name
+        target_path = workspace / config_path.name
         shutil.copy2(config_path, target_path)
 
         return target_path
