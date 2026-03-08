@@ -23,7 +23,8 @@ class SSDLiteModel(IDetectionModel):
 
     Note:
         NMS は torchvision の SSD 内部 (``postprocess_detections``) で
-        自動適用されるため, 推論パイプライン側で明示的に呼ぶ必要はない.
+        自動適用される. ``nms_iou_threshold`` でその閾値を制御できる.
+        推論パイプライン側で明示的に NMS を呼ぶ必要はない.
         RT-DETR が ``torchvision.ops.nms`` を後処理で明示適用するのとは
         設計が異なる.
 
@@ -36,12 +37,14 @@ class SSDLiteModel(IDetectionModel):
         self,
         num_classes: int,
         pretrained: bool = True,
+        nms_iou_threshold: float = 0.55,
     ) -> None:
         """初期化.
 
         Args:
             num_classes: クラス数 (背景クラスを含まない).
             pretrained: 事前学習済みバックボーン重みを使用するかどうか.
+            nms_iou_threshold: NMS の IoU 閾値. torchvision の nms_thresh に渡される.
         """
         super().__init__()
 
@@ -52,6 +55,7 @@ class SSDLiteModel(IDetectionModel):
         self._model = ssdlite320_mobilenet_v3_large(
             weights_backbone=weights_backbone,
             num_classes=ssd_num_classes,
+            nms_thresh=nms_iou_threshold,
         )
         self._num_classes = num_classes
 
