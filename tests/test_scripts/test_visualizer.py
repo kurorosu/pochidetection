@@ -1,10 +1,10 @@
 """Visualizerクラスのテスト."""
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageFont
 
 from pochidetection.core.detection import Detection
-from pochidetection.scripts.rtdetr.inference.visualizer import Visualizer
+from pochidetection.scripts.common.visualizer import Visualizer
 from pochidetection.visualization import ColorPalette
 
 
@@ -90,3 +90,10 @@ class TestVisualizerDraw:
         original_pixel = image.getpixel((15, 15))
         result_pixel = result.getpixel((15, 15))
         assert result_pixel != original_pixel
+
+    def test_fallback_font_preserves_size(self) -> None:
+        """load_default(size=) でフォントサイズが維持されることを確認."""
+        font_size = 20
+        font = ImageFont.load_default(size=font_size)
+
+        assert font.size == font_size

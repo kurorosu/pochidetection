@@ -110,6 +110,7 @@ class RTDetrModel(IDetectionModel):
         """
         self._model = RTDetrForObjectDetection.from_pretrained(load_dir)
         self._processor = RTDetrImageProcessor.from_pretrained(load_dir)
+        self._num_classes = self._model.config.num_labels
 
     @property
     def num_classes(self) -> int:

@@ -31,12 +31,12 @@ class IDetectionModel(ABC, nn.Module):
 
         Returns:
             以下のキーを含む辞書:
-            - loss: 学習時の損失 (labels が指定された場合, 必須)
-            - predictions: 推論時の検出結果 (labels が None の場合, 必須).
-                list[dict] で各要素は boxes (M, 4), scores (M,),
-                labels (M,) を含む. labels は 0-indexed.
-            上記に加え, モデル固有のキー (pred_logits, pred_boxes 等)
-            を含んでもよい.
+            - loss: 学習時の損失 (labels が指定された場合)
+            - モデル固有のキー:
+                - RT-DETR: pred_logits (B, num_queries, num_classes),
+                  pred_boxes (B, num_queries, 4)
+                - SSDLite: predictions (list[dict], 各要素は
+                  boxes (M, 4), scores (M,), labels (M,) を含む, 0-indexed)
         """
         pass
 

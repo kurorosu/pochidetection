@@ -32,13 +32,11 @@ class LoggerManager:
     Singletonパターンでアプリケーション全体で一貫したログ設定を提供.
 
     Attributes:
-        _loggers: 管理されているロガーの辞書.
         _default_level: デフォルトのログレベル.
         _format_string: ログフォーマット文字列.
     """
 
     _instance: LoggerManager | None = None
-    _loggers: dict[str, logging.Logger] = {}
 
     def __new__(cls) -> LoggerManager:
         """シングルトンパターンの実装."""
@@ -51,6 +49,7 @@ class LoggerManager:
         if hasattr(self, "_initialized"):
             return
 
+        self._loggers: dict[str, logging.Logger] = {}
         self._default_level = LogLevel.INFO
         self._format_string = (
             "%(asctime)s|%(log_color)s%(levelname)-5.5s%(reset)s|"
