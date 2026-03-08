@@ -62,6 +62,19 @@ class DetectionConfig(BaseModel):
 
     work_dir: str = Field(default="work_dirs", min_length=1)
 
+    @field_validator("architecture", mode="before")
+    @classmethod
+    def normalize_architecture(cls, v: str) -> str:
+        """Architecture を case-insensitive に正規化."""
+        mapping = {
+            "rtdetr": "RTDetr",
+            "ssdlite": "SSDLite",
+        }
+        normalized = mapping.get(v.lower())
+        if normalized is None:
+            return v
+        return normalized
+
     @field_validator("early_stopping_patience", mode="before")
     @classmethod
     def normalize_early_stopping_patience(cls, v: int | None) -> int | None:

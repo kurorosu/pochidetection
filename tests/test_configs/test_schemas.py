@@ -82,6 +82,35 @@ class TestDetectionConfigEarlyStopping:
         assert config.early_stopping_min_delta == 0.0
 
 
+class TestArchitectureNormalization:
+    """architecture フィールドの case-insensitive 正規化テスト."""
+
+    @pytest.mark.parametrize(
+        ("input_value", "expected"),
+        [
+            ("RTDetr", "RTDetr"),
+            ("rtdetr", "RTDetr"),
+            ("RTDETR", "RTDetr"),
+            ("RtDetr", "RTDetr"),
+            ("SSDLite", "SSDLite"),
+            ("ssdlite", "SSDLite"),
+            ("SSDLITE", "SSDLite"),
+            ("Ssdlite", "SSDLite"),
+        ],
+    )
+    def test_case_insensitive_normalization(
+        self, input_value: str, expected: str
+    ) -> None:
+        """大文字小文字を問わず正規化されることを確認."""
+        config = DetectionConfig(**REQUIRED_FIELDS, architecture=input_value)
+        assert config.architecture == expected
+
+    def test_invalid_architecture_raises_error(self) -> None:
+        """無効な architecture で ValidationError."""
+        with pytest.raises(Exception):
+            DetectionConfig(**REQUIRED_FIELDS, architecture="InvalidArch")
+
+
 class TestSSDLiteIgnoredFieldWarnings:
     """SSDLite で無視される設定項目の警告テスト."""
 
