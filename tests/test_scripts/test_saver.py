@@ -34,3 +34,10 @@ class TestCreateNumberedDir:
         (tmp_path / "inference_abc").mkdir()
         saver = InferenceSaver(tmp_path)
         assert saver.output_dir.name == "inference_001"
+
+    def test_base_dir_not_exists(self, tmp_path: Path) -> None:
+        """base_dir が存在しない場合に自動作成されることを確認."""
+        non_existent = tmp_path / "nested" / "path"
+        saver = InferenceSaver(non_existent)
+        assert saver.output_dir.name == "inference_001"
+        assert non_existent.exists()
