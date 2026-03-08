@@ -8,11 +8,12 @@ from PIL import Image
 
 from pochidetection.core.detection import Detection, OutputWrapper
 from pochidetection.interfaces.backend import IInferenceBackend
+from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 
 
-class DetectionPipeline:
+class DetectionPipeline(IDetectionPipeline):
     """E2E 推論パイプライン.
 
     前処理・推論・後処理を明示的に分離し,

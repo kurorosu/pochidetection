@@ -3,11 +3,13 @@
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.dataset import IDetectionDataset
 from pochidetection.interfaces.model import IDetectionModel
+from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.interfaces.plotter import IReportPlotter, ITrainingCurvePlotter
 
 __all__ = [
     "IDetectionDataset",
     "IDetectionModel",
+    "IDetectionPipeline",
     "IInferenceBackend",
     "IReportPlotter",
     "ITrainingCurvePlotter",

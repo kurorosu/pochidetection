@@ -5,7 +5,8 @@ from typing import Any
 
 import torch
 from PIL import Image
-from torchvision import transforms
+from torchvision import tv_tensors
+from torchvision.transforms import v2
 
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
 
@@ -17,9 +18,12 @@ class SsdCocoDataset(BaseCocoDataset):
     背景クラスオフセットは SSDLiteModel 側で管理する.
     ボックスは xyxy ピクセル座標で返す.
 
+    torchvision.transforms.v2 を使用し, 画像リサイズとボックス座標変換を
+    一括で処理する.
+
     Attributes:
         _image_size: リサイズ後の画像サイズ (height, width).
-        _transform: 画像前処理の transforms.
+        _transform: 画像・ボックスを一括処理する v2 transforms パイプライン.
     """
 
     def __init__(
@@ -40,10 +44,12 @@ class SsdCocoDataset(BaseCocoDataset):
             FileNotFoundError: アノテーションファイルが見つからない場合.
         """
         self._image_size = (image_size["height"], image_size["width"])
-        self._transform = transforms.Compose(
+        self._transform = v2.Compose(
             [
-                transforms.ToTensor(),
-                transforms.Normalize(
+                v2.Resize(self._image_size),
+                v2.ToImage(),
+                v2.ToDtype(torch.float32, scale=True),
+                v2.Normalize(
                     mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225],
                 ),
@@ -60,6 +66,8 @@ class SsdCocoDataset(BaseCocoDataset):
     ) -> dict[str, Any]:
         """画像とアノテーションを SSD 形式に変換.
 
+        v2 transforms が画像リサイズとボックス座標変換を一括処理する.
+
         Args:
             image: PIL 画像.
             annotations: 有効なアノテーションのリスト.
@@ -69,31 +77,30 @@ class SsdCocoDataset(BaseCocoDataset):
         Returns:
             pixel_values と labels (boxes: xyxy, class_labels: 0-indexed) を含む辞書.
         """
-        target_h, target_w = self._image_size
-        image_resized = image.resize((target_w, target_h))
-
-        scale_x = target_w / orig_w
-        scale_y = target_h / orig_h
-
-        boxes = []
+        raw_boxes = []
         labels = []
         for ann in annotations:
             x, y, w, h = ann["bbox"]
-            x1 = x * scale_x
-            y1 = y * scale_y
-            x2 = (x + w) * scale_x
-            y2 = (y + h) * scale_y
-            boxes.append([x1, y1, x2, y2])
+            raw_boxes.append([x, y, x + w, y + h])
             labels.append(self._category_id_to_idx[ann["category_id"]])
 
-        pixel_values = self._transform(image_resized)
+        if raw_boxes:
+            boxes_tensor = tv_tensors.BoundingBoxes(
+                raw_boxes,
+                format=tv_tensors.BoundingBoxFormat.XYXY,
+                canvas_size=(orig_h, orig_w),
+            )
+        else:
+            boxes_tensor = tv_tensors.BoundingBoxes(
+                torch.zeros((0, 4), dtype=torch.float32),
+                format=tv_tensors.BoundingBoxFormat.XYXY,
+                canvas_size=(orig_h, orig_w),
+            )
+
+        pixel_values, transformed_boxes = self._transform(image, boxes_tensor)
 
         target = {
-            "boxes": (
-                torch.tensor(boxes, dtype=torch.float32)
-                if boxes
-                else torch.zeros((0, 4), dtype=torch.float32)
-            ),
+            "boxes": torch.as_tensor(transformed_boxes, dtype=torch.float32),
             "class_labels": (
                 torch.tensor(labels, dtype=torch.int64)
                 if labels
