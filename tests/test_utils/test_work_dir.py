@@ -197,8 +197,8 @@ class TestWorkspaceManager:
             manager.get_last_dir()
 
     def test_save_config_copies_file(self, tmp_path: Path) -> None:
-        """save_configがファイルをコピーする."""
-        config_file = tmp_path / "original_config.py"
+        """save_configが元のファイル名を保持してコピーする."""
+        config_file = tmp_path / "ssdlite_coco.py"
         config_file.write_text("# config")
         work_dir = tmp_path / "work_dirs"
         manager = WorkspaceManager(work_dir)
@@ -207,7 +207,7 @@ class TestWorkspaceManager:
         target = manager.save_config(config_file)
 
         assert target.exists()
-        assert target.name == "config.py"
+        assert target.name == "ssdlite_coco.py"
         assert target.read_text() == "# config"
 
     def test_save_config_raises_without_workspace(self, tmp_path: Path) -> None:

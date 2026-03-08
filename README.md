@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.6.3-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -9,15 +9,15 @@
 
 **pochi_series 物体検出フレームワーク**
 
-## 🎯 特徴
+## 特徴
 
 - **マルチアーキテクチャ対応**: RT-DETR (Transformer) と SSDLite (CNN) を設定ファイルで切り替え可能
 - **COCO フォーマット対応**: 標準的なアノテーション形式でデータセットを管理
 - **学習の可視化**: Loss 曲線, mAP 曲線, PR 曲線を HTML で自動出力
 - **Early Stopping**: mAP または val_loss を監視し, 改善がなければ学習を自動停止
-- **CLI ツール**: コマンドひとつで学習・推論を実行
+- **CLI ツール**: コマンドひとつで学習・推論・エクスポートを実行
 
-## 🚀 クイックスタート
+## クイックスタート
 
 ### 1. インストール
 
@@ -48,6 +48,8 @@ data/
 ```
 
 ### 3. 設定ファイルの編集
+
+`architecture` フィールドは大文字小文字を問わず指定できます (例: `"rtdetr"`, `"RTDETR"` → `"RTDetr"` に正規化).
 
 #### RT-DETR (Transformer ベース)
 
@@ -104,10 +106,12 @@ uv run pochi train -c configs/ssdlite_coco.py
 | `metrics.html` | mAP 曲線 (mAP, mAP@50, mAP@75) |
 | `pr_curve.html` | PR 曲線 (クラス別 + 平均) |
 
+設定ファイルは元のファイル名を保持してワークスペースにコピーされます.
+
 ### 6. 推論の実行
 
 ```bash
-# 画像ディレクトリを指定して推論
+# 画像ディレクトリを指定して推論 (RT-DETR)
 uv run pochi infer -d images/
 
 # 信頼度閾値を指定
@@ -115,6 +119,9 @@ uv run pochi infer -d images/ -t 0.3
 
 # 学習済みモデルを指定
 uv run pochi infer -d images/ -m work_dirs/20260124_001/best
+
+# SSDLite で推論
+uv run pochi infer -d images/ -c configs/ssdlite_coco.py
 ```
 
 推論結果は `work_dirs/yyyymmdd_xxx/inference_xxx/` に保存されます.
@@ -122,7 +129,24 @@ uv run pochi infer -d images/ -m work_dirs/20260124_001/best
 - バウンディングボックス付きの結果画像 (`{filename}_result.{ext}`)
 - 推論速度の統計 (平均 ms/image, 合計時間)
 
-## 🛠️ サポート機能
+### 7. ONNX / TensorRT エクスポート (RT-DETR のみ)
+
+```bash
+# ONNX エクスポート
+uv run pochi export -m work_dirs/20260124_001/best
+uv run pochi export -m work_dirs/20260124_001/best -o model.onnx
+
+# TensorRT エクスポート (FP32)
+uv run pochi export-trt -i model.onnx
+
+# TensorRT エクスポート (FP16)
+uv run pochi export-trt -i model.onnx --fp16
+
+# ビルド時メモリ制限を指定 (デフォルト: 4GB)
+uv run pochi export-trt -i model.onnx --build-memory 2147483648
+```
+
+## サポート機能
 
 ### モデル
 
@@ -142,18 +166,20 @@ uv run pochi infer -d images/ -m work_dirs/20260124_001/best
 
 - **Early Stopping**: `early_stopping_patience = 10` で mAP/val_loss の改善を監視し自動停止
 - **Learning Rate Scheduler**: `lr_scheduler = "CosineAnnealingLR"` 等の PyTorch 標準スケジューラ対応
-- **FP16 混合精度**: CUDA 環境で `use_fp16 = True` により高速学習・推論
+- **FP16 混合精度**: CUDA 環境で `use_fp16 = True` により高速推論
 - **cuDNN Benchmark**: `cudnn_benchmark = True` で GPU 推論を最適化
 - **自動ワークスペース管理**: `work_dirs/yyyymmdd_xxx/` で学習結果を自動管理
 - **インタラクティブ可視化**: Plotly による HTML グラフで学習過程を分析
+- **TensorRT エクスポート**: ONNX モデルから TensorRT エンジンへの変換 (FP32/FP16, Dynamic Batching 対応)
 
-## 📝 注意点
+## 注意点
 
 - 対応画像形式: `.jpg`, `.jpeg`, `.png`, `.bmp`, `.gif`, `.webp`
 - 推論では最初の画像がウォームアップとして計測から除外されます
 - COCO アノテーションの座標は自動的に正規化 `[cx, cy, w, h]` 形式に変換されます
 - バックグラウンドクラス (category_id=0) は自動的に除外されます
+- `export` / `export-trt` コマンドは RT-DETR のみ対応 (SSDLite は非対応)
 
-## 📄 ライセンス
+## ライセンス
 
 このプロジェクトは MIT ライセンスの下で公開されています.

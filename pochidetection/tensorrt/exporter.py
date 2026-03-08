@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from typing import Final
 
 try:
     import tensorrt as trt
@@ -13,6 +14,9 @@ except ImportError:
 from pochidetection.logging import LoggerManager
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
+
+DEFAULT_BUILD_MEMORY: Final[int] = 4 * 1024 * 1024 * 1024
+"""TensorRT ビルド時のデフォルトメモリプール制限 (4 GiB)."""
 
 
 class TensorRTExporter:
@@ -46,6 +50,7 @@ class TensorRTExporter:
         opt_batch: int = 1,
         max_batch: int = 4,
         use_fp16: bool = False,
+        build_memory: int = DEFAULT_BUILD_MEMORY,
     ) -> Path:
         """ONNXモデルからTensorRTエンジンをビルド・エクスポートする.
 
@@ -58,6 +63,7 @@ class TensorRTExporter:
             max_batch: 最大バッチサイズ.
             use_fp16: FP16 精度でビルドするかどうか.
                 GPU が FP16 に対応していない場合は FP32 にフォールバックする.
+            build_memory: TensorRT ビルド時のメモリプール制限 (bytes).
 
         Returns:
             出力エンジンファイルのパス.
@@ -104,10 +110,7 @@ class TensorRTExporter:
         parser = trt.OnnxParser(network, self.trt_logger)
         config = builder.create_builder_config()
 
-        # 推奨されるメモリプール制限 (ここでは4GB) の設定
-        config.set_memory_pool_limit(
-            trt.MemoryPoolType.WORKSPACE, 4 * 1024 * 1024 * 1024
-        )
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, build_memory)
 
         if precision == "FP16":
             config.set_flag(trt.BuilderFlag.FP16)
