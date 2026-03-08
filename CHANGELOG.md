@@ -15,7 +15,8 @@
 
 ### Fixed
 - `cli/main.py` で `export_onnx` / `export_trt` がトップレベル import されていたのを lazy import に変更. TensorRT 未インストール環境で `pochi train` / `pochi infer` 実行時に不要なモジュール読み込みが発生しなくなった. ([#196](https://github.com/kurorosu/pochidetection/pull/196).)
-- `RTDetrModel.load()` で `_num_classes` が更新されず, load 前のクラス数が残る問題を修正. (N/A.)
+- `RTDetrModel.load()` で `_num_classes` が更新されず, load 前のクラス数が残る問題を修正. ([#197](https://github.com/kurorosu/pochidetection/pull/197).)
+- `Visualizer` のフォールバックフォントで `ImageFont.load_default()` が `size` 引数なしで呼ばれ, Linux/Docker 環境でラベルが極小になる問題を修正. `load_default(size=font_size)` に変更. (N/A.)
 - SSDLite の `_validate` で `model.train()` に切り替えた際に BatchNorm の `running_mean` / `running_var` が検証データで更新される問題を修正. BN 統計を退避・復元する方式で保護. ([#191](https://github.com/kurorosu/pochidetection/pull/191).)
 
 ### Removed
