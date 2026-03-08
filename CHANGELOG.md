@@ -9,7 +9,7 @@
 - 無し.
 
 ### Changed
-- 無し.
+- `SSDLiteModel` と `ssdlite/infer.py` の docstring に, NMS が torchvision 内部で自動適用される旨の Note を追加. (N/A.)
 
 ### Fixed
 - 無し.

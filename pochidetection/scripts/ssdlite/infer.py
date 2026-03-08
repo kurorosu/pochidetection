@@ -215,6 +215,10 @@ def _postprocess(
 ) -> list[Detection]:
     """予測結果をフィルタリングし, 元画像座標に変換.
 
+    Note:
+        NMS は torchvision の SSD 内部 (``postprocess_detections``) で
+        適用済みのため, ここではスコア閾値フィルタと座標リスケールのみ行う.
+
     Args:
         pred: モデル出力 (boxes, scores, labels).
         threshold: 検出信頼度閾値.
