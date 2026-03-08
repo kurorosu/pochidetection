@@ -40,7 +40,7 @@ use_fp16 = False  # FP16 推論 (CUDA のみ)
 # Threshold
 train_score_threshold = 0.2  # 学習時の mAP 計算で使用するスコア閾値
 infer_score_threshold = 0.5  # 推論時の検出信頼度閾値 (この値未満の検出を除外)
-# nms_iou_threshold: SSDLite では torchvision 内部の NMS が使用されるため設定不要
+nms_iou_threshold = 0.55  # NMS IoU 閾値 (torchvision の nms_thresh に渡される)
 
 # 推論ベンチマーク設定　指定しないと精度評価無し推論
 annotation_path = "data/val/annotations.json"  # mAP 評価用 COCO アノテーション

@@ -101,7 +101,8 @@ def _setup_pipeline(
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 
-    model = SSDLiteModel(num_classes=num_classes)
+    nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
+    model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
     model.load(model_path)
     model.to(device)
     model.eval()

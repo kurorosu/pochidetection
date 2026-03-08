@@ -95,3 +95,13 @@ class TestSSDLiteModel:
         """model プロパティが内部モデルを返すことを確認."""
         model = SSDLiteModel(num_classes=2, pretrained=False)
         assert isinstance(model.model, nn.Module)
+
+    def test_nms_iou_threshold_default(self) -> None:
+        """デフォルトの nms_iou_threshold が torchvision に渡されることを確認."""
+        model = SSDLiteModel(num_classes=2, pretrained=False)
+        assert model.model.nms_thresh == 0.55
+
+    def test_nms_iou_threshold_custom(self) -> None:
+        """カスタム nms_iou_threshold が torchvision に渡されることを確認."""
+        model = SSDLiteModel(num_classes=2, pretrained=False, nms_iou_threshold=0.3)
+        assert model.model.nms_thresh == 0.3

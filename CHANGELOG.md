@@ -6,10 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- `DetectionConfig` に `infer_image_dir` フィールドを追加. CLI `-d` 未指定時に config から推論対象の画像フォルダパスを解決できるようにした. (N/A.)
+- `DetectionConfig` に `infer_image_dir` フィールドを追加. CLI `-d` 未指定時に config から推論対象の画像フォルダパスを解決できるようにした. ([#219](https://github.com/kurorosu/pochidetection/pull/219).)
 
 ### Changed
-- 無し.
+- `SSDLiteModel` が `nms_iou_threshold` を受け取り, torchvision の `nms_thresh` に渡すように変更. 設定ファイルで NMS IoU 閾値を制御可能にした. (N/A.)
 
 ### Fixed
 - 無し.
