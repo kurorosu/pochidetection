@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from pochidetection.logging import LoggerManager
-from pochidetection.tensorrt import TensorRTExporter
+from pochidetection.tensorrt import DEFAULT_BUILD_MEMORY, TensorRTExporter
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
@@ -18,6 +18,7 @@ def export_trt(
     opt_batch: int = 1,
     max_batch: int = 4,
     use_fp16: bool = False,
+    build_memory: int = DEFAULT_BUILD_MEMORY,
 ) -> None:
     """TensorRTエクスポートを実行.
 
@@ -30,6 +31,7 @@ def export_trt(
         opt_batch: 最適バッチサイズ.
         max_batch: 最大バッチサイズ.
         use_fp16: FP16 精度でビルドするかどうか.
+        build_memory: TensorRT ビルド時のメモリプール制限 (bytes).
     """
     logger.info("TensorRTエクスポートを開始します")
 
@@ -51,6 +53,7 @@ def export_trt(
             opt_batch=opt_batch,
             max_batch=max_batch,
             use_fp16=use_fp16,
+            build_memory=build_memory,
         )
     except Exception as e:
         logger.error(f"TensorRTエクスポートに失敗しました: {e}")
