@@ -21,6 +21,12 @@ class SSDLiteModel(IDetectionModel):
     label オフセット (+1/-1) は本クラスに集約し,
     外部との入出力は全て 0-indexed で統一する.
 
+    Note:
+        NMS は torchvision の SSD 内部 (``postprocess_detections``) で
+        自動適用されるため, 推論パイプライン側で明示的に呼ぶ必要はない.
+        RT-DETR が ``torchvision.ops.nms`` を後処理で明示適用するのとは
+        設計が異なる.
+
     Attributes:
         _model: torchvision の SSD モデルインスタンス.
         _num_classes: ユーザ指定のクラス数 (背景なし).
