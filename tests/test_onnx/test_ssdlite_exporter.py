@@ -141,7 +141,10 @@ class TestSSDLiteOnnxRuntimeInference:
         cls_logits, bbox_regression = outputs[0], outputs[1]
         assert cls_logits.ndim == 3
         assert cls_logits.shape[0] == 1
+        # num_classes + 1 (background)
+        assert cls_logits.shape[2] == NUM_CLASSES + 1
         assert bbox_regression.ndim == 3
+        assert bbox_regression.shape[0] == 1
         assert bbox_regression.shape[2] == 4
 
 

@@ -124,7 +124,7 @@ def _create_parser() -> argparse.ArgumentParser:
         "--output",
         type=str,
         default=None,
-        help="出力ファイルパス (default: <model_dir>/model.onnx)",
+        help="出力ファイルパス (default: アーキテクチャに応じて自動決定)",
     )
     export_parser.add_argument(
         "--input-size",

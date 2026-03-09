@@ -74,6 +74,51 @@ class SSDLiteOnnxExporter:
         self.model = model
         self.device = device or torch.device("cpu")
 
+    def _prepare_wrapper_and_input(
+        self,
+        input_size: tuple[int, int],
+        fp16: bool,
+    ) -> tuple[_SSDLiteExportWrapper, torch.Tensor]:
+        """Deepcopy からラッパーとダミー入力を生成.
+
+        元モデルへの副作用 (half 変換など) を防止するため,
+        モデルを deepcopy してからラッパーを構築する.
+
+        Args:
+            input_size: 入力サイズ (height, width).
+            fp16: FP16 モードか.
+
+        Returns:
+            (wrapper, dummy_input) のタプル.
+
+        Raises:
+            ValueError: モデルが設定されていない場合.
+        """
+        if self.model is None:
+            raise ValueError(
+                "モデルが設定されていません. "
+                "コンストラクタまたは load_model() でモデルを設定してください."
+            )
+
+        ssd_copy = copy.deepcopy(self.model.model)
+        wrapper = _SSDLiteExportWrapper(ssd_copy)
+        wrapper.to(self.device)
+        wrapper.eval()
+
+        dtype = torch.float16 if fp16 else torch.float32
+        if fp16:
+            wrapper.half()
+
+        dummy_input = torch.randn(
+            1,
+            3,
+            input_size[0],
+            input_size[1],
+            device=self.device,
+            dtype=dtype,
+        )
+        return wrapper, dummy_input
+
     def load_model(
         self,
         model_path: Path,
@@ -89,6 +134,8 @@ class SSDLiteOnnxExporter:
             pretrained: モデル構造を事前学習済みバックボーンに合わせるか.
                 学習時に pretrained=True で作成したモデルの読み込みには True が必要.
             nms_iou_threshold: NMS IoU 閾値.
+                ONNX エクスポートは NMS 前の生出力のみを含むため,
+                エクスポート結果には影響しない.
         """
         self.model = SSDLiteModel(
             num_classes=num_classes,
@@ -120,31 +167,9 @@ class SSDLiteOnnxExporter:
         Raises:
             ValueError: モデルが設定されていない場合.
         """
-        if self.model is None:
-            raise ValueError(
-                "モデルが設定されていません. "
-                "コンストラクタまたは load_model() でモデルを設定してください."
-            )
-
-        # deepcopy で元モデルへの副作用 (half 変換など) を防止
-        ssd_copy = copy.deepcopy(self.model.model)
-        wrapper = _SSDLiteExportWrapper(ssd_copy)
-        wrapper.to(self.device)
-        wrapper.eval()
-
-        dtype = torch.float16 if fp16 else torch.float32
+        wrapper, dummy_input = self._prepare_wrapper_and_input(input_size, fp16)
         if fp16:
-            wrapper.half()
             logger.info("FP16 モードでエクスポートします")
-
-        dummy_input = torch.randn(
-            1,
-            3,
-            input_size[0],
-            input_size[1],
-            device=self.device,
-            dtype=dtype,
-        )
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=torch.jit.TracerWarning)
@@ -198,35 +223,13 @@ class SSDLiteOnnxExporter:
         Raises:
             ValueError: モデルが設定されていない場合.
         """
-        if self.model is None:
-            raise ValueError(
-                "モデルが設定されていません. "
-                "コンストラクタまたは load_model() でモデルを設定してください."
-            )
-
         logger.debug("ONNXモデルの構造を検証中...")
         onnx_model = onnx.load(str(onnx_path))
         onnx.checker.check_model(onnx_model)
         logger.debug("構造検証: OK")
 
         logger.debug("PyTorchとONNXの出力を比較中...")
-        ssd_copy = copy.deepcopy(self.model.model)
-        wrapper = _SSDLiteExportWrapper(ssd_copy)
-        wrapper.to(self.device)
-        wrapper.eval()
-
-        dtype = torch.float16 if fp16 else torch.float32
-        if fp16:
-            wrapper.half()
-
-        dummy_input = torch.randn(
-            1,
-            3,
-            input_size[0],
-            input_size[1],
-            device=self.device,
-            dtype=dtype,
-        )
+        wrapper, dummy_input = self._prepare_wrapper_and_input(input_size, fp16)
 
         with torch.no_grad():
             pt_logits, pt_boxes = wrapper(dummy_input)
@@ -244,8 +247,8 @@ class SSDLiteOnnxExporter:
             {"pixel_values": onnx_input_np},
         )
         onnx_output_dict = dict(zip(output_names, onnx_results))
-        onnx_logits = onnx_output_dict["cls_logits"]
-        onnx_boxes = onnx_output_dict["bbox_regression"]
+        onnx_logits = onnx_output_dict["cls_logits"].astype(np.float32)
+        onnx_boxes = onnx_output_dict["bbox_regression"].astype(np.float32)
 
         # FP16 では数値精度の制約により許容誤差を緩める
         if fp16:
