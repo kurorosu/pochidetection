@@ -7,9 +7,10 @@
 
 ### Added
 - `DetectionConfig` に `infer_image_dir` フィールドを追加. CLI `-d` 未指定時に config から推論対象の画像フォルダパスを解決できるようにした. ([#219](https://github.com/kurorosu/pochidetection/pull/219).)
+- `SSDLiteOnnxExporter` を追加. SSDLite モデルの ONNX エクスポート (FP32/FP16) に対応. CLI `export` コマンドで SSDLite config 使用時に自動ディスパッチ. (N/A.)
 
 ### Changed
-- `SSDLiteModel` が `nms_iou_threshold` を受け取り, torchvision の `nms_thresh` に渡すように変更. 設定ファイルで NMS IoU 閾値を制御可能にした. (N/A.)
+- `SSDLiteModel` が `nms_iou_threshold` を受け取り, torchvision の `nms_thresh` に渡すように変更. 設定ファイルで NMS IoU 閾値を制御可能にした. ([#220](https://github.com/kurorosu/pochidetection/pull/220).)
 
 ### Fixed
 - 無し.
