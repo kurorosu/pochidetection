@@ -1,7 +1,4 @@
-"""TensorRT パッケージ.
-
-TensorRTエンジンを利用するためのバックエンドやツールを提供します.
-"""
+"""RT-DETR TensorRT モジュール."""
 
 from pochidetection.tensorrt.rtdetr.exporter import (
     DEFAULT_BUILD_MEMORY,

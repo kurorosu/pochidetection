@@ -7,7 +7,7 @@ import torch
 
 pytest.importorskip("tensorrt")
 
-from pochidetection.tensorrt import TensorRTExporter
+from pochidetection.tensorrt import RTDetrTensorRTExporter
 
 INPUT_SIZE = (64, 64)
 
@@ -79,7 +79,7 @@ def engine_path(
     tmp_dir = tmp_path_factory.mktemp("trt_engine")
     output_path = tmp_dir / "tiny_model.engine"
 
-    exporter = TensorRTExporter()
+    exporter = RTDetrTensorRTExporter()
     result: Path = exporter.export(
         onnx_path=dummy_onnx_path,
         output_path=output_path,

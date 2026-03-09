@@ -1,24 +1,26 @@
-"""PyTorchBackend のテスト."""
+"""RTDetrPyTorchBackend のテスト."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 
-from pochidetection.inference import PyTorchBackend
+from pochidetection.inference import RTDetrPyTorchBackend
 from pochidetection.models import RTDetrModel
 
 
 @pytest.fixture()
-def backend(rtdetr_model: RTDetrModel) -> PyTorchBackend:
-    """テスト用 PyTorchBackend."""
-    return PyTorchBackend(rtdetr_model)
+def backend(rtdetr_model: RTDetrModel) -> RTDetrPyTorchBackend:
+    """テスト用 RTDetrPyTorchBackend."""
+    return RTDetrPyTorchBackend(rtdetr_model)
 
 
-class TestPyTorchBackendInfer:
-    """PyTorchBackend.infer のテスト."""
+class TestRTDetrPyTorchBackendInfer:
+    """RTDetrPyTorchBackend.infer のテスト."""
 
-    def test_infer_returns_logits_and_boxes(self, backend: PyTorchBackend) -> None:
+    def test_infer_returns_logits_and_boxes(
+        self, backend: RTDetrPyTorchBackend
+    ) -> None:
         """推論結果が logits と pred_boxes のタプルで返ることを確認."""
         inputs = {"pixel_values": torch.randn(1, 3, 64, 64)}
 
@@ -28,7 +30,7 @@ class TestPyTorchBackendInfer:
         assert isinstance(logits, torch.Tensor)
         assert isinstance(boxes, torch.Tensor)
 
-    def test_infer_output_shapes(self, backend: PyTorchBackend) -> None:
+    def test_infer_output_shapes(self, backend: RTDetrPyTorchBackend) -> None:
         """推論結果の shape が正しいことを確認."""
         inputs = {"pixel_values": torch.randn(1, 3, 64, 64)}
 
@@ -42,7 +44,7 @@ class TestPyTorchBackendInfer:
         assert boxes.shape[0] == 1
         assert boxes.shape[2] == 4
 
-    def test_infer_num_queries(self, backend: PyTorchBackend) -> None:
+    def test_infer_num_queries(self, backend: RTDetrPyTorchBackend) -> None:
         """出力のクエリ数が config と一致することを確認."""
         inputs = {"pixel_values": torch.randn(1, 3, 64, 64)}
 
@@ -53,22 +55,24 @@ class TestPyTorchBackendInfer:
         assert boxes.shape[1] == 50
 
 
-class TestPyTorchBackendSynchronize:
-    """PyTorchBackend.synchronize のテスト."""
+class TestRTDetrPyTorchBackendSynchronize:
+    """RTDetrPyTorchBackend.synchronize のテスト."""
 
-    def test_synchronize_on_cpu_does_nothing(self, backend: PyTorchBackend) -> None:
+    def test_synchronize_on_cpu_does_nothing(
+        self, backend: RTDetrPyTorchBackend
+    ) -> None:
         """CPU デバイスでは synchronize が例外なく完了することを確認."""
         backend.synchronize()
 
-    @patch("pochidetection.inference.pytorch_backend.torch.cuda.is_available")
+    @patch("pochidetection.inference.rtdetr.pytorch_backend.torch.cuda.is_available")
     def test_synchronize_skips_when_cuda_unavailable(
-        self, mock_is_available: MagicMock, backend: PyTorchBackend
+        self, mock_is_available: MagicMock, backend: RTDetrPyTorchBackend
     ) -> None:
         """CUDA が利用不可の場合, synchronize() を呼び出さないことを確認."""
         mock_is_available.return_value = False
 
         with patch(
-            "pochidetection.inference.pytorch_backend.torch.cuda.synchronize"
+            "pochidetection.inference.rtdetr.pytorch_backend.torch.cuda.synchronize"
         ) as mock_sync:
             backend.synchronize()
             mock_sync.assert_not_called()

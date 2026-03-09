@@ -15,12 +15,12 @@ except ImportError:
 
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
-from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
+from pochidetection.tensorrt.rtdetr.memory import TensorBinding, allocate_bindings
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
 
-class TensorRTBackend(IInferenceBackend):
+class RTDetrTensorRTBackend(IInferenceBackend):
     """TensorRT エンジンを使用した推論バックエンド.
 
     PyTorch CUDA テンソルをバッファとして使用し,

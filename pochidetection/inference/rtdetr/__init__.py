@@ -1,15 +1,11 @@
-"""推論バックエンドモジュール."""
+"""RT-DETR 推論バックエンドモジュール."""
 
 from pochidetection.inference.rtdetr.onnx_backend import RTDetrOnnxBackend
 from pochidetection.inference.rtdetr.pytorch_backend import RTDetrPyTorchBackend
-from pochidetection.inference.ssdlite.onnx_backend import SSDLiteOnnxBackend
-from pochidetection.inference.ssdlite.pytorch_backend import SSDLitePyTorchBackend
 
 __all__ = [
     "RTDetrOnnxBackend",
     "RTDetrPyTorchBackend",
-    "SSDLiteOnnxBackend",
-    "SSDLitePyTorchBackend",
 ]
 
 try:
