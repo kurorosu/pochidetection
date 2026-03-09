@@ -10,40 +10,8 @@ import torch
 from pochidetection.models import SSDLiteModel
 from pochidetection.onnx import SSDLiteOnnxExporter
 
-SSDLITE_INPUT_SIZE = (64, 64)
-NUM_CLASSES = 2
-
-
-@pytest.fixture(scope="module")
-def ssdlite_model() -> SSDLiteModel:
-    """テスト用の軽量 SSDLiteModel."""
-    model = SSDLiteModel(num_classes=NUM_CLASSES, pretrained=False)
-    model.eval()
-    return model
-
-
-@pytest.fixture(scope="module")
-def ssdlite_onnx_path(
-    ssdlite_model: SSDLiteModel, tmp_path_factory: pytest.TempPathFactory
-) -> Path:
-    """FP32 エクスポート済み ONNX ファイル."""
-    tmp_dir = tmp_path_factory.mktemp("ssdlite_onnx")
-    output_path = tmp_dir / "model.onnx"
-    exporter = SSDLiteOnnxExporter(model=ssdlite_model)
-    exporter.export(output_path, input_size=SSDLITE_INPUT_SIZE)
-    return Path(output_path)
-
-
-@pytest.fixture(scope="module")
-def ssdlite_onnx_fp16_path(
-    ssdlite_model: SSDLiteModel, tmp_path_factory: pytest.TempPathFactory
-) -> Path:
-    """FP16 エクスポート済み ONNX ファイル."""
-    tmp_dir = tmp_path_factory.mktemp("ssdlite_onnx_fp16")
-    output_path = tmp_dir / "model_fp16.onnx"
-    exporter = SSDLiteOnnxExporter(model=ssdlite_model)
-    exporter.export(output_path, input_size=SSDLITE_INPUT_SIZE, fp16=True)
-    return Path(output_path)
+from .conftest import SSDLITE_INPUT_SIZE
+from .conftest import SSDLITE_NUM_CLASSES as NUM_CLASSES
 
 
 class TestSSDLiteOnnxExporterInit:
