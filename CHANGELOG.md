@@ -7,10 +7,13 @@
 
 ### Added
 - `DetectionConfig` に `infer_image_dir` フィールドを追加. CLI `-d` 未指定時に config から推論対象の画像フォルダパスを解決できるようにした. ([#219](https://github.com/kurorosu/pochidetection/pull/219).)
-- `SSDLiteOnnxExporter` を追加. SSDLite モデルの ONNX エクスポート (FP32/FP16) に対応. CLI `export` コマンドで SSDLite config 使用時に自動ディスパッチ. (N/A.)
+- `SSDLiteOnnxExporter` を追加. SSDLite モデルの ONNX エクスポート (FP32/FP16) に対応. CLI `export` コマンドで SSDLite config 使用時に自動ディスパッチ. ([#221](https://github.com/kurorosu/pochidetection/pull/221).)
+- `SSDLiteOnnxBackend` を追加. SSDLite ONNX モデルの推論バックエンド (アンカーデコード + NMS 後処理). `SSDLitePyTorchBackend` と合わせ, `SSDLitePipeline` を backend ベースの Strategy パターンに変更. (N/A.)
 
 ### Changed
 - `SSDLiteModel` が `nms_iou_threshold` を受け取り, torchvision の `nms_thresh` に渡すように変更. 設定ファイルで NMS IoU 閾値を制御可能にした. ([#220](https://github.com/kurorosu/pochidetection/pull/220).)
+- `IInferenceBackend.infer()` の戻り値型を `tuple[Any, Any]` から `Any` に変更. SSDLite バックエンドが `dict[str, Tensor]` を返せるようにした. (N/A.)
+- `SSDLitePipeline` のコンストラクタを `model: SSDLiteModel` から `backend: IInferenceBackend` に変更. (N/A.)
 
 ### Fixed
 - 無し.

@@ -5,8 +5,8 @@ from PIL import Image
 from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
+from pochidetection.interfaces import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
-from pochidetection.models import SSDLiteModel
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 
@@ -18,11 +18,11 @@ class SSDLitePipeline(IDetectionPipeline):
     PhasedTimer によるフェーズ別プロファイリングを提供する.
 
     Note:
-        NMS は torchvision の SSD 内部 (``postprocess_detections``) で
-        自動適用されるため, 後処理ではスコア閾値フィルタと座標リスケールのみ行う.
+        NMS は backend 側で適用済みのため,
+        後処理ではスコア閾値フィルタと座標リスケールのみ行う.
 
     Attributes:
-        _model: SSDLite モデル.
+        _backend: 推論バックエンド.
         _transform: torchvision 前処理パイプライン.
         _image_size: リサイズ先の (height, width).
         _device: 実行デバイス.
@@ -35,7 +35,7 @@ class SSDLitePipeline(IDetectionPipeline):
 
     def __init__(
         self,
-        model: SSDLiteModel,
+        backend: IInferenceBackend,
         transform: v2.Compose,
         image_size: tuple[int, int],
         device: str = "cuda",
@@ -46,7 +46,7 @@ class SSDLitePipeline(IDetectionPipeline):
         """初期化.
 
         Args:
-            model: SSDLite モデルインスタンス.
+            backend: 推論バックエンド (PyTorch または ONNX).
             transform: torchvision 前処理パイプライン.
             image_size: リサイズ先の (height, width).
             device: 実行デバイス.
@@ -65,7 +65,7 @@ class SSDLitePipeline(IDetectionPipeline):
                     f"Required: {self.PHASES}"
                 )
 
-        self._model = model
+        self._backend = backend
         self._transform = transform
         self._image_size = image_size
         self._device = device
@@ -96,7 +96,7 @@ class SSDLitePipeline(IDetectionPipeline):
     def infer(self, pixel_values: torch.Tensor) -> dict[str, torch.Tensor]:
         """推論を実行.
 
-        torch.no_grad() コンテキストで推論し, CUDA デバイスの場合は同期を行う.
+        backend.infer() を呼び出し, 必要に応じて同期を行う.
 
         Args:
             pixel_values: 前処理済みの入力テンソル (1, C, H, W).
@@ -104,11 +104,10 @@ class SSDLitePipeline(IDetectionPipeline):
         Returns:
             モデル出力の予測辞書 (boxes, scores, labels).
         """
-        with torch.no_grad():
-            outputs = self._model(pixel_values)
-            if self._device == "cuda":
-                torch.cuda.synchronize()
-        pred: dict[str, torch.Tensor] = outputs["predictions"][0]
+        pred: dict[str, torch.Tensor] = self._backend.infer(
+            {"pixel_values": pixel_values}
+        )
+        self._backend.synchronize()
         return pred
 
     def postprocess(
@@ -120,8 +119,8 @@ class SSDLitePipeline(IDetectionPipeline):
         """後処理. スコア閾値フィルタと座標リスケールを行う.
 
         Note:
-            NMS は torchvision の SSD 内部 (``postprocess_detections``) で
-            適用済みのため, ここではスコア閾値フィルタと座標リスケールのみ行う.
+            NMS は backend 側で適用済みのため,
+            ここではスコア閾値フィルタと座標リスケールのみ行う.
 
         Args:
             pred: モデル出力 (boxes, scores, labels).
