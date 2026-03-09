@@ -50,10 +50,14 @@ def _create_parser() -> argparse.ArgumentParser:
     uv run pochi infer -d images/ -c configs/ssdlite_coco.py
     uv run pochi infer -d images/ -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py
 
-  ONNXエクスポート (RT-DETR のみ):
+  ONNXエクスポート (RT-DETR):
     uv run pochi export -m work_dirs/20260124_001/best
     uv run pochi export -m work_dirs/20260124_001/best -o model.onnx
     uv run pochi export -m work_dirs/20260124_001/best --input-size 640 640
+
+  ONNXエクスポート (SSDLite, FP32/FP16):
+    uv run pochi export -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py
+    uv run pochi export -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py --fp16
 
   TensorRTエクスポート (RT-DETR のみ, FP32):
     uv run pochi export-trt -i model.onnx
@@ -140,6 +144,11 @@ def _create_parser() -> argparse.ArgumentParser:
         "--skip-verify",
         action="store_true",
         help="エクスポート後の検証をスキップ",
+    )
+    export_parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="FP16 精度でエクスポート (SSDLite のみ)",
     )
     export_parser.add_argument(
         "-c",
@@ -292,25 +301,40 @@ def main() -> None:
     elif args.command == "export":
         config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
-        if config.get("architecture") == "SSDLite":
-            print(
-                "Error: export コマンドは SSDLite に対応していません. "
-                "RT-DETR の設定ファイルを指定してください.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        from pochidetection.scripts.rtdetr.export_onnx import export_onnx
-
         input_size = tuple(args.input_size) if args.input_size else None
-        export_onnx(
-            config,
-            args.model_dir,
-            args.output,
-            args.opset_version,
-            input_size,
-            args.skip_verify,
-        )
+
+        if config.get("architecture") == "SSDLite":
+            from pochidetection.scripts.ssdlite.export_onnx import (
+                export_onnx as ssdlite_export_onnx,
+            )
+
+            ssdlite_export_onnx(
+                config,
+                args.model_dir,
+                args.output,
+                args.opset_version,
+                input_size,
+                args.skip_verify,
+                args.fp16,
+            )
+        else:
+            if args.fp16:
+                print(
+                    "Error: --fp16 は SSDLite の export でのみ使用できます.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            from pochidetection.scripts.rtdetr.export_onnx import export_onnx
+
+            export_onnx(
+                config,
+                args.model_dir,
+                args.output,
+                args.opset_version,
+                input_size,
+                args.skip_verify,
+            )
     elif args.command == "export-trt":
         config_path = resolve_config_path(args.config, args.onnx_path, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
