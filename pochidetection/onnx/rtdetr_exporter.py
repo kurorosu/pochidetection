@@ -15,7 +15,7 @@ from pochidetection.models import RTDetrModel
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
 
-class OnnxExporter:
+class RTDetrOnnxExporter:
     """PyTorchモデルをONNX形式にエクスポートするクラス.
 
     Attributes:
@@ -28,7 +28,7 @@ class OnnxExporter:
         model: RTDetrModel | None = None,
         device: torch.device | None = None,
     ) -> None:
-        """OnnxExporterを初期化.
+        """RTDetrOnnxExporterを初期化.
 
         Args:
             model: RTDetrModelインスタンス. 後からload_modelで設定も可.

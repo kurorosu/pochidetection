@@ -10,10 +10,10 @@ import torch
 from PIL import Image
 from transformers import RTDetrImageProcessor
 
-from pochidetection.inference import OnnxBackend, PyTorchBackend
+from pochidetection.inference import RTDetrOnnxBackend, RTDetrPyTorchBackend
 
 try:
-    from pochidetection.inference import TensorRTBackend
+    from pochidetection.inference import RTDetrTensorRTBackend
 
     _TRT_AVAILABLE = True
 except ImportError:
@@ -32,7 +32,7 @@ from pochidetection.scripts.common.inference import (
     write_reports,
 )
 from pochidetection.scripts.rtdetr.inference import (
-    DetectionPipeline,
+    RTDetrPipeline,
 )
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
@@ -78,7 +78,7 @@ def infer(
 class _PipelineContext(NamedTuple):
     """_setup_pipeline の戻り値."""
 
-    pipeline: DetectionPipeline
+    pipeline: RTDetrPipeline
     phased_timer: PhasedTimer
     visualizer: Visualizer
     saver: InferenceSaver
@@ -116,8 +116,8 @@ def _setup_pipeline(
         actual_device = "cuda"
         runtime_device = "cuda"
     elif _is_onnx_model(model_path):
-        if not isinstance(backend, OnnxBackend):
-            raise TypeError(f"Expected OnnxBackend, got {type(backend).__name__}")
+        if not isinstance(backend, RTDetrOnnxBackend):
+            raise TypeError(f"Expected RTDetrOnnxBackend, got {type(backend).__name__}")
         actual_device = (
             "cuda" if "CUDAExecutionProvider" in backend.active_providers else "cpu"
         )
@@ -127,10 +127,10 @@ def _setup_pipeline(
         runtime_device = device
 
     phased_timer = PhasedTimer(
-        phases=DetectionPipeline.PHASES,
+        phases=RTDetrPipeline.PHASES,
         device=runtime_device,
     )
-    pipeline = DetectionPipeline(
+    pipeline = RTDetrPipeline(
         backend=backend,
         processor=processor,
         device=runtime_device,
@@ -275,11 +275,11 @@ def _create_backend(
                 "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
             )
         logger.info("TensorRT backend selected")
-        return TensorRTBackend(model_path), "fp32", False
+        return RTDetrTensorRTBackend(model_path), "fp32", False
 
     if _is_onnx_model(model_path):
         logger.info("ONNX backend selected")
-        return OnnxBackend(model_path, device=device), "fp32", False
+        return RTDetrOnnxBackend(model_path, device=device), "fp32", False
 
     model = RTDetrModel(str(model_path))
     model.to(device)
@@ -291,4 +291,4 @@ def _create_backend(
         logger.info("FP16 enabled")
 
     precision = "fp16" if fp16 else "fp32"
-    return PyTorchBackend(model), precision, use_fp16
+    return RTDetrPyTorchBackend(model), precision, use_fp16

@@ -8,7 +8,7 @@ from pochidetection.interfaces import IInferenceBackend
 from pochidetection.models import RTDetrModel
 
 
-class PyTorchBackend(IInferenceBackend):
+class RTDetrPyTorchBackend(IInferenceBackend):
     """PyTorch および RTDetrModel を使用した推論バックエンド."""
 
     def __init__(self, model: RTDetrModel) -> None:

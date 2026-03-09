@@ -1,4 +1,4 @@
-"""DetectionPipeline のテスト."""
+"""RTDetrPipeline のテスト."""
 
 from typing import Any
 
@@ -8,8 +8,8 @@ from PIL import Image
 
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
-from pochidetection.scripts.rtdetr.inference.detection_pipeline import (
-    DetectionPipeline,
+from pochidetection.scripts.rtdetr.inference.rtdetr_pipeline import (
+    RTDetrPipeline,
 )
 from pochidetection.utils import PhasedTimer
 
@@ -77,12 +77,12 @@ class DummyProcessorWithOverlaps:
         ]
 
 
-class TestDetectionPipelineInit:
-    """DetectionPipeline の初期化テスト."""
+class TestRTDetrPipelineInit:
+    """RTDetrPipeline の初期化テスト."""
 
     def test_init_without_phased_timer(self) -> None:
         """PhasedTimer なしで初期化できることを確認."""
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
             device="cpu",
@@ -96,7 +96,7 @@ class TestDetectionPipelineInit:
             device="cpu",
             skip_first=False,
         )
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
             device="cpu",
@@ -110,7 +110,7 @@ class TestDetectionPipelineInit:
             phases=["preprocess", "inference", "postprocess", "total"],
             device="cpu",
         )
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
             device="cpu",
@@ -125,7 +125,7 @@ class TestDetectionPipelineInit:
             device="cpu",
         )
         with pytest.raises(ValueError, match="missing required phases"):
-            DetectionPipeline(
+            RTDetrPipeline(
                 backend=DummyBackend(),
                 processor=DummyProcessor(),
                 device="cpu",
@@ -133,13 +133,13 @@ class TestDetectionPipelineInit:
             )
 
 
-class TestDetectionPipelineRun:
-    """DetectionPipeline の run テスト."""
+class TestRTDetrPipelineRun:
+    """RTDetrPipeline の run テスト."""
 
     def test_run_returns_detections(self) -> None:
         """run() が検出結果を返すことを確認."""
         backend = DummyBackend()
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=backend,
             processor=DummyProcessor(),
             device="cpu",
@@ -162,7 +162,7 @@ class TestDetectionPipelineRun:
             device="cpu",
             skip_first=False,
         )
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
             device="cpu",
@@ -173,12 +173,12 @@ class TestDetectionPipelineRun:
         pipeline.run(image)
 
         summary = timer.summary()
-        for phase in DetectionPipeline.PHASES:
+        for phase in RTDetrPipeline.PHASES:
             assert summary[phase]["count"] == 1
 
     def test_run_without_phased_timer(self) -> None:
         """PhasedTimer なしでも run() が正常動作することを確認."""
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
             device="cpu",
@@ -190,12 +190,12 @@ class TestDetectionPipelineRun:
         assert len(detections) == 1
 
 
-class TestDetectionPipelineMethods:
-    """DetectionPipeline の個別メソッドテスト."""
+class TestRTDetrPipelineMethods:
+    """RTDetrPipeline の個別メソッドテスト."""
 
     def test_preprocess_returns_tensors(self) -> None:
         """preprocess() がテンソル辞書を返すことを確認."""
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
             device="cpu",
@@ -211,7 +211,7 @@ class TestDetectionPipelineMethods:
     def test_infer_calls_backend(self) -> None:
         """infer() がバックエンドを呼び出すことを確認."""
         backend = DummyBackend()
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=backend,
             processor=DummyProcessor(),
             device="cpu",
@@ -227,7 +227,7 @@ class TestDetectionPipelineMethods:
 
     def test_postprocess_returns_detections(self) -> None:
         """postprocess() が Detection リストを返すことを確認."""
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
             device="cpu",
@@ -241,12 +241,12 @@ class TestDetectionPipelineMethods:
         assert isinstance(detections[0], Detection)
 
 
-class TestDetectionPipelineNms:
-    """DetectionPipeline の NMS テスト."""
+class TestRTDetrPipelineNms:
+    """RTDetrPipeline の NMS テスト."""
 
     def test_nms_enabled_by_default(self) -> None:
         """デフォルト (IoU=0.5) で NMS が適用され重複が除去されることを確認."""
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessorWithOverlaps(),
             device="cpu",
@@ -263,7 +263,7 @@ class TestDetectionPipelineNms:
 
     def test_nms_threshold_zero_suppresses_overlapping(self) -> None:
         """IoU 閾値 0.0 で IoU > 0 の重複ペアが抑制されることを確認."""
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessorWithOverlaps(),
             device="cpu",
@@ -281,7 +281,7 @@ class TestDetectionPipelineNms:
 
     def test_nms_threshold_one_keeps_all(self) -> None:
         """IoU 閾値 1.0 で全検出が保持されることを確認."""
-        pipeline = DetectionPipeline(
+        pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessorWithOverlaps(),
             device="cpu",

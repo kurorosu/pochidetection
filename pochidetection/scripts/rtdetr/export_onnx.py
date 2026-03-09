@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from pochidetection.logging import LoggerManager
-from pochidetection.onnx import OnnxExporter
+from pochidetection.onnx import RTDetrOnnxExporter
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
@@ -51,7 +51,7 @@ def export_onnx(
     logger.debug(f"出力先: {output_path}")
     logger.debug(f"opset_version: {opset_version}")
 
-    exporter = OnnxExporter()
+    exporter = RTDetrOnnxExporter()
 
     try:
         exporter.load_model(model_path)
