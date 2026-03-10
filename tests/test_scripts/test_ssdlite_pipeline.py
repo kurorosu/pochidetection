@@ -8,6 +8,7 @@ from PIL import Image
 from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
+from pochidetection.interfaces import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.scripts.ssdlite.inference.ssdlite_pipeline import (
     SSDLitePipeline,
@@ -15,13 +16,20 @@ from pochidetection.scripts.ssdlite.inference.ssdlite_pipeline import (
 from pochidetection.utils import PhasedTimer
 
 
-class DummySSDLiteModel:
-    """テスト用のダミー SSDLite モデル.
+class DummyBackend(IInferenceBackend):
+    """テスト用のダミー推論バックエンド.
 
-    SSDLiteModel と同じ __call__ インターフェースを持つ.
+    SSDLitePyTorchBackend と同じ出力形式を返す.
     """
 
-    def __init__(self, predictions: list[dict[str, torch.Tensor]] | None = None):
+    def __init__(
+        self, predictions: list[dict[str, torch.Tensor]] | None = None
+    ) -> None:
+        """初期化.
+
+        Args:
+            predictions: 返却する予測結果のリスト.
+        """
         self.call_count = 0
         self._predictions = predictions or [
             {
@@ -33,36 +41,36 @@ class DummySSDLiteModel:
             }
         ]
 
-    def __call__(self, pixel_values: Any) -> dict[str, Any]:
+    def infer(self, inputs: Any) -> dict[str, torch.Tensor]:
         """ダミー推論."""
         self.call_count += 1
-        return {"predictions": self._predictions}
+        return self._predictions[0]
+
+    def synchronize(self) -> None:
+        """同期処理 (何もしない)."""
 
 
-def _make_transform() -> v2.Compose:
+def _make_transform(image_size: tuple[int, int] = (320, 320)) -> v2.Compose:
     """テスト用の transform を生成."""
     return v2.Compose(
         [
+            v2.Resize(image_size),
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
-            v2.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
         ]
     )
 
 
 def _make_pipeline(
-    model: DummySSDLiteModel | None = None,
+    backend: DummyBackend | None = None,
     threshold: float = 0.5,
     image_size: tuple[int, int] = (320, 320),
     phased_timer: PhasedTimer | None = None,
 ) -> SSDLitePipeline:
     """テスト用パイプラインを生成."""
     return SSDLitePipeline(
-        model=model or DummySSDLiteModel(),  # type: ignore[arg-type]
-        transform=_make_transform(),
+        backend=backend or DummyBackend(),
+        transform=_make_transform(image_size),
         image_size=image_size,
         device="cpu",
         threshold=threshold,
@@ -117,8 +125,8 @@ class TestSSDLitePipelineRun:
 
     def test_run_returns_detections(self) -> None:
         """run() が検出結果を返すことを確認."""
-        model = DummySSDLiteModel()
-        pipeline = _make_pipeline(model=model, threshold=0.5)
+        backend = DummyBackend()
+        pipeline = _make_pipeline(backend=backend, threshold=0.5)
         image = Image.new("RGB", (640, 480))
 
         detections = pipeline.run(image)
@@ -127,7 +135,7 @@ class TestSSDLitePipelineRun:
         assert isinstance(detections[0], Detection)
         assert detections[0].score == pytest.approx(0.9, rel=1e-3)
         assert detections[0].label == 0
-        assert model.call_count == 1
+        assert backend.call_count == 1
 
     def test_run_with_phased_timer_measures_all_phases(self) -> None:
         """PhasedTimer 付き run() で全フェーズが計測されることを確認."""
@@ -170,15 +178,15 @@ class TestSSDLitePipelineMethods:
         assert orig_w == 640
         assert orig_h == 480
 
-    def test_infer_calls_model(self) -> None:
-        """infer() がモデルを呼び出すことを確認."""
-        model = DummySSDLiteModel()
-        pipeline = _make_pipeline(model=model)
+    def test_infer_calls_backend(self) -> None:
+        """infer() がバックエンドを呼び出すことを確認."""
+        backend = DummyBackend()
+        pipeline = _make_pipeline(backend=backend)
         pixel_values = torch.zeros((1, 3, 320, 320))
 
         pred = pipeline.infer(pixel_values)
 
-        assert model.call_count == 1
+        assert backend.call_count == 1
         assert "boxes" in pred
         assert "scores" in pred
         assert "labels" in pred
@@ -236,7 +244,7 @@ class TestSSDLitePipelineNoNms:
     """SSDLitePipeline が外部 NMS を適用しないことのテスト."""
 
     def test_no_external_nms_applied(self) -> None:
-        """重複するボックスが全て保持されることを確認 (NMS はモデル内部で適用済み)."""
+        """重複するボックスが全て保持されることを確認 (NMS は backend 側で適用済み)."""
         overlapping_predictions = [
             {
                 "boxes": torch.tensor(
@@ -250,8 +258,8 @@ class TestSSDLitePipelineNoNms:
                 "labels": torch.tensor([0, 0, 1]),
             }
         ]
-        model = DummySSDLiteModel(predictions=overlapping_predictions)
-        pipeline = _make_pipeline(model=model, threshold=0.5)
+        backend = DummyBackend(predictions=overlapping_predictions)
+        pipeline = _make_pipeline(backend=backend, threshold=0.5)
         image = Image.new("RGB", (320, 320))
 
         detections = pipeline.run(image)

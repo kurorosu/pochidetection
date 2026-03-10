@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from pochidetection.logging import LoggerManager
-from pochidetection.tensorrt import DEFAULT_BUILD_MEMORY, TensorRTExporter
+from pochidetection.tensorrt import DEFAULT_BUILD_MEMORY, RTDetrTensorRTExporter
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
@@ -44,7 +44,7 @@ def export_trt(
         output_path = Path(output_path_str)
 
     try:
-        exporter = TensorRTExporter()
+        exporter = RTDetrTensorRTExporter()
         exporter.export(
             onnx_path=onnx_path,
             output_path=output_path,

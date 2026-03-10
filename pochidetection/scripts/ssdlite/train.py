@@ -73,7 +73,8 @@ def _setup_training(
     logger.info(f"Image size: {image_size}")
     logger.info(f"Workspace: {workspace}")
 
-    model = SSDLiteModel(num_classes=num_classes)
+    nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
+    model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
     model.to(device)
 
     dataset_factory = partial(SsdCocoDataset, image_size=image_size)

@@ -59,6 +59,7 @@ class DetectionConfig(BaseModel):
     early_stopping_min_delta: float = Field(default=0.0, ge=0)
 
     annotation_path: str | None = None
+    infer_image_dir: str | None = None
 
     work_dir: str = Field(default="work_dirs", min_length=1)
 
@@ -99,15 +100,8 @@ class DetectionConfig(BaseModel):
             return self
 
         ignored: list[str] = []
-        defaults = {
-            "model_name": "PekingU/rtdetr_r50vd",
-            "nms_iou_threshold": 0.5,
-        }
-
-        for field_name, default_value in defaults.items():
-            value = getattr(self, field_name)
-            if value != default_value:
-                ignored.append(field_name)
+        if self.model_name != "PekingU/rtdetr_r50vd":
+            ignored.append("model_name")
 
         if not self.pretrained:
             ignored.append("pretrained")

@@ -185,18 +185,20 @@ class TestSsdCocoDataset:
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
         assert dataset.get_num_classes() == 2
 
-    def test_pixel_values_are_imagenet_normalized(
+    def test_pixel_values_are_zero_one_range(
         self, sample_dataset_dir: Path, image_size: dict[str, int]
     ) -> None:
-        """pixel_values に ImageNet 正規化が適用されていることを確認."""
+        """pixel_values が [0, 1] 範囲であることを確認.
+
+        SSDLite は GeneralizedRCNNTransform が内部で正規化するため,
+        Dataset は ImageNet 正規化を適用せず [0, 1] のまま返す.
+        """
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
         sample = dataset[0]
 
         pixel_values = sample["pixel_values"]
-        # ToTensor のみなら [0, 1] 範囲だが, Normalize 適用後は負値を含みうる
-        # mean=[0.485, 0.456, 0.406] で正規化するため,
-        # 値が 0 の画素は (0 - mean) / std < 0 になる
-        assert pixel_values.min() < 0.0
+        assert pixel_values.min() >= 0.0
+        assert pixel_values.max() <= 1.0
 
     def test_get_category_names(
         self, sample_dataset_dir: Path, image_size: dict[str, int]

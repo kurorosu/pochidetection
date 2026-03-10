@@ -11,6 +11,8 @@ from PIL import Image
 from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
+from pochidetection.inference import SSDLiteOnnxBackend, SSDLitePyTorchBackend
+from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
 from pochidetection.scripts.common import (
@@ -40,7 +42,8 @@ def infer(
     Args:
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
-        model_dir: モデルディレクトリ. None の場合は最新ワークスペースの best を使用.
+        model_dir: モデルディレクトリまたは ONNX ファイルパス.
+            None の場合は最新ワークスペースの best を使用.
     """
     model_path = resolve_model_path(config, model_dir)
     if model_path is None:
@@ -64,6 +67,62 @@ def infer(
 # ---------------------------------------------------------------------------
 
 
+def _is_onnx_model(path: Path) -> bool:
+    """パスが ONNX モデルファイルかを判定する.
+
+    Args:
+        path: 判定対象のパス.
+
+    Returns:
+        ONNX モデルファイルの場合 True.
+    """
+    return path.is_file() and path.suffix.lower() == ".onnx"
+
+
+def _create_backend(
+    model_path: Path, config: dict[str, Any]
+) -> tuple[IInferenceBackend, str, bool]:
+    """モデルパスからバックエンドを生成する.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+
+    Returns:
+        (backend, precision, use_fp16) のタプル.
+    """
+    device = config["device"]
+    num_classes = config["num_classes"]
+    use_fp16 = config.get("use_fp16", False)
+    image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
+    image_size = (image_size_cfg["height"], image_size_cfg["width"])
+    nms_iou_threshold = config.get("nms_iou_threshold", 0.55)
+
+    if _is_onnx_model(model_path):
+        logger.info("ONNX backend selected")
+        backend: IInferenceBackend = SSDLiteOnnxBackend(
+            model_path=model_path,
+            num_classes=num_classes,
+            image_size=image_size,
+            nms_iou_threshold=nms_iou_threshold,
+            device=device,
+        )
+        return backend, "fp32", False
+
+    model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
+    model.load(model_path)
+    model.to(device)
+    model.eval()
+
+    fp16 = is_fp16_available(use_fp16, device)
+    if fp16:
+        model.half()
+        logger.info("FP16 enabled")
+
+    precision = "fp16" if fp16 else "fp32"
+    return SSDLitePyTorchBackend(model), precision, use_fp16
+
+
 class _PipelineContext(NamedTuple):
     """_setup_pipeline の戻り値."""
 
@@ -85,14 +144,13 @@ def _setup_pipeline(
 
     Args:
         config: 設定辞書.
-        model_path: モデルのパス.
+        model_path: モデルのパス (ディレクトリまたは ONNX ファイル).
 
     Returns:
         構築済みのパイプラインコンテキスト.
     """
     device = config["device"]
     threshold = config["infer_score_threshold"]
-    num_classes = config["num_classes"]
     image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
     image_size = (image_size_cfg["height"], image_size_cfg["width"])
     use_fp16 = config.get("use_fp16", False)
@@ -101,32 +159,19 @@ def _setup_pipeline(
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 
-    model = SSDLiteModel(num_classes=num_classes)
-    model.load(model_path)
-    model.to(device)
-    model.eval()
-
-    fp16 = is_fp16_available(use_fp16, device)
-    if fp16:
-        model.half()
-        logger.info("FP16 enabled")
-
-    precision = "fp16" if fp16 else "fp32"
+    backend, precision, use_fp16 = _create_backend(model_path, config)
 
     transform = v2.Compose(
         [
+            v2.Resize(image_size),
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
-            v2.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
         ]
     )
 
     phased_timer = PhasedTimer(phases=SSDLitePipeline.PHASES, device=device)
     pipeline = SSDLitePipeline(
-        model=model,
+        backend=backend,
         transform=transform,
         image_size=image_size,
         device=device,
@@ -138,7 +183,10 @@ def _setup_pipeline(
     class_names = config.get("class_names")
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
-    saver = InferenceSaver(model_path)
+
+    is_single_file = _is_onnx_model(model_path)
+    saver_base = model_path.parent if is_single_file else model_path
+    saver = InferenceSaver(saver_base)
 
     return _PipelineContext(
         pipeline=pipeline,

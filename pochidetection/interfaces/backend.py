@@ -12,7 +12,7 @@ class IInferenceBackend(ABC):
     """
 
     @abstractmethod
-    def infer(self, inputs: Any) -> tuple[Any, Any]:
+    def infer(self, inputs: Any) -> Any:
         """推論を実行する.
 
         Args:
@@ -20,8 +20,9 @@ class IInferenceBackend(ABC):
                 型はバックエンドの実装に依存する (例: torch.Tensor, numpy.ndarray 等).
 
         Returns:
-            モデル出力のタプル.
-            RT-DETR の場合, (pred_logits, pred_boxes) の構成となる.
+            モデル出力. 型はバックエンドの実装に依存する.
+            RT-DETR の場合: tuple[Tensor, Tensor] (pred_logits, pred_boxes).
+            SSDLite の場合: dict[str, Tensor] (boxes, scores, labels).
         """
         pass
 

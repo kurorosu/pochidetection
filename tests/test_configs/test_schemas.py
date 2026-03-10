@@ -135,13 +135,13 @@ class TestSSDLiteIgnoredFieldWarnings:
             msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
             assert any("model_name" in m for m in msgs)
 
-    def test_nms_iou_threshold_warns(self) -> None:
-        """nms_iou_threshold を変更すると警告."""
+    def test_nms_iou_threshold_no_warning(self) -> None:
+        """nms_iou_threshold を変更しても警告なし (torchvision に渡されるため)."""
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             DetectionConfig(**self.SSDLITE_FIELDS, nms_iou_threshold=0.3)
-            msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
-            assert any("nms_iou_threshold" in m for m in msgs)
+            msgs = [str(x.message) for x in w if "nms_iou_threshold" in str(x.message)]
+            assert len(msgs) == 0
 
     def test_pretrained_false_warns(self) -> None:
         """pretrained=False で警告."""
@@ -179,8 +179,28 @@ class TestSSDLiteIgnoredFieldWarnings:
             DetectionConfig(
                 **self.SSDLITE_FIELDS,
                 model_name="custom_model",
-                nms_iou_threshold=0.3,
                 pretrained=False,
             )
             msgs = [str(x.message) for x in w if "SSDLite" in str(x.message)]
-            assert len(msgs) == 3
+            assert len(msgs) == 2
+
+
+class TestInferImageDir:
+    """infer_image_dir フィールドのテスト."""
+
+    def test_default_is_none(self) -> None:
+        """デフォルトでは None."""
+        config = DetectionConfig(**REQUIRED_FIELDS)
+        assert config.infer_image_dir is None
+
+    def test_set_infer_image_dir(self) -> None:
+        """infer_image_dir を設定できる."""
+        config = DetectionConfig(
+            **REQUIRED_FIELDS, infer_image_dir="data/val/JPEGImages"
+        )
+        assert config.infer_image_dir == "data/val/JPEGImages"
+
+    def test_existing_configs_without_field_still_valid(self) -> None:
+        """infer_image_dir 未指定の既存 config でもバリデーションが通る."""
+        config = DetectionConfig(**REQUIRED_FIELDS)
+        assert config.infer_image_dir is None
