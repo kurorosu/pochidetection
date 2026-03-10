@@ -14,10 +14,10 @@
 - `SSDLiteModel` が `nms_iou_threshold` を受け取り, torchvision の `nms_thresh` に渡すように変更. 設定ファイルで NMS IoU 閾値を制御可能にした. ([#220](https://github.com/kurorosu/pochidetection/pull/220).)
 - `IInferenceBackend.infer()` の戻り値型を `tuple[Any, Any]` から `Any` に変更. SSDLite バックエンドが `dict[str, Tensor]` を返せるようにした. ([#222](https://github.com/kurorosu/pochidetection/pull/222).)
 - `SSDLitePipeline` のコンストラクタを `model: SSDLiteModel` から `backend: IInferenceBackend` に変更. ([#222](https://github.com/kurorosu/pochidetection/pull/222).)
-- RT-DETR 系モジュールの命名統一とフォルダ構成整理. `OnnxBackend` → `RTDetrOnnxBackend`, `PyTorchBackend` → `RTDetrPyTorchBackend`, `TensorRTBackend` → `RTDetrTensorRTBackend`, `OnnxExporter` → `RTDetrOnnxExporter`, `TensorRTExporter` → `RTDetrTensorRTExporter`, `DetectionPipeline` → `RTDetrPipeline` にリネーム. `inference/` と `tensorrt/` をモデル別サブフォルダに分割. (N/A.)
+- RT-DETR 系モジュールの命名統一とフォルダ構成整理. `OnnxBackend` → `RTDetrOnnxBackend`, `PyTorchBackend` → `RTDetrPyTorchBackend`, `TensorRTBackend` → `RTDetrTensorRTBackend`, `OnnxExporter` → `RTDetrOnnxExporter`, `TensorRTExporter` → `RTDetrTensorRTExporter`, `DetectionPipeline` → `RTDetrPipeline` にリネーム. `inference/` と `tensorrt/` をモデル別サブフォルダに分割. ([#226](https://github.com/kurorosu/pochidetection/pull/226).)
 
 ### Fixed
-- 無し.
+- SSDLite の二重正規化バグを修正. Dataset/Pipeline の ImageNet 正規化を除去し, `_SSDLiteExportWrapper` に `GeneralizedRCNNTransform` 相当の正規化を組み込み. PyTorch と ONNX の入力分布を統一. (N/A.)
 
 ### Removed
 - 無し.
