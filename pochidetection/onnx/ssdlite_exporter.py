@@ -38,14 +38,18 @@ class _SSDLiteExportWrapper(nn.Module):
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Backbone + head の forward.
 
+        GeneralizedRCNNTransform 相当の正規化を適用してから推論する.
+        入力は [0, 1] 範囲を期待し, [-1, 1] に変換する.
+
         Args:
-            x: 入力画像テンソル (B, 3, H, W).
+            x: 入力画像テンソル (B, 3, H, W). [0, 1] 範囲.
 
         Returns:
             (cls_logits, bbox_regression) のタプル.
             cls_logits: (B, num_anchors, num_classes+1).
             bbox_regression: (B, num_anchors, 4).
         """
+        x = (x - 0.5) / 0.5
         features = self.backbone(x)
         features_list = list(features.values())
         head_out = self.head(features_list)
@@ -109,7 +113,7 @@ class SSDLiteOnnxExporter:
         if fp16:
             wrapper.half()
 
-        dummy_input = torch.randn(
+        dummy_input = torch.rand(
             1,
             3,
             input_size[0],
