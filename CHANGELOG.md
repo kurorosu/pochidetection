@@ -3,7 +3,7 @@
 このファイルは最新の changelog を保持します.
 最新でなくなった履歴は `changelogs/` 配下へ移動して管理します.
 
-## [Unreleased]
+## v0.8.0 (2026-03-10)
 
 ### Added
 - `DetectionConfig` に `infer_image_dir` フィールドを追加. CLI `-d` 未指定時に config から推論対象の画像フォルダパスを解決できるようにした. ([#219](https://github.com/kurorosu/pochidetection/pull/219).)
@@ -17,8 +17,8 @@
 - RT-DETR 系モジュールの命名統一とフォルダ構成整理. `OnnxBackend` → `RTDetrOnnxBackend`, `PyTorchBackend` → `RTDetrPyTorchBackend`, `TensorRTBackend` → `RTDetrTensorRTBackend`, `OnnxExporter` → `RTDetrOnnxExporter`, `TensorRTExporter` → `RTDetrTensorRTExporter`, `DetectionPipeline` → `RTDetrPipeline` にリネーム. `inference/` と `tensorrt/` をモデル別サブフォルダに分割. ([#226](https://github.com/kurorosu/pochidetection/pull/226).)
 
 ### Fixed
-- SSDLite の二重正規化バグを修正. Dataset/Pipeline の ImageNet 正規化を除去し, `_SSDLiteExportWrapper` に `GeneralizedRCNNTransform` 相当の正規化を組み込み. PyTorch と ONNX の入力分布を統一. (N/A.)
-- SSDLite 推論パイプラインのリサイズ補間を `PIL.Image.resize` (bicubic) から `v2.Resize` (bilinear) に統一. 学習時と推論時の前処理を一致させ, mAP 約 3% の乖離を解消. (N/A.)
+- SSDLite の二重正規化バグを修正. Dataset/Pipeline の ImageNet 正規化を除去し, `_SSDLiteExportWrapper` に `GeneralizedRCNNTransform` 相当の正規化を組み込み. PyTorch と ONNX の入力分布を統一. ([#227](https://github.com/kurorosu/pochidetection/pull/227).)
+- SSDLite 推論パイプラインのリサイズ補間を `PIL.Image.resize` (bicubic) から `v2.Resize` (bilinear) に統一. 学習時と推論時の前処理を一致させ, mAP 約 3% の乖離を解消. ([#229](https://github.com/kurorosu/pochidetection/pull/229).)
 
 ### Removed
 - 無し.

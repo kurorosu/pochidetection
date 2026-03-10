@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -129,13 +129,43 @@ uv run pochi infer -d images/ -c configs/ssdlite_coco.py
 - バウンディングボックス付きの結果画像 (`{filename}_result.{ext}`)
 - 推論速度の統計 (平均 ms/image, 合計時間)
 
-### 7. ONNX / TensorRT エクスポート (RT-DETR のみ)
+### 7. ONNX エクスポート
 
 ```bash
-# ONNX エクスポート
+# RT-DETR: ONNX エクスポート (FP32)
 uv run pochi export -m work_dirs/20260124_001/best
+
+# SSDLite: ONNX エクスポート (FP32)
+uv run pochi export -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py
+
+# SSDLite: ONNX エクスポート (FP16)
+uv run pochi export -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py --fp16
+
+# 出力パスを指定
 uv run pochi export -m work_dirs/20260124_001/best -o model.onnx
 
+# 検証をスキップ
+uv run pochi export -m work_dirs/20260124_001/best --skip-verify
+```
+
+`--fp16` は SSDLite のみ対応. エクスポート後, PyTorch と ONNX の出力が一致するか自動検証されます.
+
+### 8. ONNX モデルで推論
+
+```bash
+# ONNX モデルファイルを直接指定して推論
+uv run pochi infer -d images/ -m work_dirs/20260124_001/best/model_fp32.onnx -c configs/ssdlite_coco.py
+
+# FP16 ONNX モデルで推論
+uv run pochi infer -d images/ -m work_dirs/20260124_001/best/model_fp16.onnx -c configs/ssdlite_coco.py
+```
+
+ONNX ファイル (`.onnx`) を指定すると, 自動的に ONNX Runtime バックエンドが選択されます.
+CUDA 環境では `CUDAExecutionProvider` が使用されます.
+
+### 9. TensorRT エクスポート (RT-DETR のみ)
+
+```bash
 # TensorRT エクスポート (FP32)
 uv run pochi export-trt -i model.onnx
 
@@ -170,7 +200,9 @@ uv run pochi export-trt -i model.onnx --build-memory 2147483648
 - **cuDNN Benchmark**: `cudnn_benchmark = True` で GPU 推論を最適化
 - **自動ワークスペース管理**: `work_dirs/yyyymmdd_xxx/` で学習結果を自動管理
 - **インタラクティブ可視化**: Plotly による HTML グラフで学習過程を分析
-- **TensorRT エクスポート**: ONNX モデルから TensorRT エンジンへの変換 (FP32/FP16, Dynamic Batching 対応)
+- **ONNX エクスポート**: RT-DETR / SSDLite 両対応. SSDLite は FP16 エクスポートにも対応
+- **ONNX 推論**: ONNX Runtime による推論バックエンド (CUDA / CPU 自動選択)
+- **TensorRT エクスポート**: ONNX モデルから TensorRT エンジンへの変換 (FP32/FP16, Dynamic Batching 対応, RT-DETR のみ)
 
 ## 注意点
 
@@ -178,7 +210,8 @@ uv run pochi export-trt -i model.onnx --build-memory 2147483648
 - 推論では最初の画像がウォームアップとして計測から除外されます
 - COCO アノテーションの座標は自動的に正規化 `[cx, cy, w, h]` 形式に変換されます
 - バックグラウンドクラス (category_id=0) は自動的に除外されます
-- `export` / `export-trt` コマンドは RT-DETR のみ対応 (SSDLite は非対応)
+- `export` コマンドは RT-DETR と SSDLite の両方に対応. `export-trt` コマンドは RT-DETR のみ対応
+- SSDLite の `--fp16` は ONNX エクスポートのみ対応. FP16 による推論速度の改善は MobileNetV3 アーキテクチャの特性上限定的 (モデルサイズ削減には有効)
 
 ## ライセンス
 
