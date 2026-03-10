@@ -18,6 +18,7 @@
 
 ### Fixed
 - SSDLite の二重正規化バグを修正. Dataset/Pipeline の ImageNet 正規化を除去し, `_SSDLiteExportWrapper` に `GeneralizedRCNNTransform` 相当の正規化を組み込み. PyTorch と ONNX の入力分布を統一. (N/A.)
+- SSDLite 推論パイプラインのリサイズ補間を `PIL.Image.resize` (bicubic) から `v2.Resize` (bilinear) に統一. 学習時と推論時の前処理を一致させ, mAP 約 3% の乖離を解消. (N/A.)
 
 ### Removed
 - 無し.

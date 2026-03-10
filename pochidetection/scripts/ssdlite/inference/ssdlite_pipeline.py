@@ -84,9 +84,7 @@ class SSDLitePipeline(IDetectionPipeline):
             pixel_values は (1, C, H, W) 形状のテンソル.
         """
         orig_w, orig_h = image.size
-        target_h, target_w = self._image_size
-        image_resized = image.resize((target_w, target_h))
-        pixel_values = self._transform(image_resized).unsqueeze(0).to(self._device)
+        pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
             pixel_values = pixel_values.half()

@@ -50,16 +50,13 @@ class DummyBackend(IInferenceBackend):
         """同期処理 (何もしない)."""
 
 
-def _make_transform() -> v2.Compose:
+def _make_transform(image_size: tuple[int, int] = (320, 320)) -> v2.Compose:
     """テスト用の transform を生成."""
     return v2.Compose(
         [
+            v2.Resize(image_size),
             v2.ToImage(),
             v2.ToDtype(torch.float32, scale=True),
-            v2.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
         ]
     )
 
@@ -73,7 +70,7 @@ def _make_pipeline(
     """テスト用パイプラインを生成."""
     return SSDLitePipeline(
         backend=backend or DummyBackend(),
-        transform=_make_transform(),
+        transform=_make_transform(image_size),
         image_size=image_size,
         device="cpu",
         threshold=threshold,
