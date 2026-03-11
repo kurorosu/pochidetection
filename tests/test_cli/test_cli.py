@@ -103,10 +103,14 @@ class TestCliExportGuard:
         )
         return config
 
-    def test_export_trt_with_ssdlite_config_exits_with_error(
+    def test_export_trt_with_ssdlite_config_accepts_command(
         self, ssdlite_config: Path, tmp_path: Path
     ) -> None:
-        """SSDLite config で export-trt 実行時にエラー終了することを確認."""
+        """SSDLite config で export-trt が受け付けられることを確認.
+
+        ONNX ファイルが空のためエクスポート自体は失敗するが,
+        CLI ルーティングが SSDLite を拒否しないことを検証する.
+        """
         onnx_file = tmp_path / "model.onnx"
         onnx_file.touch()
         result = subprocess.run(
@@ -124,9 +128,7 @@ class TestCliExportGuard:
             text=True,
             timeout=30,
         )
-        assert result.returncode == 1
-        assert "SSDLite" in result.stderr
-        assert "対応していません" in result.stderr
+        assert "対応していません" not in result.stderr
 
     def test_export_fp16_with_rtdetr_config_exits_with_error(
         self, tmp_path: Path

@@ -90,3 +90,61 @@ def engine_path(
     )
 
     return result
+
+
+SSDLITE_INPUT_SIZE = (64, 64)
+
+
+class TinySSDLiteLikeModel(torch.nn.Module):
+    """テスト用の極小 SSDLite 風モデル (cls_logits, bbox_regression 出力).
+
+    SSDLite の ONNX 出力と同じ形状のテンソルを返す.
+    """
+
+    def __init__(self, num_anchors: int = 12, num_classes: int = 4) -> None:
+        """初期化."""
+        super().__init__()
+        self.pool = torch.nn.AdaptiveAvgPool2d(1)
+        self.cls_head = torch.nn.Linear(3, num_anchors * num_classes)
+        self.box_head = torch.nn.Linear(3, num_anchors * 4)
+        self.num_anchors = num_anchors
+        self.num_classes = num_classes
+
+    def forward(self, pixel_values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """順伝播."""
+        batch_size = pixel_values.shape[0]
+        x = self.pool(pixel_values).view(batch_size, -1)
+        cls_logits = self.cls_head(x).view(
+            batch_size, self.num_anchors, self.num_classes
+        )
+        bbox_regression = self.box_head(x).view(batch_size, self.num_anchors, 4)
+        return cls_logits, bbox_regression
+
+
+@pytest.fixture(scope="session")
+def ssdlite_dummy_onnx_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Create a dummy SSDLite ONNX file for testing."""
+    tmp_dir = tmp_path_factory.mktemp("ssdlite_trt_onnx")
+    output_path = tmp_dir / "ssdlite_tiny.onnx"
+
+    model = TinySSDLiteLikeModel()
+    model.eval()
+
+    dummy_input = torch.randn(1, 3, *SSDLITE_INPUT_SIZE)
+    torch.onnx.export(
+        model,
+        (dummy_input,),
+        str(output_path),
+        input_names=["pixel_values"],
+        output_names=["cls_logits", "bbox_regression"],
+        dynamic_axes={
+            "pixel_values": {0: "batch_size"},
+            "cls_logits": {0: "batch_size"},
+            "bbox_regression": {0: "batch_size"},
+        },
+        opset_version=17,
+        export_params=True,
+        dynamo=False,
+    )
+
+    return Path(output_path)
