@@ -88,7 +88,7 @@ class TestCliInferImageDir:
 
 
 class TestCliExportGuard:
-    """export / export-trt コマンドのガードテスト."""
+    """export コマンドのガードテスト."""
 
     @pytest.fixture
     def ssdlite_config(self, tmp_path: Path) -> Path:
@@ -103,13 +103,13 @@ class TestCliExportGuard:
         )
         return config
 
-    def test_export_trt_with_ssdlite_config_accepts_command(
+    def test_export_onnx_dispatches_to_trt(
         self, ssdlite_config: Path, tmp_path: Path
     ) -> None:
-        """SSDLite config で export-trt が受け付けられることを確認.
+        """export -m model.onnx で TRT ルートに入ることを確認.
 
         ONNX ファイルが空のためエクスポート自体は失敗するが,
-        CLI ルーティングが SSDLite を拒否しないことを検証する.
+        CLI ルーティングが .onnx を TRT として受け付けることを検証する.
         """
         onnx_file = tmp_path / "model.onnx"
         onnx_file.touch()
@@ -118,8 +118,8 @@ class TestCliExportGuard:
                 sys.executable,
                 "-m",
                 "pochidetection.cli.main",
-                "export-trt",
-                "-i",
+                "export",
+                "-m",
                 str(onnx_file),
                 "-c",
                 str(ssdlite_config),
@@ -133,7 +133,7 @@ class TestCliExportGuard:
     def test_export_fp16_with_rtdetr_config_exits_with_error(
         self, tmp_path: Path
     ) -> None:
-        """RT-DETR config で --fp16 指定時にエラー終了することを確認."""
+        """RT-DETR config でフォルダ指定 + --fp16 指定時にエラー終了することを確認."""
         config = tmp_path / "rtdetr_config.py"
         config.write_text(
             'data_root = "data"\n' "num_classes = 4\n",

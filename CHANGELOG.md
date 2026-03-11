@@ -13,11 +13,12 @@
 - `RTDetrTensorRTExporter` を `TensorRTExporter` にリネームし, `tensorrt/rtdetr/` から `tensorrt/` へ昇格. アーキテクチャ非依存の実態に合わせた. ([#234](https://github.com/kurorosu/pochidetection/pull/234).)
 - RT-DETR / SSDLite 個別の TRT エクスポートスクリプトを `scripts/common/export_trt.py` に統合. ([#234](https://github.com/kurorosu/pochidetection/pull/234).)
 - `RTDetrPipeline` の前処理を HuggingFace `RTDetrImageProcessor` から torchvision v2 transforms に置換. 前処理時間を ~9ms → ~1.7ms に短縮. (N/A.)
-
-### Fixed
-- 無し.
+- `export` と `export-trt` コマンドを `export` に統合. `-m` にフォルダを指定すると ONNX エクスポート, `.onnx` ファイルを指定すると TensorRT エクスポートを自動実行. (N/A.)
 
 ### Removed
+- `export-trt` コマンドを削除. `export -m model.onnx` に統合. (N/A.)
+
+### Fixed
 - 無し.
 
 ## v0.8.0 (2026-03-10)
