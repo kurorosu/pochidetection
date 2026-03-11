@@ -10,7 +10,7 @@ pytest.importorskip("tensorrt")
 
 import tensorrt as trt
 
-from pochidetection.tensorrt.rtdetr.memory import (
+from pochidetection.tensorrt.memory import (
     TRT_TO_NUMPY_DTYPE,
     TRT_TO_TORCH_DTYPE,
     TensorBinding,

@@ -333,34 +333,18 @@ def main() -> None:
             )
         )
 
-        if config.get("architecture") == "SSDLite":
-            from pochidetection.scripts.ssdlite.export_trt import (
-                export_trt as ssdlite_export_trt,
-            )
+        from pochidetection.scripts.common.export_trt import export_trt
 
-            ssdlite_export_trt(
-                args.onnx_path,
-                args.output,
-                input_size_tgt,
-                args.min_batch,
-                args.opt_batch,
-                args.max_batch,
-                args.fp16,
-                args.build_memory,
-            )
-        else:
-            from pochidetection.scripts.rtdetr.export_trt import export_trt
-
-            export_trt(
-                args.onnx_path,
-                args.output,
-                input_size_tgt,
-                args.min_batch,
-                args.opt_batch,
-                args.max_batch,
-                args.fp16,
-                args.build_memory,
-            )
+        export_trt(
+            args.onnx_path,
+            args.output,
+            input_size_tgt,
+            args.min_batch,
+            args.opt_batch,
+            args.max_batch,
+            args.fp16,
+            args.build_memory,
+        )
     else:
         _create_parser().print_help()
 

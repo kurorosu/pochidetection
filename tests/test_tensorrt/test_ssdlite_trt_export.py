@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("tensorrt")
 
-from pochidetection.tensorrt import RTDetrTensorRTExporter
+from pochidetection.tensorrt import TensorRTExporter
 
 from .conftest import SSDLITE_INPUT_SIZE
 
@@ -18,7 +18,7 @@ class TestSSDLiteTensorRTExport:
         self, ssdlite_dummy_onnx_path: Path, tmp_path: Path
     ) -> None:
         """FP32 で TensorRT エンジンが正常に書き出されることを確認."""
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         output_path = tmp_path / "ssdlite_fp32.engine"
 
         result_path = exporter.export(
@@ -37,7 +37,7 @@ class TestSSDLiteTensorRTExport:
         self, ssdlite_dummy_onnx_path: Path, tmp_path: Path
     ) -> None:
         """FP16 で TensorRT エンジンが正常に書き出されることを確認."""
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         output_path = tmp_path / "ssdlite_fp16.engine"
 
         result_path = exporter.export(
@@ -55,7 +55,7 @@ class TestSSDLiteTensorRTExport:
 
     def test_export_invalid_onnx_path(self, tmp_path: Path) -> None:
         """存在しない ONNX パスで FileNotFoundError が発生することを確認."""
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         with pytest.raises(FileNotFoundError):
             exporter.export(
                 onnx_path=tmp_path / "non_existent.onnx",

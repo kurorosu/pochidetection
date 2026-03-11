@@ -1,4 +1,4 @@
-"""RTDetrTensorRTExporterのテスト."""
+"""TensorRTExporterのテスト."""
 
 from pathlib import Path
 
@@ -6,17 +6,17 @@ import pytest
 
 pytest.importorskip("tensorrt")
 
-from pochidetection.tensorrt import RTDetrTensorRTExporter
+from pochidetection.tensorrt import TensorRTExporter
 
 from .conftest import INPUT_SIZE
 
 
-class TestRTDetrTensorRTExporter:
-    """RTDetrTensorRTExporterのテスト."""
+class TestTensorRTExporter:
+    """TensorRTExporterのテスト."""
 
     def test_init(self) -> None:
         """初期化が正常に行われることを確認."""
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         assert exporter is not None
         assert exporter.trt_logger is not None
 
@@ -24,7 +24,7 @@ class TestRTDetrTensorRTExporter:
         self, dummy_onnx_path: Path, tmp_path: Path
     ) -> None:
         """正常にTensorRTエンジンが書き出されることを確認する."""
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         output_path = tmp_path / "model.engine"
 
         result_path = exporter.export(
@@ -43,7 +43,7 @@ class TestRTDetrTensorRTExporter:
         self, dummy_onnx_path: Path, tmp_path: Path
     ) -> None:
         """FP16モードでTensorRTエンジンが正常に書き出されることを確認する."""
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         output_path = tmp_path / "model_fp16.engine"
 
         result_path = exporter.export(
@@ -75,7 +75,7 @@ class TestRTDetrTensorRTExporter:
 
         monkeypatch.setattr(trt.Builder, "__init__", patched_init)
 
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         output_path = tmp_path / "model_fallback.engine"
 
         result_path = exporter.export(
@@ -93,7 +93,7 @@ class TestRTDetrTensorRTExporter:
 
     def test_export_invalid_onnx_path(self, tmp_path: Path) -> None:
         """存在しないONNXパスを指定した場合FileNotFoundErrorが発生することを確認."""
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         with pytest.raises(FileNotFoundError):
             exporter.export(
                 onnx_path=tmp_path / "non_existent.onnx",

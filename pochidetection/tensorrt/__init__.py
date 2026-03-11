@@ -3,15 +3,15 @@
 TensorRTエンジンを利用するためのバックエンドやツールを提供します.
 """
 
-from pochidetection.tensorrt.rtdetr.exporter import (
+from pochidetection.tensorrt.exporter import (
     DEFAULT_BUILD_MEMORY,
-    RTDetrTensorRTExporter,
+    TensorRTExporter,
 )
-from pochidetection.tensorrt.rtdetr.memory import TensorBinding, allocate_bindings
+from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
 
 __all__ = [
     "DEFAULT_BUILD_MEMORY",
-    "RTDetrTensorRTExporter",
+    "TensorRTExporter",
     "TensorBinding",
     "allocate_bindings",
 ]

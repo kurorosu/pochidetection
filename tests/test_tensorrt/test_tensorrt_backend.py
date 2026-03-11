@@ -8,7 +8,7 @@ import torch
 pytest.importorskip("tensorrt")
 
 from pochidetection.inference import RTDetrTensorRTBackend
-from pochidetection.tensorrt.rtdetr.memory import TensorBinding
+from pochidetection.tensorrt.memory import TensorBinding
 
 from .conftest import INPUT_SIZE
 
