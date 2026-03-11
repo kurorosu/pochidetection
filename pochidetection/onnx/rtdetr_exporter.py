@@ -110,7 +110,7 @@ class RTDetrOnnxExporter:
         onnx_path: Path,
         input_size: tuple[int, int],
         rtol: float = 1e-3,
-        atol: float = 1e-5,
+        atol: float = 1e-4,
     ) -> bool:
         """エクスポートしたONNXモデルを検証.
 

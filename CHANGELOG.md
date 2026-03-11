@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し.
+- `export-trt` コマンドが SSDLite に対応. SSDLite ONNX モデルから TensorRT エンジン (FP32/FP16) をビルド可能にした. (N/A.)
 
 ### Changed
 - 無し.
