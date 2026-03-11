@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 import torch
 from PIL import Image
+from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
@@ -12,6 +13,16 @@ from pochidetection.scripts.rtdetr.inference.rtdetr_pipeline import (
     RTDetrPipeline,
 )
 from pochidetection.utils import PhasedTimer
+
+DUMMY_IMAGE_SIZE = (64, 64)
+
+DUMMY_TRANSFORM = v2.Compose(
+    [
+        v2.Resize(DUMMY_IMAGE_SIZE, interpolation=v2.InterpolationMode.BILINEAR),
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),
+    ]
+)
 
 
 class DummyBackend(IInferenceBackend):
@@ -32,11 +43,7 @@ class DummyBackend(IInferenceBackend):
 
 
 class DummyProcessor:
-    """テスト用のダミープロセッサ."""
-
-    def __call__(self, images: Any, return_tensors: str) -> dict[str, Any]:
-        """ダミー前処理."""
-        return {"pixel_values": torch.zeros((1, 3, 64, 64))}
+    """テスト用のダミープロセッサ (後処理のみ)."""
 
     def post_process_object_detection(
         self, outputs: Any, target_sizes: Any, threshold: float
@@ -52,11 +59,7 @@ class DummyProcessor:
 
 
 class DummyProcessorWithOverlaps:
-    """重複バウンディングボックスを返すダミープロセッサ."""
-
-    def __call__(self, images: Any, return_tensors: str) -> dict[str, Any]:
-        """ダミー前処理."""
-        return {"pixel_values": torch.zeros((1, 3, 64, 64))}
+    """重複バウンディングボックスを返すダミープロセッサ (後処理のみ)."""
 
     def post_process_object_detection(
         self, outputs: Any, target_sizes: Any, threshold: float
@@ -85,6 +88,7 @@ class TestRTDetrPipelineInit:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
         )
         assert pipeline.phased_timer is None
@@ -99,6 +103,7 @@ class TestRTDetrPipelineInit:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
             phased_timer=timer,
         )
@@ -113,6 +118,7 @@ class TestRTDetrPipelineInit:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
             phased_timer=timer,
         )
@@ -128,6 +134,7 @@ class TestRTDetrPipelineInit:
             RTDetrPipeline(
                 backend=DummyBackend(),
                 processor=DummyProcessor(),
+                transform=DUMMY_TRANSFORM,
                 device="cpu",
                 phased_timer=timer,
             )
@@ -142,6 +149,7 @@ class TestRTDetrPipelineRun:
         pipeline = RTDetrPipeline(
             backend=backend,
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
         )
         image = Image.new("RGB", (64, 64))
@@ -165,6 +173,7 @@ class TestRTDetrPipelineRun:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
             phased_timer=timer,
         )
@@ -181,6 +190,7 @@ class TestRTDetrPipelineRun:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
         )
         image = Image.new("RGB", (64, 64))
@@ -198,6 +208,7 @@ class TestRTDetrPipelineMethods:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
         )
         image = Image.new("RGB", (64, 64))
@@ -208,12 +219,43 @@ class TestRTDetrPipelineMethods:
         assert "pixel_values" in inputs
         assert isinstance(inputs["pixel_values"], torch.Tensor)
 
+    def test_preprocess_output_shape(self) -> None:
+        """preprocess() の出力テンソル形状を確認."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+        )
+        image = Image.new("RGB", (128, 96))
+
+        inputs = pipeline.preprocess(image)
+
+        assert inputs["pixel_values"].shape == (1, 3, 64, 64)
+        assert inputs["pixel_values"].dtype == torch.float32
+
+    def test_preprocess_pixel_range(self) -> None:
+        """preprocess() の出力が [0, 1] 範囲であることを確認."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+        )
+        image = Image.new("RGB", (64, 64), color=(128, 64, 255))
+
+        inputs = pipeline.preprocess(image)
+
+        assert inputs["pixel_values"].min() >= 0.0
+        assert inputs["pixel_values"].max() <= 1.0
+
     def test_infer_calls_backend(self) -> None:
         """infer() がバックエンドを呼び出すことを確認."""
         backend = DummyBackend()
         pipeline = RTDetrPipeline(
             backend=backend,
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
         )
         inputs = {"pixel_values": torch.zeros((1, 3, 64, 64))}
@@ -230,6 +272,7 @@ class TestRTDetrPipelineMethods:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
         )
         pred_logits = torch.zeros((1, 100, 2))
@@ -249,6 +292,7 @@ class TestRTDetrPipelineNms:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessorWithOverlaps(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
         )
         image = Image.new("RGB", (64, 64))
@@ -266,6 +310,7 @@ class TestRTDetrPipelineNms:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessorWithOverlaps(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
             nms_iou_threshold=0.0,
         )
@@ -284,6 +329,7 @@ class TestRTDetrPipelineNms:
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessorWithOverlaps(),
+            transform=DUMMY_TRANSFORM,
             device="cpu",
             nms_iou_threshold=1.0,
         )

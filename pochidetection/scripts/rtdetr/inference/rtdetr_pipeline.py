@@ -5,6 +5,7 @@ from typing import Any
 import torch
 import torchvision
 from PIL import Image
+from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection, OutputWrapper
 from pochidetection.interfaces.backend import IInferenceBackend
@@ -21,7 +22,8 @@ class RTDetrPipeline(IDetectionPipeline):
 
     Attributes:
         _backend: 推論バックエンド.
-        _processor: 画像前処理プロセッサ.
+        _processor: 後処理用プロセッサ.
+        _transform: 前処理用 torchvision v2 Transform.
         _device: 実行デバイス.
         _threshold: 検出信頼度閾値.
         _nms_iou_threshold: NMS の IoU 閾値.
@@ -35,6 +37,7 @@ class RTDetrPipeline(IDetectionPipeline):
         self,
         backend: IInferenceBackend,
         processor: Any,
+        transform: v2.Compose,
         device: str = "cuda",
         threshold: float = 0.5,
         nms_iou_threshold: float = 0.5,
@@ -45,7 +48,8 @@ class RTDetrPipeline(IDetectionPipeline):
 
         Args:
             backend: 推論バックエンドのインスタンス.
-            processor: 画像前処理プロセッサのインスタンス.
+            processor: 後処理用プロセッサのインスタンス.
+            transform: 前処理用 torchvision v2 Transform.
             device: 実行デバイス.
             threshold: 検出信頼度閾値.
             nms_iou_threshold: NMS の IoU 閾値.
@@ -65,6 +69,7 @@ class RTDetrPipeline(IDetectionPipeline):
 
         self._backend = backend
         self._processor = processor
+        self._transform = transform
         self._device = device
         self._threshold = threshold
         self._nms_iou_threshold = nms_iou_threshold
@@ -80,17 +85,12 @@ class RTDetrPipeline(IDetectionPipeline):
         Returns:
             モデル入力テンソルの辞書.
         """
-        batch = self._processor(images=image, return_tensors="pt")
-        inputs: dict[str, torch.Tensor] = {
-            k: v.to(self._device) for k, v in batch.items()
-        }
+        pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
-            inputs = {
-                k: v.half() if v.is_floating_point() else v for k, v in inputs.items()
-            }
+            pixel_values = pixel_values.half()
 
-        return inputs
+        return {"pixel_values": pixel_values}
 
     def infer(
         self, inputs: dict[str, torch.Tensor]
