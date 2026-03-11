@@ -19,7 +19,7 @@ DEFAULT_BUILD_MEMORY: Final[int] = 4 * 1024 * 1024 * 1024
 """TensorRT ビルド時のデフォルトメモリプール制限 (4 GiB)."""
 
 
-class RTDetrTensorRTExporter:
+class TensorRTExporter:
     """ONNXモデルからTensorRTエンジンへの変換を行うクラス.
 
     FP32 / FP16 精度のエンジン出力に対応し, Dynamic Batching 用の

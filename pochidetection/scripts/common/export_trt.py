@@ -1,11 +1,11 @@
-"""SSDLite TensorRT エクスポートスクリプト."""
+"""TensorRT エクスポートスクリプト (アーキテクチャ共通)."""
 
 import logging
 import sys
 from pathlib import Path
 
 from pochidetection.logging import LoggerManager
-from pochidetection.tensorrt import DEFAULT_BUILD_MEMORY, RTDetrTensorRTExporter
+from pochidetection.tensorrt import DEFAULT_BUILD_MEMORY, TensorRTExporter
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
@@ -20,10 +20,10 @@ def export_trt(
     use_fp16: bool = False,
     build_memory: int = DEFAULT_BUILD_MEMORY,
 ) -> None:
-    """Execute SSDLite TensorRT export.
+    """Execute TensorRT export from an ONNX model.
 
     Args:
-        onnx_path_str: 入力 ONNX モデルのパス文字列.
+        onnx_path_str: 入力ONNXモデルのパス文字列.
         output_path_str: 出力エンジンファイル (.engine) のパス文字列.
             None の場合は ONNX ファイルと同じディレクトリに配置される.
         input_size: 入力サイズ (height, width).
@@ -33,7 +33,7 @@ def export_trt(
         use_fp16: FP16 精度でビルドするかどうか.
         build_memory: TensorRT ビルド時のメモリプール制限 (bytes).
     """
-    logger.info("SSDLite TensorRT エクスポートを開始します")
+    logger.info("TensorRTエクスポートを開始します")
 
     onnx_path = Path(onnx_path_str)
 
@@ -44,7 +44,7 @@ def export_trt(
         output_path = Path(output_path_str)
 
     try:
-        exporter = RTDetrTensorRTExporter()
+        exporter = TensorRTExporter()
         exporter.export(
             onnx_path=onnx_path,
             output_path=output_path,
@@ -56,7 +56,7 @@ def export_trt(
             build_memory=build_memory,
         )
     except Exception as e:
-        logger.error(f"SSDLite TensorRT エクスポートに失敗しました: {e}")
+        logger.error(f"TensorRTエクスポートに失敗しました: {e}")
         sys.exit(1)
 
-    logger.info("SSDLite TensorRT エクスポート処理が完了しました")
+    logger.info("TensorRTエクスポート処理が完了しました")
