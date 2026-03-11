@@ -12,6 +12,13 @@ from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
 from pochidetection.inference import SSDLiteOnnxBackend, SSDLitePyTorchBackend
+
+try:
+    from pochidetection.inference import SSDLiteTensorRTBackend
+
+    _TRT_AVAILABLE = True
+except ImportError:
+    _TRT_AVAILABLE = False
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
@@ -42,7 +49,7 @@ def infer(
     Args:
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
-        model_dir: モデルディレクトリまたは ONNX ファイルパス.
+        model_dir: モデルディレクトリ, ONNX ファイル, または TensorRT エンジンのパス.
             None の場合は最新ワークスペースの best を使用.
     """
     model_path = resolve_model_path(config, model_dir)
@@ -79,6 +86,18 @@ def _is_onnx_model(path: Path) -> bool:
     return path.is_file() and path.suffix.lower() == ".onnx"
 
 
+def _is_tensorrt_model(model_path: Path) -> bool:
+    """モデルパスが TensorRT エンジンかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .engine ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".engine"
+
+
 def _create_backend(
     model_path: Path, config: dict[str, Any]
 ) -> tuple[IInferenceBackend, str, bool]:
@@ -98,9 +117,24 @@ def _create_backend(
     image_size = (image_size_cfg["height"], image_size_cfg["width"])
     nms_iou_threshold = config.get("nms_iou_threshold", 0.55)
 
+    if _is_tensorrt_model(model_path):
+        if not _TRT_AVAILABLE:
+            raise ImportError(
+                "tensorrt パッケージがインストールされていません. "
+                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
+            )
+        logger.info("TensorRT backend selected")
+        backend: IInferenceBackend = SSDLiteTensorRTBackend(
+            engine_path=model_path,
+            num_classes=num_classes,
+            image_size=image_size,
+            nms_iou_threshold=nms_iou_threshold,
+        )
+        return backend, "fp32", False
+
     if _is_onnx_model(model_path):
         logger.info("ONNX backend selected")
-        backend: IInferenceBackend = SSDLiteOnnxBackend(
+        backend = SSDLiteOnnxBackend(
             model_path=model_path,
             num_classes=num_classes,
             image_size=image_size,
@@ -144,7 +178,7 @@ def _setup_pipeline(
 
     Args:
         config: 設定辞書.
-        model_path: モデルのパス (ディレクトリまたは ONNX ファイル).
+        model_path: モデルのパス (ディレクトリ, ONNX ファイル, または TensorRT エンジン).
 
     Returns:
         構築済みのパイプラインコンテキスト.
@@ -161,6 +195,13 @@ def _setup_pipeline(
 
     backend, precision, use_fp16 = _create_backend(model_path, config)
 
+    if _is_tensorrt_model(model_path):
+        actual_device = "cuda"
+        runtime_device = "cuda"
+    else:
+        actual_device = device
+        runtime_device = device
+
     transform = v2.Compose(
         [
             v2.Resize(image_size),
@@ -169,12 +210,12 @@ def _setup_pipeline(
         ]
     )
 
-    phased_timer = PhasedTimer(phases=SSDLitePipeline.PHASES, device=device)
+    phased_timer = PhasedTimer(phases=SSDLitePipeline.PHASES, device=runtime_device)
     pipeline = SSDLitePipeline(
         backend=backend,
         transform=transform,
         image_size=image_size,
-        device=device,
+        device=runtime_device,
         threshold=threshold,
         use_fp16=use_fp16,
         phased_timer=phased_timer,
@@ -184,7 +225,7 @@ def _setup_pipeline(
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
 
-    is_single_file = _is_onnx_model(model_path)
+    is_single_file = _is_onnx_model(model_path) or _is_tensorrt_model(model_path)
     saver_base = model_path.parent if is_single_file else model_path
     saver = InferenceSaver(saver_base)
 
@@ -195,7 +236,7 @@ def _setup_pipeline(
         saver=saver,
         label_mapper=label_mapper,
         class_names=class_names,
-        actual_device=device,
+        actual_device=actual_device,
         precision=precision,
     )
 

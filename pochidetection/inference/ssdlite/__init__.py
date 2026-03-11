@@ -7,3 +7,12 @@ __all__ = [
     "SSDLiteOnnxBackend",
     "SSDLitePyTorchBackend",
 ]
+
+try:
+    from pochidetection.inference.ssdlite.tensorrt_backend import (
+        SSDLiteTensorRTBackend,
+    )
+
+    __all__.append("SSDLiteTensorRTBackend")
+except ImportError:
+    pass

@@ -18,3 +18,12 @@ try:
     __all__.append("RTDetrTensorRTBackend")
 except ImportError:
     pass
+
+try:
+    from pochidetection.inference.ssdlite.tensorrt_backend import (
+        SSDLiteTensorRTBackend,
+    )
+
+    __all__.append("SSDLiteTensorRTBackend")
+except ImportError:
+    pass

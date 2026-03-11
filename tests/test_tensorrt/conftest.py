@@ -93,6 +93,7 @@ def engine_path(
 
 
 SSDLITE_INPUT_SIZE = (64, 64)
+SSDLITE_NUM_CLASSES = 4
 
 
 class TinySSDLiteLikeModel(torch.nn.Module):
@@ -101,7 +102,7 @@ class TinySSDLiteLikeModel(torch.nn.Module):
     SSDLite の ONNX 出力と同じ形状のテンソルを返す.
     """
 
-    def __init__(self, num_anchors: int = 12, num_classes: int = 4) -> None:
+    def __init__(self, num_anchors: int = 144, num_classes: int = 5) -> None:
         """初期化."""
         super().__init__()
         self.pool = torch.nn.AdaptiveAvgPool2d(1)
@@ -148,3 +149,24 @@ def ssdlite_dummy_onnx_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     )
 
     return Path(output_path)
+
+
+@pytest.fixture(scope="session")
+def ssdlite_engine_path(
+    ssdlite_dummy_onnx_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    """Create a SSDLite TensorRT engine for testing."""
+    tmp_dir = tmp_path_factory.mktemp("ssdlite_trt_engine")
+    output_path = tmp_dir / "ssdlite_tiny.engine"
+
+    exporter = TensorRTExporter()
+    result: Path = exporter.export(
+        onnx_path=ssdlite_dummy_onnx_path,
+        output_path=output_path,
+        input_size=SSDLITE_INPUT_SIZE,
+        min_batch=1,
+        opt_batch=1,
+        max_batch=2,
+    )
+
+    return result

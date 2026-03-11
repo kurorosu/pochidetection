@@ -42,6 +42,7 @@ def _create_parser() -> argparse.ArgumentParser:
     uv run pochi infer
     uv run pochi infer -m work_dirs/20260124_001/best
     uv run pochi infer -m work_dirs/20260310_002/best/model_fp32.onnx
+    uv run pochi infer -m work_dirs/20260310_002/best/model_fp32.engine
 
   ONNXエクスポート (モデルフォルダ内 config で自動判定, デフォルト FP32):
     uv run pochi export -m work_dirs/20260124_001/best
