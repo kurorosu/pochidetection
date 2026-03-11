@@ -7,11 +7,12 @@
 
 ### Added
 - `export-trt` コマンドが SSDLite に対応. SSDLite ONNX モデルから TensorRT エンジン (FP32/FP16) をビルド可能にした. ([#233](https://github.com/kurorosu/pochidetection/pull/233).)
-- `SSDLiteTensorRTBackend` を追加. `pochi infer -m model.engine` で SSDLite TensorRT エンジンの推論に対応. (N/A.)
+- `SSDLiteTensorRTBackend` を追加. `pochi infer -m model.engine` で SSDLite TensorRT エンジンの推論に対応. ([#236](https://github.com/kurorosu/pochidetection/pull/236).)
 
 ### Changed
 - `RTDetrTensorRTExporter` を `TensorRTExporter` にリネームし, `tensorrt/rtdetr/` から `tensorrt/` へ昇格. アーキテクチャ非依存の実態に合わせた. ([#234](https://github.com/kurorosu/pochidetection/pull/234).)
 - RT-DETR / SSDLite 個別の TRT エクスポートスクリプトを `scripts/common/export_trt.py` に統合. ([#234](https://github.com/kurorosu/pochidetection/pull/234).)
+- `RTDetrPipeline` の前処理を HuggingFace `RTDetrImageProcessor` から torchvision v2 transforms に置換. 前処理時間を ~9ms → ~1.7ms に短縮. (N/A.)
 
 ### Fixed
 - 無し.
