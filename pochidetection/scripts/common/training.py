@@ -22,6 +22,7 @@ from pochidetection.utils import (
     WorkspaceManager,
 )
 from pochidetection.visualization import (
+    F1ConfidencePlotter,
     LossPlotter,
     MetricsPlotter,
     PRCurvePlotter,
@@ -200,7 +201,7 @@ def run_training_loop(
                 best_map = mAP
                 _save_best(ctx, "mAP", mAP, logger)
 
-    save_results(ctx, history, map_result, logger)
+    save_results(config, ctx, history, map_result, logger)
 
 
 def build_early_stopping(config: dict[str, Any]) -> EarlyStopping | None:
@@ -254,6 +255,7 @@ def train_one_epoch(ctx: TrainingContext) -> tuple[float, float]:
 
 
 def save_results(
+    config: dict[str, Any],
     ctx: TrainingContext,
     history: TrainingHistory,
     map_result: dict[str, Any],
@@ -262,6 +264,7 @@ def save_results(
     """モデル保存 + レポート出力.
 
     Args:
+        config: 設定辞書.
         ctx: 学習コンテキスト.
         history: 学習履歴.
         map_result: 最後に検証されたエポックの mAP 計算結果.
@@ -282,11 +285,23 @@ def save_results(
     report_plotter.plot(report_path)
     logger.info(f"Training report saved to {report_path}")
 
+    class_names = config.get("class_names")
+
     if "precision" in map_result:
-        pr_plotter = PRCurvePlotter(map_result["precision"])
+        pr_plotter = PRCurvePlotter(map_result["precision"], class_names=class_names)
         pr_path = ctx.workspace / "pr_curve.html"
         pr_plotter.plot(pr_path)
         logger.info(f"PR curve saved to {pr_path}")
+
+    if "precision" in map_result and "scores" in map_result:
+        f1_plotter = F1ConfidencePlotter(
+            map_result["precision"],
+            map_result["scores"],
+            class_names=class_names,
+        )
+        f1_path = ctx.workspace / "f1_confidence.html"
+        f1_plotter.plot(f1_path)
+        logger.info(f"F1-Confidence curve saved to {f1_path}")
 
 
 # ---------------------------------------------------------------------------
