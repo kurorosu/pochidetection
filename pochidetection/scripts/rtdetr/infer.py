@@ -8,6 +8,7 @@ from typing import Any, NamedTuple
 
 import torch
 from PIL import Image
+from torchvision.transforms import v2
 from transformers import RTDetrImageProcessor
 
 from pochidetection.inference import RTDetrOnnxBackend, RTDetrPyTorchBackend
@@ -112,6 +113,18 @@ def _setup_pipeline(
     processor = _load_processor(model_path, config)
     backend, precision, use_fp16 = _create_backend(model_path, config)
 
+    image_size = (
+        int(config["image_size"]["height"]),
+        int(config["image_size"]["width"]),
+    )
+    transform = v2.Compose(
+        [
+            v2.Resize(image_size, interpolation=v2.InterpolationMode.BILINEAR),
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+        ]
+    )
+
     if _is_tensorrt_model(model_path):
         actual_device = "cuda"
         runtime_device = "cuda"
@@ -133,6 +146,7 @@ def _setup_pipeline(
     pipeline = RTDetrPipeline(
         backend=backend,
         processor=processor,
+        transform=transform,
         device=runtime_device,
         threshold=threshold,
         nms_iou_threshold=nms_iou_threshold,

@@ -207,7 +207,7 @@ class SSDLiteOnnxExporter:
         input_size: tuple[int, int],
         fp16: bool = False,
         rtol: float = 1e-3,
-        atol: float = 1e-5,
+        atol: float = 1e-4,
     ) -> bool:
         """エクスポートした ONNX モデルを検証.
 

@@ -15,7 +15,7 @@ except ImportError:
 
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
-from pochidetection.tensorrt.rtdetr.memory import TensorBinding, allocate_bindings
+from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 

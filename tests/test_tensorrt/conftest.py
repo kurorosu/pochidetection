@@ -4,10 +4,11 @@ from pathlib import Path
 
 import pytest
 import torch
+from PIL import Image
 
 pytest.importorskip("tensorrt")
 
-from pochidetection.tensorrt import RTDetrTensorRTExporter
+from pochidetection.tensorrt import INT8Calibrator, TensorRTExporter
 
 INPUT_SIZE = (64, 64)
 
@@ -79,7 +80,7 @@ def engine_path(
     tmp_dir = tmp_path_factory.mktemp("trt_engine")
     output_path = tmp_dir / "tiny_model.engine"
 
-    exporter = RTDetrTensorRTExporter()
+    exporter = TensorRTExporter()
     result: Path = exporter.export(
         onnx_path=dummy_onnx_path,
         output_path=output_path,
@@ -87,6 +88,133 @@ def engine_path(
         min_batch=1,
         opt_batch=1,
         max_batch=2,
+    )
+
+    return result
+
+
+SSDLITE_INPUT_SIZE = (64, 64)
+SSDLITE_NUM_CLASSES = 4
+
+
+class TinySSDLiteLikeModel(torch.nn.Module):
+    """テスト用の極小 SSDLite 風モデル (cls_logits, bbox_regression 出力).
+
+    SSDLite の ONNX 出力と同じ形状のテンソルを返す.
+    """
+
+    def __init__(self, num_anchors: int = 144, num_classes: int = 5) -> None:
+        """初期化."""
+        super().__init__()
+        self.pool = torch.nn.AdaptiveAvgPool2d(1)
+        self.cls_head = torch.nn.Linear(3, num_anchors * num_classes)
+        self.box_head = torch.nn.Linear(3, num_anchors * 4)
+        self.num_anchors = num_anchors
+        self.num_classes = num_classes
+
+    def forward(self, pixel_values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """順伝播."""
+        batch_size = pixel_values.shape[0]
+        x = self.pool(pixel_values).view(batch_size, -1)
+        cls_logits = self.cls_head(x).view(
+            batch_size, self.num_anchors, self.num_classes
+        )
+        bbox_regression = self.box_head(x).view(batch_size, self.num_anchors, 4)
+        return cls_logits, bbox_regression
+
+
+@pytest.fixture(scope="session")
+def ssdlite_dummy_onnx_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Create a dummy SSDLite ONNX file for testing."""
+    tmp_dir = tmp_path_factory.mktemp("ssdlite_trt_onnx")
+    output_path = tmp_dir / "ssdlite_tiny.onnx"
+
+    model = TinySSDLiteLikeModel()
+    model.eval()
+
+    dummy_input = torch.randn(1, 3, *SSDLITE_INPUT_SIZE)
+    torch.onnx.export(
+        model,
+        (dummy_input,),
+        str(output_path),
+        input_names=["pixel_values"],
+        output_names=["cls_logits", "bbox_regression"],
+        dynamic_axes={
+            "pixel_values": {0: "batch_size"},
+            "cls_logits": {0: "batch_size"},
+            "bbox_regression": {0: "batch_size"},
+        },
+        opset_version=17,
+        export_params=True,
+        dynamo=False,
+    )
+
+    return Path(output_path)
+
+
+@pytest.fixture(scope="session")
+def ssdlite_engine_path(
+    ssdlite_dummy_onnx_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    """Create a SSDLite TensorRT engine for testing."""
+    tmp_dir = tmp_path_factory.mktemp("ssdlite_trt_engine")
+    output_path = tmp_dir / "ssdlite_tiny.engine"
+
+    exporter = TensorRTExporter()
+    result: Path = exporter.export(
+        onnx_path=ssdlite_dummy_onnx_path,
+        output_path=output_path,
+        input_size=SSDLITE_INPUT_SIZE,
+        min_batch=1,
+        opt_batch=1,
+        max_batch=2,
+    )
+
+    return result
+
+
+CALIB_NUM_IMAGES = 5
+
+
+@pytest.fixture(scope="session")
+def calib_image_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Create a directory with dummy calibration images."""
+    tmp_dir: Path = tmp_path_factory.mktemp("calib_images")
+    for i in range(CALIB_NUM_IMAGES):
+        img = Image.new("RGB", (128, 128), color=(i * 50, i * 50, i * 50))
+        img.save(tmp_dir / f"image_{i:03d}.jpg")
+    return tmp_dir
+
+
+@pytest.fixture(scope="session")
+def int8_calibrator(calib_image_dir: Path) -> INT8Calibrator:
+    """Create an INT8Calibrator for testing."""
+    return INT8Calibrator(
+        image_dir=calib_image_dir,
+        input_size=INPUT_SIZE,
+    )
+
+
+@pytest.fixture(scope="session")
+def int8_engine_path(
+    dummy_onnx_path: Path,
+    int8_calibrator: INT8Calibrator,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """Build an INT8 TensorRT engine for testing."""
+    tmp_dir = tmp_path_factory.mktemp("trt_int8_engine")
+    output_path = tmp_dir / "tiny_model_int8.engine"
+
+    exporter = TensorRTExporter()
+    result: Path = exporter.export(
+        onnx_path=dummy_onnx_path,
+        output_path=output_path,
+        input_size=INPUT_SIZE,
+        min_batch=1,
+        opt_batch=1,
+        max_batch=2,
+        use_int8=True,
+        int8_calibrator=int8_calibrator,
     )
 
     return result

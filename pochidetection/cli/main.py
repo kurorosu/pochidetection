@@ -1,19 +1,21 @@
 """物体検出 CLI.
 
-RT-DETR / SSDLite モデルの学習・推論・ONNXエクスポートを行うコマンドラインインターフェース.
+RT-DETR / SSDLite モデルの学習・推論・エクスポートを行うコマンドラインインターフェース.
 
 使用方法:
     uv run pochi train
     uv run pochi train -c configs/rtdetr_coco.py
     uv run pochi train -c configs/ssdlite_coco.py
-    uv run pochi infer -d images/
-    uv run pochi infer -d images/ -m work_dirs/20260124_001/best
+    uv run pochi infer
+    uv run pochi infer -m work_dirs/20260124_001/best
     uv run pochi export -m work_dirs/20260124_001/best
+    uv run pochi export -m work_dirs/20260124_001/best/model_fp32.onnx
 """
 
 import argparse
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from pochidetection.logging import LoggerManager, LogLevel
@@ -33,38 +35,22 @@ def _create_parser() -> argparse.ArgumentParser:
         description="物体検出モデルの学習・推論・エクスポート CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-使用例:
-  学習 (RT-DETR):
-    uv run pochi train
-    uv run pochi train -c configs/rtdetr_coco.py
+使用例 (-c で config を切り替えると RT-DETR / SSDLite が自動選択されます):
+  学習:
+    uv run pochi train                                        # RT-DETR (default)
+    uv run pochi train -c configs/ssdlite_coco.py             # SSDLite
 
-  学習 (SSDLite):
-    uv run pochi train -c configs/ssdlite_coco.py
+  推論 (-m のモデルフォルダ内 config で自動判定):
+    uv run pochi infer
+    uv run pochi infer -m work_dirs/20260124_001/best
+    uv run pochi infer -m work_dirs/20260310_002/best/model_fp32.onnx
+    uv run pochi infer -m work_dirs/20260310_002/best/model_fp32.engine
 
-  推論 (RT-DETR):
-    uv run pochi infer -d images/
-    uv run pochi infer -d images/ -m work_dirs/20260124_001/best
-    uv run pochi infer -d images/ -m model.engine
-
-  推論 (SSDLite):
-    uv run pochi infer -d images/ -c configs/ssdlite_coco.py
-    uv run pochi infer -d images/ -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py
-
-  ONNXエクスポート (RT-DETR):
-    uv run pochi export -m work_dirs/20260124_001/best
-    uv run pochi export -m work_dirs/20260124_001/best -o model.onnx
-    uv run pochi export -m work_dirs/20260124_001/best --input-size 640 640
-
-  ONNXエクスポート (SSDLite, FP32/FP16):
-    uv run pochi export -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py
-    uv run pochi export -m work_dirs/20260124_001/best -c configs/ssdlite_coco.py --fp16
-
-  TensorRTエクスポート (RT-DETR のみ, FP32):
-    uv run pochi export-trt -i model.onnx
-    uv run pochi export-trt -i model.onnx --max-batch 8
-
-  TensorRTエクスポート (RT-DETR のみ, FP16):
-    uv run pochi export-trt -i model.onnx --fp16
+  エクスポート (入力パスで ONNX / TensorRT を自動判定):
+    uv run pochi export -m work_dirs/20260124_001/best                         # フォルダ → ONNX
+    uv run pochi export -m work_dirs/20260124_001/best --fp16                  # SSDLite FP16 ONNX
+    uv run pochi export -m work_dirs/20260124_001/best/model_fp32.onnx         # .onnx → TensorRT
+    uv run pochi export -m work_dirs/20260124_001/best/model_fp32.onnx --fp16  # TensorRT FP16
         """,
     )
 
@@ -108,23 +94,24 @@ def _create_parser() -> argparse.ArgumentParser:
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
     )
 
-    # ONNXエクスポートコマンド
+    # エクスポートコマンド (フォルダ → ONNX, .onnx → TensorRT を自動判定)
     export_parser = subparsers.add_parser(
-        "export", help="学習済みモデルのONNXエクスポート"
+        "export",
+        help="モデルのエクスポート (フォルダ → ONNX, .onnx → TensorRT)",
     )
     export_parser.add_argument(
         "-m",
-        "--model-dir",
+        "--model-path",
         type=str,
         required=True,
-        help="モデルディレクトリのパス",
+        help="モデルディレクトリ (→ ONNX) または ONNXファイル (→ TensorRT)",
     )
     export_parser.add_argument(
         "-o",
         "--output",
         type=str,
         default=None,
-        help="出力ファイルパス (default: アーキテクチャに応じて自動決定)",
+        help="出力ファイルパス (default: 自動決定)",
     )
     export_parser.add_argument(
         "--input-size",
@@ -138,69 +125,54 @@ def _create_parser() -> argparse.ArgumentParser:
         "--opset-version",
         type=int,
         default=17,
-        help="ONNXオペセットバージョン (default: 17)",
+        help="ONNXオペセットバージョン (default: 17, ONNX時のみ)",
     )
     export_parser.add_argument(
         "--skip-verify",
         action="store_true",
-        help="エクスポート後の検証をスキップ",
+        help="エクスポート後の検証をスキップ (ONNX時のみ)",
     )
     export_parser.add_argument(
         "--fp16",
         action="store_true",
-        help="FP16 精度でエクスポート (SSDLite のみ)",
+        help="FP16 精度でエクスポート (ONNX: SSDLiteのみ, TRT: 全アーキテクチャ)",
     )
     export_parser.add_argument(
-        "-c",
-        "--config",
-        type=str,
-        default=None,
-        help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
-    )
-
-    # TensorRTエクスポートコマンド
-    export_trt_parser = subparsers.add_parser(
-        "export-trt", help="ONNXモデルからTensorRTエンジンへのエクスポート"
-    )
-    export_trt_parser.add_argument(
-        "-i", "--onnx-path", type=str, required=True, help="入力ONNXモデルのパス"
-    )
-    export_trt_parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        default=None,
-        help="出力エンジンパス (default: model_fp32.engine / model_fp16.engine)",
-    )
-    export_trt_parser.add_argument(
-        "--input-size",
-        nargs=2,
+        "--min-batch",
         type=int,
-        default=None,
-        metavar=("HEIGHT", "WIDTH"),
-        help="入力画像サイズ (default: configのimage_sizeを使用)",
+        default=1,
+        help="最小バッチサイズ (TRT時のみ, default: 1)",
     )
-    export_trt_parser.add_argument(
-        "--min-batch", type=int, default=1, help="最小バッチサイズ (default: 1)"
+    export_parser.add_argument(
+        "--opt-batch",
+        type=int,
+        default=1,
+        help="最適バッチサイズ (TRT時のみ, default: 1)",
     )
-    export_trt_parser.add_argument(
-        "--opt-batch", type=int, default=1, help="最適バッチサイズ (default: 1)"
+    export_parser.add_argument(
+        "--max-batch",
+        type=int,
+        default=4,
+        help="最大バッチサイズ (TRT時のみ, default: 4)",
     )
-    export_trt_parser.add_argument(
-        "--max-batch", type=int, default=4, help="最大バッチサイズ (default: 4)"
-    )
-    export_trt_parser.add_argument(
-        "--fp16",
-        action="store_true",
-        help="FP16 精度でエンジンをビルド (非対応GPUではFP32にフォールバック)",
-    )
-    export_trt_parser.add_argument(
+    export_parser.add_argument(
         "--build-memory",
         type=int,
         default=4 * 1024 * 1024 * 1024,
-        help="TensorRT ビルド時の最大メモリ (bytes, default: 4GB)",
+        help="TensorRT ビルド時の最大メモリ (bytes, default: 4GB, TRT時のみ)",
     )
-    export_trt_parser.add_argument(
+    export_parser.add_argument(
+        "--int8",
+        action="store_true",
+        help="INT8 精度でエクスポート (PTQ, TRT時のみ, キャリブレーションデータは config から取得)",
+    )
+    export_parser.add_argument(
+        "--calib-max-images",
+        type=int,
+        default=None,
+        help="キャリブレーションに使用する最大画像数 (default: 全件, INT8時のみ)",
+    )
+    export_parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -299,18 +271,60 @@ def main() -> None:
         infer_fn = _resolve_infer(config)
         infer_fn(config, image_dir, args.model_dir)
     elif args.command == "export":
-        config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
+        config_path = resolve_config_path(args.config, args.model_path, DEFAULT_CONFIG)
         config = ConfigLoader.load(config_path)
         input_size = tuple(args.input_size) if args.input_size else None
 
-        if config.get("architecture") == "SSDLite":
+        model_path = Path(args.model_path)
+        if model_path.suffix.lower() == ".onnx":
+            # .onnx ファイル → TensorRT エクスポート
+            input_size_trt: tuple[int, int] = (
+                (args.input_size[0], args.input_size[1])
+                if args.input_size
+                else (
+                    int(config["image_size"]["height"]),
+                    int(config["image_size"]["width"]),
+                )
+            )
+
+            int8_calibrator = None
+            if args.int8:
+                from pochidetection.tensorrt import INT8Calibrator
+
+                calib_image_dir = Path(config["infer_image_dir"])
+
+                cache_path = model_path.parent / "calibration_cache.bin"
+
+                int8_calibrator = INT8Calibrator(
+                    image_dir=calib_image_dir,
+                    input_size=input_size_trt,
+                    max_images=args.calib_max_images,
+                    cache_path=cache_path,
+                )
+
+            from pochidetection.scripts.common.export_trt import export_trt
+
+            export_trt(
+                args.model_path,
+                args.output,
+                input_size_trt,
+                args.min_batch,
+                args.opt_batch,
+                args.max_batch,
+                args.fp16,
+                args.int8,
+                int8_calibrator,
+                args.build_memory,
+            )
+        elif config.get("architecture") == "SSDLite":
+            # SSDLite モデルディレクトリ → ONNX エクスポート
             from pochidetection.scripts.ssdlite.export_onnx import (
                 export_onnx as ssdlite_export_onnx,
             )
 
             ssdlite_export_onnx(
                 config,
-                args.model_dir,
+                args.model_path,
                 args.output,
                 args.opset_version,
                 input_size,
@@ -318,9 +332,10 @@ def main() -> None:
                 args.fp16,
             )
         else:
+            # RT-DETR モデルディレクトリ → ONNX エクスポート
             if args.fp16:
                 print(
-                    "Error: --fp16 は SSDLite の export でのみ使用できます.",
+                    "Error: --fp16 は SSDLite の ONNX export でのみ使用できます.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -329,43 +344,12 @@ def main() -> None:
 
             export_onnx(
                 config,
-                args.model_dir,
+                args.model_path,
                 args.output,
                 args.opset_version,
                 input_size,
                 args.skip_verify,
             )
-    elif args.command == "export-trt":
-        config_path = resolve_config_path(args.config, args.onnx_path, DEFAULT_CONFIG)
-        config = ConfigLoader.load(config_path)
-        if config.get("architecture") == "SSDLite":
-            print(
-                "Error: export-trt コマンドは SSDLite に対応していません. "
-                "RT-DETR の設定ファイルを指定してください.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        from pochidetection.scripts.rtdetr.export_trt import export_trt
-
-        input_size_tgt: tuple[int, int] = (
-            (args.input_size[0], args.input_size[1])
-            if args.input_size
-            else (
-                int(config["image_size"]["height"]),
-                int(config["image_size"]["width"]),
-            )
-        )
-        export_trt(
-            args.onnx_path,
-            args.output,
-            input_size_tgt,
-            args.min_batch,
-            args.opt_batch,
-            args.max_batch,
-            args.fp16,
-            args.build_memory,
-        )
     else:
         _create_parser().print_help()
 
