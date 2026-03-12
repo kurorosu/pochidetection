@@ -162,6 +162,17 @@ def _create_parser() -> argparse.ArgumentParser:
         help="TensorRT ビルド時の最大メモリ (bytes, default: 4GB, TRT時のみ)",
     )
     export_parser.add_argument(
+        "--int8",
+        action="store_true",
+        help="INT8 精度でエクスポート (PTQ, TRT時のみ, キャリブレーションデータは config から取得)",
+    )
+    export_parser.add_argument(
+        "--calib-max-images",
+        type=int,
+        default=None,
+        help="キャリブレーションに使用する最大画像数 (default: 全件, INT8時のみ)",
+    )
+    export_parser.add_argument(
         "-c",
         "--config",
         type=str,
@@ -276,6 +287,21 @@ def main() -> None:
                 )
             )
 
+            int8_calibrator = None
+            if args.int8:
+                from pochidetection.tensorrt import INT8Calibrator
+
+                calib_image_dir = Path(config["infer_image_dir"])
+
+                cache_path = model_path.parent / "calibration_cache.bin"
+
+                int8_calibrator = INT8Calibrator(
+                    image_dir=calib_image_dir,
+                    input_size=input_size_trt,
+                    max_images=args.calib_max_images,
+                    cache_path=cache_path,
+                )
+
             from pochidetection.scripts.common.export_trt import export_trt
 
             export_trt(
@@ -286,6 +312,8 @@ def main() -> None:
                 args.opt_batch,
                 args.max_batch,
                 args.fp16,
+                args.int8,
+                int8_calibrator,
                 args.build_memory,
             )
         elif config.get("architecture") == "SSDLite":

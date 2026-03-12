@@ -50,6 +50,8 @@ class TensorRTExporter:
         opt_batch: int = 1,
         max_batch: int = 4,
         use_fp16: bool = False,
+        use_int8: bool = False,
+        int8_calibrator: object | None = None,
         build_memory: int = DEFAULT_BUILD_MEMORY,
     ) -> Path:
         """ONNXモデルからTensorRTエンジンをビルド・エクスポートする.
@@ -63,6 +65,11 @@ class TensorRTExporter:
             max_batch: 最大バッチサイズ.
             use_fp16: FP16 精度でビルドするかどうか.
                 GPU が FP16 に対応していない場合は FP32 にフォールバックする.
+            use_int8: INT8 精度でビルドするかどうか (PTQ).
+                GPU が INT8 に対応していない場合は FP32 にフォールバックする.
+                use_fp16 より優先される.
+            int8_calibrator: INT8 キャリブレータ.
+                use_int8=True の場合に必要.
             build_memory: TensorRT ビルド時のメモリプール制限 (bytes).
 
         Returns:
@@ -83,9 +90,17 @@ class TensorRTExporter:
 
         builder = trt.Builder(self.trt_logger)
 
-        # FP16 精度の設定
+        # 精度の設定 (INT8 > FP16 > FP32 の優先度)
         precision = "FP32"
-        if use_fp16:
+        if use_int8:
+            if builder.platform_has_fast_int8:
+                precision = "INT8"
+                logger.info("INT8 モードが有効です (Post-Training Quantization)")
+            else:
+                logger.warning(
+                    "この GPU は INT8 に対応していません. FP32 にフォールバックします."
+                )
+        elif use_fp16:
             if builder.platform_has_fast_fp16:
                 precision = "FP16"
                 logger.info("FP16 モードが有効です (Mixed Precision)")
@@ -112,7 +127,11 @@ class TensorRTExporter:
 
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, build_memory)
 
-        if precision == "FP16":
+        if precision == "INT8":
+            config.set_flag(trt.BuilderFlag.INT8)
+            if int8_calibrator is not None:
+                config.int8_calibrator = int8_calibrator
+        elif precision == "FP16":
             config.set_flag(trt.BuilderFlag.FP16)
 
         logger.debug("ONNXモデルのパース中...")
