@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -163,18 +163,30 @@ uv run pochi infer -d images/ -m work_dirs/20260124_001/best/model_fp16.onnx -c 
 ONNX ファイル (`.onnx`) を指定すると, 自動的に ONNX Runtime バックエンドが選択されます.
 CUDA 環境では `CUDAExecutionProvider` が使用されます.
 
-### 9. TensorRT エクスポート (RT-DETR のみ)
+### 9. TensorRT エクスポート
 
 ```bash
-# TensorRT エクスポート (FP32)
-uv run pochi export-trt -i model.onnx
+# ONNX → TensorRT エクスポート (FP32)
+uv run pochi export -m model.onnx
 
 # TensorRT エクスポート (FP16)
-uv run pochi export-trt -i model.onnx --fp16
+uv run pochi export -m model.onnx --fp16
+
+# TensorRT エクスポート (INT8, Post-Training Quantization)
+uv run pochi export -m model.onnx --int8
+
+# INT8 キャリブレーション画像数を制限
+uv run pochi export -m model.onnx --int8 --calib-max-images 100
 
 # ビルド時メモリ制限を指定 (デフォルト: 4GB)
-uv run pochi export-trt -i model.onnx --build-memory 2147483648
+uv run pochi export -m model.onnx --build-memory 2147483648
 ```
+
+`export` コマンドは `-m` に渡すパスで動作を自動判定します:
+- フォルダ → ONNX エクスポート
+- `.onnx` ファイル → TensorRT エクスポート
+
+INT8 キャリブレーション画像は config の `infer_image_dir` から取得されます.
 
 ## サポート機能
 
@@ -202,7 +214,9 @@ uv run pochi export-trt -i model.onnx --build-memory 2147483648
 - **インタラクティブ可視化**: Plotly による HTML グラフで学習過程を分析
 - **ONNX エクスポート**: RT-DETR / SSDLite 両対応. SSDLite は FP16 エクスポートにも対応
 - **ONNX 推論**: ONNX Runtime による推論バックエンド (CUDA / CPU 自動選択)
-- **TensorRT エクスポート**: ONNX モデルから TensorRT エンジンへの変換 (FP32/FP16, Dynamic Batching 対応, RT-DETR のみ)
+- **TensorRT エクスポート**: ONNX モデルから TensorRT エンジンへの変換 (FP32/FP16/INT8, Dynamic Batching 対応)
+- **TensorRT 推論**: RT-DETR / SSDLite 両対応. `.engine` ファイル指定で自動選択
+- **INT8 Post-Training Quantization**: `INT8Calibrator` によるキャリブレーション付き INT8 エンジンビルド
 
 ## 注意点
 
@@ -210,8 +224,7 @@ uv run pochi export-trt -i model.onnx --build-memory 2147483648
 - 推論では最初の画像がウォームアップとして計測から除外されます
 - COCO アノテーションの座標は自動的に正規化 `[cx, cy, w, h]` 形式に変換されます
 - バックグラウンドクラス (category_id=0) は自動的に除外されます
-- `export` コマンドは RT-DETR と SSDLite の両方に対応. `export-trt` コマンドは RT-DETR のみ対応
-- SSDLite の `--fp16` は ONNX エクスポートのみ対応. FP16 による推論速度の改善は MobileNetV3 アーキテクチャの特性上限定的 (モデルサイズ削減には有効)
+- `export` コマンドは RT-DETR と SSDLite の両方に対応. `-m` にフォルダを指定すると ONNX, `.onnx` を指定すると TensorRT エクスポートを自動実行
 
 ## ライセンス
 
