@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し.
+- `F1ConfidencePlotter` を追加. 学習時に信頼度閾値ごとの F1 スコア変化を `f1_confidence.html` として可視化. (N/A.)
 
 ### Changed
 - 無し.
