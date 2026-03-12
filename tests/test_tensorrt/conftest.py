@@ -4,10 +4,11 @@ from pathlib import Path
 
 import pytest
 import torch
+from PIL import Image
 
 pytest.importorskip("tensorrt")
 
-from pochidetection.tensorrt import TensorRTExporter
+from pochidetection.tensorrt import INT8Calibrator, TensorRTExporter
 
 INPUT_SIZE = (64, 64)
 
@@ -167,6 +168,53 @@ def ssdlite_engine_path(
         min_batch=1,
         opt_batch=1,
         max_batch=2,
+    )
+
+    return result
+
+
+CALIB_NUM_IMAGES = 5
+
+
+@pytest.fixture(scope="session")
+def calib_image_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Create a directory with dummy calibration images."""
+    tmp_dir: Path = tmp_path_factory.mktemp("calib_images")
+    for i in range(CALIB_NUM_IMAGES):
+        img = Image.new("RGB", (128, 128), color=(i * 50, i * 50, i * 50))
+        img.save(tmp_dir / f"image_{i:03d}.jpg")
+    return tmp_dir
+
+
+@pytest.fixture(scope="session")
+def int8_calibrator(calib_image_dir: Path) -> INT8Calibrator:
+    """Create an INT8Calibrator for testing."""
+    return INT8Calibrator(
+        image_dir=calib_image_dir,
+        input_size=INPUT_SIZE,
+    )
+
+
+@pytest.fixture(scope="session")
+def int8_engine_path(
+    dummy_onnx_path: Path,
+    int8_calibrator: INT8Calibrator,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """Build an INT8 TensorRT engine for testing."""
+    tmp_dir = tmp_path_factory.mktemp("trt_int8_engine")
+    output_path = tmp_dir / "tiny_model_int8.engine"
+
+    exporter = TensorRTExporter()
+    result: Path = exporter.export(
+        onnx_path=dummy_onnx_path,
+        output_path=output_path,
+        input_size=INPUT_SIZE,
+        min_batch=1,
+        opt_batch=1,
+        max_batch=2,
+        use_int8=True,
+        int8_calibrator=int8_calibrator,
     )
 
     return result

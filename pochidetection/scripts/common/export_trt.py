@@ -18,6 +18,8 @@ def export_trt(
     opt_batch: int = 1,
     max_batch: int = 4,
     use_fp16: bool = False,
+    use_int8: bool = False,
+    int8_calibrator: object | None = None,
     build_memory: int = DEFAULT_BUILD_MEMORY,
 ) -> None:
     """Execute TensorRT export from an ONNX model.
@@ -31,6 +33,8 @@ def export_trt(
         opt_batch: 最適バッチサイズ.
         max_batch: 最大バッチサイズ.
         use_fp16: FP16 精度でビルドするかどうか.
+        use_int8: INT8 精度でビルドするかどうか (PTQ).
+        int8_calibrator: INT8 キャリブレータ. use_int8=True の場合に必要.
         build_memory: TensorRT ビルド時のメモリプール制限 (bytes).
     """
     logger.info("TensorRTエクスポートを開始します")
@@ -38,7 +42,12 @@ def export_trt(
     onnx_path = Path(onnx_path_str)
 
     if output_path_str is None:
-        engine_name = "model_fp16.engine" if use_fp16 else "model_fp32.engine"
+        if use_int8:
+            engine_name = "model_int8.engine"
+        elif use_fp16:
+            engine_name = "model_fp16.engine"
+        else:
+            engine_name = "model_fp32.engine"
         output_path = onnx_path.parent / engine_name
     else:
         output_path = Path(output_path_str)
@@ -53,6 +62,8 @@ def export_trt(
             opt_batch=opt_batch,
             max_batch=max_batch,
             use_fp16=use_fp16,
+            use_int8=use_int8,
+            int8_calibrator=int8_calibrator,
             build_memory=build_memory,
         )
     except Exception as e:

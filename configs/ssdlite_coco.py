@@ -44,7 +44,7 @@ nms_iou_threshold = 0.55  # NMS IoU 閾値 (torchvision の nms_thresh に渡さ
 
 # 推論ベンチマーク設定　指定しないと精度評価無し推論
 annotation_path = "data/val/annotations.json"  # mAP 評価用 COCO アノテーション
-# 推論対象の画像フォルダ (CLI -d 未指定時に使用)
+# 推論対象の画像フォルダ (CLI -d 未指定時に使用, INT8 PTQ キャリブレーションにも使用)
 infer_image_dir = "data/val/JPEGImages"
 
 # ワークスペース設定
