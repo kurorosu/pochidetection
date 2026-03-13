@@ -4,6 +4,7 @@ from typing import Any
 
 import torch
 
+from pochidetection.inference.sync import synchronize_cuda
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.models import RTDetrModel
 
@@ -38,8 +39,4 @@ class RTDetrPyTorchBackend(IInferenceBackend):
 
         GPUを使用している場合のみ torch.cuda.synchronize() を呼び出す.
         """
-        if torch.cuda.is_available():
-            # デバイスから使用中かを確認して同期
-            device = next(self._model.parameters()).device
-            if device.type == "cuda":
-                torch.cuda.synchronize(device)
+        synchronize_cuda(self._model)
