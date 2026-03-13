@@ -13,7 +13,7 @@ from pochidetection.inference.ssdlite.postprocessing import (
     generate_anchors,
     postprocess,
 )
-from pochidetection.inference.validation import validate_inputs
+from pochidetection.inference.validation import validate_inputs, validate_model_file
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 
@@ -62,16 +62,7 @@ class SSDLiteOnnxBackend(IInferenceBackend):
             FileNotFoundError: モデルファイルが存在しない場合.
             ValueError: model_path がファイルでない, または .onnx でない場合.
         """
-        if not model_path.exists():
-            raise FileNotFoundError(f"ONNXモデルが見つかりません: {model_path}")
-        if not model_path.is_file():
-            raise ValueError(
-                f"ONNXモデルのパスはファイルである必要があります: {model_path}"
-            )
-        if model_path.suffix.lower() != ".onnx":
-            raise ValueError(
-                f"ONNXモデルのファイル拡張子は .onnx である必要があります: {model_path}"
-            )
+        validate_model_file(model_path, "ONNXモデル", ".onnx")
 
         self._num_classes = num_classes
         self._image_size = image_size

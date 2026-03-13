@@ -17,7 +17,7 @@ from pochidetection.inference.ssdlite.postprocessing import (
     generate_anchors,
     postprocess,
 )
-from pochidetection.inference.validation import validate_inputs
+from pochidetection.inference.validation import validate_inputs, validate_model_file
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
@@ -75,17 +75,7 @@ class SSDLiteTensorRTBackend(IInferenceBackend):
 
         engine_path = Path(engine_path)
 
-        if not engine_path.exists():
-            raise FileNotFoundError(f"TensorRTエンジンが見つかりません: {engine_path}")
-        if not engine_path.is_file():
-            raise ValueError(
-                f"TensorRTエンジンのパスはファイルである必要があります: {engine_path}"
-            )
-        if engine_path.suffix.lower() != ".engine":
-            raise ValueError(
-                f"TensorRTエンジンの拡張子は .engine である必要があります: "
-                f"{engine_path}"
-            )
+        validate_model_file(engine_path, "TensorRTエンジン", ".engine")
 
         self._num_classes = num_classes
         self._image_size = image_size
