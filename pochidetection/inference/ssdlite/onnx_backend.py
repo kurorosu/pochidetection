@@ -8,6 +8,7 @@ import numpy as np
 import onnxruntime as ort
 import torch
 
+from pochidetection.inference.providers import resolve_providers
 from pochidetection.inference.ssdlite.postprocessing import (
     generate_anchors,
     postprocess,
@@ -79,7 +80,7 @@ class SSDLiteOnnxBackend(IInferenceBackend):
         self._detections_per_img = detections_per_img
 
         if providers is None:
-            providers = self._resolve_providers(device)
+            providers = resolve_providers(device)
 
         ort.set_default_logger_severity(3)
         self._session = ort.InferenceSession(str(model_path), providers=providers)
@@ -95,25 +96,6 @@ class SSDLiteOnnxBackend(IInferenceBackend):
             f"アンカー生成完了: {self._anchors.shape[0]} boxes, "
             f"image_size={image_size}"
         )
-
-    @staticmethod
-    def _resolve_providers(device: str) -> list[str]:
-        """デバイス設定に応じた Execution Providers を返す.
-
-        Args:
-            device: 推論デバイス ("cpu" または "cuda").
-
-        Returns:
-            Execution Providers のリスト.
-        """
-        if device == "cuda":
-            available = ort.get_available_providers()
-            providers: list[str] = []
-            if "CUDAExecutionProvider" in available:
-                providers.append("CUDAExecutionProvider")
-            providers.append("CPUExecutionProvider")
-            return providers
-        return ["CPUExecutionProvider"]
 
     def infer(self, inputs: Any) -> dict[str, torch.Tensor]:
         """推論を実行する.
