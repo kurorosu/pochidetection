@@ -5,27 +5,28 @@ from pathlib import Path
 
 import pytest
 
-from pochidetection.scripts.rtdetr.infer import _is_onnx_model, _load_processor
+from pochidetection.scripts.common.inference import is_onnx_model
+from pochidetection.scripts.rtdetr.infer import _load_processor
 
 
 class TestIsOnnxModel:
-    """_is_onnx_model のテスト."""
+    """is_onnx_model のテスト."""
 
     def test_onnx_suffix(self) -> None:
         """.onnx ファイルで True を返すことを確認."""
-        assert _is_onnx_model(Path("model.onnx")) is True
+        assert is_onnx_model(Path("model.onnx")) is True
 
     def test_onnx_suffix_uppercase(self) -> None:
         """.ONNX (大文字) でも True を返すことを確認."""
-        assert _is_onnx_model(Path("model.ONNX")) is True
+        assert is_onnx_model(Path("model.ONNX")) is True
 
     def test_directory_path(self) -> None:
         """ディレクトリパスで False を返すことを確認."""
-        assert _is_onnx_model(Path("work_dirs/20260124_001/best")) is False
+        assert is_onnx_model(Path("work_dirs/20260124_001/best")) is False
 
     def test_pt_suffix(self) -> None:
         """.pt ファイルで False を返すことを確認."""
-        assert _is_onnx_model(Path("model.pt")) is False
+        assert is_onnx_model(Path("model.pt")) is False
 
 
 class TestLoadProcessor:

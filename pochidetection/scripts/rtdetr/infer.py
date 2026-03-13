@@ -25,12 +25,18 @@ from pochidetection.scripts.common import (
     InferenceSaver,
     Visualizer,
 )
+from pochidetection.scripts.common.inference import (
+    create_backend,
+)
 from pochidetection.scripts.common.inference import infer as common_infer
+from pochidetection.scripts.common.inference import (
+    is_onnx_model,
+    is_tensorrt_model,
+)
 from pochidetection.scripts.rtdetr.inference import (
     RTDetrPipeline,
 )
 from pochidetection.utils import PhasedTimer
-from pochidetection.utils.device import is_fp16_available
 from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
@@ -93,7 +99,14 @@ def _setup_pipeline(
         logger.info("cudnn.benchmark enabled")
 
     processor = _load_processor(model_path, config)
-    backend, precision, use_fp16 = _create_backend(model_path, config)
+    backend, precision, use_fp16 = create_backend(
+        model_path,
+        config,
+        create_trt=lambda p: RTDetrTensorRTBackend(p),
+        create_onnx=lambda p, d: RTDetrOnnxBackend(p, device=d),
+        create_pytorch=_create_pytorch_backend,
+        trt_available=_TRT_AVAILABLE,
+    )
 
     image_size = (
         int(config["image_size"]["height"]),
@@ -107,10 +120,10 @@ def _setup_pipeline(
         ]
     )
 
-    if _is_tensorrt_model(model_path):
+    if is_tensorrt_model(model_path):
         actual_device = "cuda"
         runtime_device = "cuda"
-    elif _is_onnx_model(model_path):
+    elif is_onnx_model(model_path):
         if not isinstance(backend, RTDetrOnnxBackend):
             raise TypeError(f"Expected RTDetrOnnxBackend, got {type(backend).__name__}")
         actual_device = (
@@ -140,7 +153,7 @@ def _setup_pipeline(
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
 
-    is_single_file = _is_onnx_model(model_path) or _is_tensorrt_model(model_path)
+    is_single_file = is_onnx_model(model_path) or is_tensorrt_model(model_path)
     saver_base = model_path.parent if is_single_file else model_path
     saver = InferenceSaver(saver_base)
 
@@ -154,30 +167,6 @@ def _setup_pipeline(
         actual_device=actual_device,
         precision=precision,
     )
-
-
-def _is_onnx_model(model_path: Path) -> bool:
-    """モデルパスが ONNX ファイルかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .onnx ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".onnx"
-
-
-def _is_tensorrt_model(model_path: Path) -> bool:
-    """モデルパスが TensorRT エンジンかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .engine ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".engine"
 
 
 def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProcessor:
@@ -197,7 +186,7 @@ def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProc
     Raises:
         RuntimeError: processor が解決できない場合.
     """
-    if not _is_onnx_model(model_path) and not _is_tensorrt_model(model_path):
+    if not is_onnx_model(model_path) and not is_tensorrt_model(model_path):
         return RTDetrImageProcessor.from_pretrained(model_path)
 
     processor_dir = model_path.parent
@@ -218,42 +207,24 @@ def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProc
     )
 
 
-def _create_backend(
-    model_path: Path, config: dict[str, Any]
-) -> tuple[IInferenceBackend, str, bool]:
-    """モデルパスからバックエンドを生成する.
+def _create_pytorch_backend(
+    model_path: Path, device: str, use_fp16: bool
+) -> IInferenceBackend:
+    """RT-DETR 用 PyTorch バックエンドを生成する.
 
     Args:
         model_path: モデルのパス.
-        config: 設定辞書.
+        device: 推論デバイス.
+        use_fp16: FP16 推論を使用するか.
 
     Returns:
-        (backend, precision, use_fp16) のタプル.
+        RTDetrPyTorchBackend インスタンス.
     """
-    device = config["device"]
-    use_fp16 = config.get("use_fp16", False)
-
-    if _is_tensorrt_model(model_path):
-        if not _TRT_AVAILABLE:
-            raise ImportError(
-                "tensorrt パッケージがインストールされていません. "
-                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
-            )
-        logger.info("TensorRT backend selected")
-        return RTDetrTensorRTBackend(model_path), "fp32", False
-
-    if _is_onnx_model(model_path):
-        logger.info("ONNX backend selected")
-        return RTDetrOnnxBackend(model_path, device=device), "fp32", False
-
     model = RTDetrModel(str(model_path))
     model.to(device)
     model.eval()
 
-    fp16 = is_fp16_available(use_fp16, device)
-    if fp16:
+    if use_fp16:
         model.half()
-        logger.info("FP16 enabled")
 
-    precision = "fp16" if fp16 else "fp32"
-    return RTDetrPyTorchBackend(model), precision, use_fp16
+    return RTDetrPyTorchBackend(model)

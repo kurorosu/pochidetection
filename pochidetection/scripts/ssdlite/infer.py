@@ -24,10 +24,16 @@ from pochidetection.scripts.common import (
     InferenceSaver,
     Visualizer,
 )
+from pochidetection.scripts.common.inference import (
+    create_backend,
+)
 from pochidetection.scripts.common.inference import infer as common_infer
+from pochidetection.scripts.common.inference import (
+    is_onnx_model,
+    is_tensorrt_model,
+)
 from pochidetection.scripts.ssdlite.inference import SSDLitePipeline
 from pochidetection.utils import PhasedTimer
-from pochidetection.utils.device import is_fp16_available
 from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
@@ -56,87 +62,32 @@ def infer(
 # ---------------------------------------------------------------------------
 
 
-def _is_onnx_model(path: Path) -> bool:
-    """パスが ONNX モデルファイルかを判定する.
-
-    Args:
-        path: 判定対象のパス.
-
-    Returns:
-        ONNX モデルファイルの場合 True.
-    """
-    return path.is_file() and path.suffix.lower() == ".onnx"
-
-
-def _is_tensorrt_model(model_path: Path) -> bool:
-    """モデルパスが TensorRT エンジンかどうかを判定する.
+def _create_pytorch_backend(
+    model_path: Path, device: str, use_fp16: bool, config: dict[str, Any]
+) -> IInferenceBackend:
+    """モデル固有の PyTorch バックエンドを生成する.
 
     Args:
         model_path: モデルのパス.
-
-    Returns:
-        .engine ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".engine"
-
-
-def _create_backend(
-    model_path: Path, config: dict[str, Any]
-) -> tuple[IInferenceBackend, str, bool]:
-    """モデルパスからバックエンドを生成する.
-
-    Args:
-        model_path: モデルのパス.
+        device: 推論デバイス.
+        use_fp16: FP16 推論を使用するか.
         config: 設定辞書.
 
     Returns:
-        (backend, precision, use_fp16) のタプル.
+        SSDLitePyTorchBackend インスタンス.
     """
-    device = config["device"]
     num_classes = config["num_classes"]
-    use_fp16 = config.get("use_fp16", False)
-    image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
-    image_size = (image_size_cfg["height"], image_size_cfg["width"])
     nms_iou_threshold = config.get("nms_iou_threshold", 0.55)
-
-    if _is_tensorrt_model(model_path):
-        if not _TRT_AVAILABLE:
-            raise ImportError(
-                "tensorrt パッケージがインストールされていません. "
-                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
-            )
-        logger.info("TensorRT backend selected")
-        backend: IInferenceBackend = SSDLiteTensorRTBackend(
-            engine_path=model_path,
-            num_classes=num_classes,
-            image_size=image_size,
-            nms_iou_threshold=nms_iou_threshold,
-        )
-        return backend, "fp32", False
-
-    if _is_onnx_model(model_path):
-        logger.info("ONNX backend selected")
-        backend = SSDLiteOnnxBackend(
-            model_path=model_path,
-            num_classes=num_classes,
-            image_size=image_size,
-            nms_iou_threshold=nms_iou_threshold,
-            device=device,
-        )
-        return backend, "fp32", False
 
     model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
     model.load(model_path)
     model.to(device)
     model.eval()
 
-    fp16 = is_fp16_available(use_fp16, device)
-    if fp16:
+    if use_fp16:
         model.half()
-        logger.info("FP16 enabled")
 
-    precision = "fp16" if fp16 else "fp32"
-    return SSDLitePyTorchBackend(model), precision, use_fp16
+    return SSDLitePyTorchBackend(model)
 
 
 class _PipelineContext(NamedTuple):
@@ -167,17 +118,37 @@ def _setup_pipeline(
     """
     device = config["device"]
     threshold = config["infer_score_threshold"]
+    num_classes = config["num_classes"]
     image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
     image_size = (image_size_cfg["height"], image_size_cfg["width"])
+    nms_iou_threshold = config.get("nms_iou_threshold", 0.55)
     use_fp16 = config.get("use_fp16", False)
 
     if config.get("cudnn_benchmark", False) and device == "cuda":
         torch.backends.cudnn.benchmark = True
         logger.info("cudnn.benchmark enabled")
 
-    backend, precision, use_fp16 = _create_backend(model_path, config)
+    backend, precision, use_fp16 = create_backend(
+        model_path,
+        config,
+        create_trt=lambda p: SSDLiteTensorRTBackend(
+            engine_path=p,
+            num_classes=num_classes,
+            image_size=image_size,
+            nms_iou_threshold=nms_iou_threshold,
+        ),
+        create_onnx=lambda p, d: SSDLiteOnnxBackend(
+            model_path=p,
+            num_classes=num_classes,
+            image_size=image_size,
+            nms_iou_threshold=nms_iou_threshold,
+            device=d,
+        ),
+        create_pytorch=lambda p, d, fp16: _create_pytorch_backend(p, d, fp16, config),
+        trt_available=_TRT_AVAILABLE,
+    )
 
-    if _is_tensorrt_model(model_path):
+    if is_tensorrt_model(model_path):
         actual_device = "cuda"
         runtime_device = "cuda"
     else:
@@ -207,7 +178,7 @@ def _setup_pipeline(
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
 
-    is_single_file = _is_onnx_model(model_path) or _is_tensorrt_model(model_path)
+    is_single_file = is_onnx_model(model_path) or is_tensorrt_model(model_path)
     saver_base = model_path.parent if is_single_file else model_path
     saver = InferenceSaver(saver_base)
 

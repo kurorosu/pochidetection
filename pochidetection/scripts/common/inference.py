@@ -12,6 +12,7 @@ from typing import Any, Protocol
 from PIL import Image
 
 from pochidetection.core.detection import Detection
+from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
 from pochidetection.scripts.common import (
@@ -31,6 +32,7 @@ from pochidetection.utils import (
     build_benchmark_result,
     write_benchmark_result,
 )
+from pochidetection.utils.device import is_fp16_available
 from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import (
     ConfusionMatrixPlotter,
@@ -150,6 +152,90 @@ def collect_image_files(image_dir: str) -> list[Path] | None:
 
     logger.info(f"Found {len(image_files)} images in {image_dir}")
     return image_files
+
+
+def is_onnx_model(model_path: Path) -> bool:
+    """モデルパスが ONNX ファイルかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .onnx ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".onnx"
+
+
+def is_tensorrt_model(model_path: Path) -> bool:
+    """モデルパスが TensorRT エンジンかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .engine ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".engine"
+
+
+# バックエンドファクトリコールバックの型
+CreateTrtFn = Callable[[Path], IInferenceBackend]
+CreateOnnxFn = Callable[[Path, str], IInferenceBackend]
+CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend]
+
+
+def create_backend(
+    model_path: Path,
+    config: dict[str, Any],
+    create_trt: CreateTrtFn,
+    create_onnx: CreateOnnxFn,
+    create_pytorch: CreatePytorchFn,
+    trt_available: bool = False,
+) -> tuple[IInferenceBackend, str, bool]:
+    """モデルパスからバックエンドを生成する.
+
+    TensorRT / ONNX / PyTorch の分岐ロジックを共通化し,
+    具象バックエンドの生成はコールバックに委譲する.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+        create_trt: TensorRT バックエンド生成コールバック.
+            (model_path,) を受け取り IInferenceBackend を返す.
+        create_onnx: ONNX バックエンド生成コールバック.
+            (model_path, device) を受け取り IInferenceBackend を返す.
+        create_pytorch: PyTorch バックエンド生成コールバック.
+            (model_path, device, use_fp16) を受け取り IInferenceBackend を返す.
+            FP16 適用 (model.half()) はコールバック側で行う.
+        trt_available: TensorRT が利用可能かどうか.
+
+    Returns:
+        (backend, precision, use_fp16) のタプル.
+    """
+    device = config["device"]
+    use_fp16 = config.get("use_fp16", False)
+
+    if is_tensorrt_model(model_path):
+        if not trt_available:
+            raise ImportError(
+                "tensorrt パッケージがインストールされていません. "
+                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
+            )
+        logger.info("TensorRT backend selected")
+        return create_trt(model_path), "fp32", False
+
+    if is_onnx_model(model_path):
+        logger.info("ONNX backend selected")
+        return create_onnx(model_path, device), "fp32", False
+
+    fp16 = is_fp16_available(use_fp16, device)
+    backend = create_pytorch(model_path, device, fp16)
+
+    if fp16:
+        logger.info("FP16 enabled")
+
+    precision = "fp16" if fp16 else "fp32"
+    return backend, precision, use_fp16
 
 
 # セットアップコールバックの型
