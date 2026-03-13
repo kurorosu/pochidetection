@@ -12,7 +12,7 @@ from pochidetection.utils.config_resolver import resolve_config_path
 
 def _resolve_infer(
     config: dict[str, Any],
-) -> Callable[[dict[str, Any], str, str | None], None]:
+) -> Callable[[dict[str, Any], str, str | None, str | None], None]:
     """Architecture に基づいて infer 関数を返す.
 
     Args:
@@ -49,4 +49,4 @@ def run_infer(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
     infer_fn = _resolve_infer(config)
-    infer_fn(config, image_dir, args.model_dir)
+    infer_fn(config, image_dir, args.model_dir, config_path)

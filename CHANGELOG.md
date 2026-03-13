@@ -7,10 +7,11 @@
 
 ### Added
 - `F1ConfidencePlotter` を追加. 学習時に信頼度閾値ごとの F1 スコア変化を `f1_confidence.html` として可視化. ([#251](https://github.com/kurorosu/pochidetection/pull/251).)
-- `docs/evaluation_metrics.md` を追加. 物体検出の評価指標 (TP/FP/FN, Precision/Recall/F1, 混同行列, PR 曲線, F1-Confidence 曲線, NMS) の解説ドキュメント. (N/A.)
+- `docs/evaluation_metrics.md` を追加. 物体検出の評価指標 (TP/FP/FN, Precision/Recall/F1, 混同行列, PR 曲線, F1-Confidence 曲線, NMS) の解説ドキュメント. ([#253](https://github.com/kurorosu/pochidetection/pull/253).)
+- 推論時に使用した config ファイルを `inference_NNN/` ディレクトリにコピーする機能を追加. 推論条件の再現性を向上. (N/A.)
 
 ### Changed
-- `cli/main.py` を `parser.py` + `commands/` に分割. main.py を 50 行以下に縮小. (N/A.)
+- `cli/main.py` を `parser.py` + `commands/` に分割. main.py を 50 行以下に縮小. ([#252](https://github.com/kurorosu/pochidetection/pull/252).)
 
 ### Removed
 - 無し.
