@@ -6,10 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- `F1ConfidencePlotter` を追加. 学習時に信頼度閾値ごとの F1 スコア変化を `f1_confidence.html` として可視化. (N/A.)
+- `F1ConfidencePlotter` を追加. 学習時に信頼度閾値ごとの F1 スコア変化を `f1_confidence.html` として可視化. ([#251](https://github.com/kurorosu/pochidetection/pull/251).)
 
 ### Changed
-- 無し.
+- `cli/main.py` を `parser.py` + `commands/` に分割. main.py を 50 行以下に縮小. (N/A.)
 
 ### Removed
 - 無し.
