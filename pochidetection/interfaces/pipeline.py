@@ -1,6 +1,8 @@
 """推論パイプラインの抽象インターフェース."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Generator
+from contextlib import contextmanager
 
 from PIL import Image
 
@@ -15,9 +17,48 @@ class IDetectionPipeline(ABC):
     共通契約を定義する. 各フェーズの具体的なシグネチャは実装に依存するため,
     本インターフェースでは E2E 実行メソッド ``run`` と
     フェーズ別タイマー ``phased_timer`` のみを規定する.
+
+    phased_timer の検証・保持・計測ヘルパーを提供し,
+    サブクラスでの重複を防止する.
     """
 
     PHASES = ["preprocess", "inference", "postprocess"]
+
+    def _validate_phased_timer(self, phased_timer: PhasedTimer | None) -> None:
+        """phased_timer のフェーズ構成を検証し, インスタンスに保持する.
+
+        Args:
+            phased_timer: フェーズ別タイマー. None の場合は計測しない.
+
+        Raises:
+            ValueError: phased_timer に必須フェーズが含まれていない場合.
+        """
+        if phased_timer is not None:
+            missing = set(self.PHASES) - set(phased_timer.phases)
+            if missing:
+                raise ValueError(
+                    f"phased_timer is missing required phases: {sorted(missing)}. "
+                    f"Required: {self.PHASES}"
+                )
+        self._phased_timer = phased_timer
+
+    @contextmanager
+    def _measure(self, phase: str) -> Generator[None]:
+        """フェーズ計測のコンテキストマネージャ.
+
+        phased_timer が設定されている場合は計測し, None の場合は素通りする.
+
+        Args:
+            phase: 計測対象のフェーズ名.
+
+        Yields:
+            None.
+        """
+        if self._phased_timer is not None:
+            with self._phased_timer.measure(phase):
+                yield
+        else:
+            yield
 
     @abstractmethod
     def run(self, image: Image.Image) -> list[Detection]:
@@ -31,6 +72,6 @@ class IDetectionPipeline(ABC):
         """
 
     @property
-    @abstractmethod
     def phased_timer(self) -> PhasedTimer | None:
         """フェーズ別タイマーを取得."""
+        return self._phased_timer
