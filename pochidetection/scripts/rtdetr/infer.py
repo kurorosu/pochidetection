@@ -4,7 +4,7 @@
 """
 
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 
 import torch
 from torchvision.transforms import v2
@@ -21,23 +21,22 @@ except ImportError:
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
-from pochidetection.scripts.common import (
-    InferenceSaver,
-    Visualizer,
-)
 from pochidetection.scripts.common.inference import (
+    PipelineContext,
+    build_pipeline_context,
     create_backend,
 )
 from pochidetection.scripts.common.inference import infer as common_infer
 from pochidetection.scripts.common.inference import (
     is_onnx_model,
     is_tensorrt_model,
+    resolve_device,
+    setup_cudnn_benchmark,
 )
 from pochidetection.scripts.rtdetr.inference import (
     RTDetrPipeline,
 )
 from pochidetection.utils import PhasedTimer
-from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -64,23 +63,10 @@ def infer(
 # ---------------------------------------------------------------------------
 
 
-class _PipelineContext(NamedTuple):
-    """_setup_pipeline の戻り値."""
-
-    pipeline: RTDetrPipeline
-    phased_timer: PhasedTimer
-    visualizer: Visualizer
-    saver: InferenceSaver
-    label_mapper: LabelMapper | None
-    class_names: list[str] | None
-    actual_device: str
-    precision: str
-
-
 def _setup_pipeline(
     config: dict[str, Any],
     model_path: Path,
-) -> _PipelineContext:
+) -> PipelineContext:
     """推論パイプラインの構築.
 
     Args:
@@ -90,13 +76,10 @@ def _setup_pipeline(
     Returns:
         構築済みのパイプラインコンテキスト.
     """
-    device = config["device"]
     threshold = config["infer_score_threshold"]
     nms_iou_threshold = config["nms_iou_threshold"]
 
-    if config.get("cudnn_benchmark", False) and device == "cuda":
-        torch.backends.cudnn.benchmark = True
-        logger.info("cudnn.benchmark enabled")
+    setup_cudnn_benchmark(config)
 
     processor = _load_processor(model_path, config)
     backend, precision, use_fp16 = create_backend(
@@ -120,19 +103,7 @@ def _setup_pipeline(
         ]
     )
 
-    if is_tensorrt_model(model_path):
-        actual_device = "cuda"
-        runtime_device = "cuda"
-    elif is_onnx_model(model_path):
-        if not isinstance(backend, RTDetrOnnxBackend):
-            raise TypeError(f"Expected RTDetrOnnxBackend, got {type(backend).__name__}")
-        actual_device = (
-            "cuda" if "CUDAExecutionProvider" in backend.active_providers else "cpu"
-        )
-        runtime_device = "cpu"
-    else:
-        actual_device = device
-        runtime_device = device
+    actual_device, runtime_device = resolve_device(model_path, config, backend)
 
     phased_timer = PhasedTimer(
         phases=RTDetrPipeline.PHASES,
@@ -149,21 +120,11 @@ def _setup_pipeline(
         phased_timer=phased_timer,
     )
 
-    class_names = config.get("class_names")
-    label_mapper = LabelMapper(class_names) if class_names else None
-    visualizer = Visualizer(label_mapper=label_mapper)
-
-    is_single_file = is_onnx_model(model_path) or is_tensorrt_model(model_path)
-    saver_base = model_path.parent if is_single_file else model_path
-    saver = InferenceSaver(saver_base)
-
-    return _PipelineContext(
+    return build_pipeline_context(
         pipeline=pipeline,
         phased_timer=phased_timer,
-        visualizer=visualizer,
-        saver=saver,
-        label_mapper=label_mapper,
-        class_names=class_names,
+        config=config,
+        model_path=model_path,
         actual_device=actual_device,
         precision=precision,
     )
