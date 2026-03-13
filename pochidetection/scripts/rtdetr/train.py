@@ -3,23 +3,18 @@
 transformersのRT-DETRをCOCO形式データセットでファインチューニングする.
 """
 
-from functools import partial
 from typing import Any
 
 import torch
-from torchmetrics.detection import MeanAveragePrecision
 
 from pochidetection.datasets import CocoDetectionDataset
+from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.common.training import (
     TrainingContext,
-    build_data_loaders,
     run_training_loop,
-)
-from pochidetection.utils import (
-    WorkspaceManager,
-    build_scheduler,
+    setup_training,
 )
 
 
@@ -55,57 +50,28 @@ def _setup_training(
     Returns:
         構築済みの学習コンテキスト.
     """
-    device = config["device"]
-    num_classes = config["num_classes"]
-    model_name = config["model_name"]
-    image_size = config.get("image_size", {"height": 640, "width": 640})
-    epochs = config["epochs"]
-    learning_rate = config["learning_rate"]
-    train_score_threshold = config["train_score_threshold"]
+    # processor はモデル構築後に取得する必要があるため, リストで共有する
+    processor_holder: list[Any] = []
 
-    workspace_manager = WorkspaceManager(config["work_dir"])
-    workspace = workspace_manager.create_workspace()
-    workspace_manager.save_config(config_path)
+    def model_factory(cfg: dict[str, Any]) -> IDetectionModel:
+        model = RTDetrModel(
+            cfg["model_name"],
+            num_classes=cfg["num_classes"],
+            image_size=cfg.get("image_size", {"height": 640, "width": 640}),
+        )
+        processor_holder.append(model.processor)
+        return model
 
-    logger.info(f"Device: {device}")
-    logger.info(f"Num classes: {num_classes}")
-    logger.info(f"Image size: {image_size}")
-    logger.info(f"Workspace: {workspace}")
+    def dataset_factory(path: Any) -> Any:
+        return CocoDetectionDataset(path, processor=processor_holder[0])
 
-    model = RTDetrModel(model_name, num_classes=num_classes, image_size=image_size)
-    model.to(device)
-
-    dataset_factory = partial(CocoDetectionDataset, processor=model.processor)
-    train_loader, val_loader = build_data_loaders(config, dataset_factory, logger)
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-
-    scheduler = build_scheduler(
-        optimizer=optimizer,
-        scheduler_name=config.get("lr_scheduler"),
-        scheduler_params=config.get("lr_scheduler_params"),
-        epochs=epochs,
+    return setup_training(
+        config=config,
+        config_path=config_path,
+        model_factory=model_factory,
+        dataset_factory=dataset_factory,
+        logger=logger,
     )
-    if scheduler is not None:
-        logger.info(f"LR Scheduler: {scheduler.__class__.__name__}")
-
-    map_metric = MeanAveragePrecision(iou_type="bbox", extended_summary=True)
-    map_metric.warn_on_many_detections = False
-
-    ctx = TrainingContext(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        map_metric=map_metric,
-        workspace=workspace,
-        workspace_manager=workspace_manager,
-        device=device,
-        epochs=epochs,
-        train_score_threshold=train_score_threshold,
-    )
-    return ctx
 
 
 def _validate(

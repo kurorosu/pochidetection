@@ -20,6 +20,7 @@ from pochidetection.utils import (
     EarlyStopping,
     TrainingHistory,
     WorkspaceManager,
+    build_scheduler,
 )
 from pochidetection.visualization import (
     F1ConfidencePlotter,
@@ -47,6 +48,78 @@ class TrainingContext(NamedTuple):
 
 
 DatasetFactory = Callable[[Path], Dataset[dict[str, Any]]]
+ModelFactory = Callable[[dict[str, Any]], IDetectionModel]
+
+
+def setup_training(
+    config: dict[str, Any],
+    config_path: str,
+    model_factory: ModelFactory,
+    dataset_factory: DatasetFactory,
+    logger: Any,
+) -> TrainingContext:
+    """学習環境の共通セットアップ.
+
+    ワークスペース作成, モデル構築, データローダー構築, オプティマイザ,
+    スケジューラ, mAP メトリクスの初期化を共通化する.
+
+    Args:
+        config: 設定辞書.
+        config_path: 設定ファイルのパス.
+        model_factory: config を受け取りモデルを返すファクトリ.
+        dataset_factory: ディレクトリパスを受け取りデータセットを返すファクトリ.
+        logger: ロガー.
+
+    Returns:
+        構築済みの学習コンテキスト.
+    """
+    device = config["device"]
+    image_size = config.get("image_size", {"height": 640, "width": 640})
+    epochs = config["epochs"]
+    learning_rate = config["learning_rate"]
+    train_score_threshold = config["train_score_threshold"]
+
+    workspace_manager = WorkspaceManager(config["work_dir"])
+    workspace = workspace_manager.create_workspace()
+    workspace_manager.save_config(config_path)
+
+    logger.info(f"Device: {device}")
+    logger.info(f"Num classes: {config['num_classes']}")
+    logger.info(f"Image size: {image_size}")
+    logger.info(f"Workspace: {workspace}")
+
+    model = model_factory(config)
+    model.to(device)
+
+    train_loader, val_loader = build_data_loaders(config, dataset_factory, logger)
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+
+    scheduler = build_scheduler(
+        optimizer=optimizer,
+        scheduler_name=config.get("lr_scheduler"),
+        scheduler_params=config.get("lr_scheduler_params"),
+        epochs=epochs,
+    )
+    if scheduler is not None:
+        logger.info(f"LR Scheduler: {scheduler.__class__.__name__}")
+
+    map_metric = MeanAveragePrecision(iou_type="bbox", extended_summary=True)
+    map_metric.warn_on_many_detections = False
+
+    return TrainingContext(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        map_metric=map_metric,
+        workspace=workspace,
+        workspace_manager=workspace_manager,
+        device=device,
+        epochs=epochs,
+        train_score_threshold=train_score_threshold,
+    )
 
 
 def build_data_loaders(

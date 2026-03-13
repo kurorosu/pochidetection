@@ -8,19 +8,15 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-from torchmetrics.detection import MeanAveragePrecision
 
 from pochidetection.datasets import SsdCocoDataset
+from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
 from pochidetection.scripts.common.training import (
     TrainingContext,
-    build_data_loaders,
     run_training_loop,
-)
-from pochidetection.utils import (
-    WorkspaceManager,
-    build_scheduler,
+    setup_training,
 )
 
 
@@ -41,6 +37,20 @@ def train(config: dict[str, Any], config_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _create_model(config: dict[str, Any]) -> IDetectionModel:
+    """モデル固有の SSDLite インスタンスを構築する.
+
+    Args:
+        config: 設定辞書.
+
+    Returns:
+        構築済みの SSDLiteModel.
+    """
+    num_classes = config["num_classes"]
+    nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
+    return SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
+
+
 def _setup_training(
     config: dict[str, Any],
     config_path: str,
@@ -56,56 +66,17 @@ def _setup_training(
     Returns:
         構築済みの学習コンテキスト.
     """
-    device = config["device"]
-    num_classes = config["num_classes"]
+    logger.info("Architecture: SSDLite MobileNetV3")
+
     image_size = config.get("image_size", {"height": 320, "width": 320})
-    epochs = config["epochs"]
-    learning_rate = config["learning_rate"]
-    train_score_threshold = config["train_score_threshold"]
-
-    workspace_manager = WorkspaceManager(config["work_dir"])
-    workspace = workspace_manager.create_workspace()
-    workspace_manager.save_config(config_path)
-
-    logger.info(f"Architecture: SSDLite MobileNetV3")
-    logger.info(f"Device: {device}")
-    logger.info(f"Num classes: {num_classes}")
-    logger.info(f"Image size: {image_size}")
-    logger.info(f"Workspace: {workspace}")
-
-    nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
-    model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
-    model.to(device)
-
     dataset_factory = partial(SsdCocoDataset, image_size=image_size)
-    train_loader, val_loader = build_data_loaders(config, dataset_factory, logger)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-
-    scheduler = build_scheduler(
-        optimizer=optimizer,
-        scheduler_name=config.get("lr_scheduler"),
-        scheduler_params=config.get("lr_scheduler_params"),
-        epochs=epochs,
-    )
-    if scheduler is not None:
-        logger.info(f"LR Scheduler: {scheduler.__class__.__name__}")
-
-    map_metric = MeanAveragePrecision(iou_type="bbox", extended_summary=True)
-    map_metric.warn_on_many_detections = False
-
-    return TrainingContext(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        map_metric=map_metric,
-        workspace=workspace,
-        workspace_manager=workspace_manager,
-        device=device,
-        epochs=epochs,
-        train_score_threshold=train_score_threshold,
+    return setup_training(
+        config=config,
+        config_path=config_path,
+        model_factory=_create_model,
+        dataset_factory=dataset_factory,
+        logger=logger,
     )
 
 
