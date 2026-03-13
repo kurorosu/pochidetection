@@ -5,14 +5,19 @@ RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 """
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
+from PIL import Image
+
 from pochidetection.core.detection import Detection
+from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
 from pochidetection.scripts.common import (
     DetectionSummary,
     InferenceSaver,
+    Visualizer,
     build_detection_results,
     build_detection_summary,
     write_detection_results_csv,
@@ -42,6 +47,11 @@ class InferenceContext(Protocol):
     """推論コンテキストのプロトコル."""
 
     @property
+    def pipeline(self) -> IDetectionPipeline:
+        """推論パイプライン."""
+        ...
+
+    @property
     def phased_timer(self) -> PhasedTimer:
         """PhasedTimer."""
         ...
@@ -69,6 +79,11 @@ class InferenceContext(Protocol):
     @property
     def precision(self) -> str:
         """精度 (fp32/fp16)."""
+        ...
+
+    @property
+    def visualizer(self) -> Visualizer:
+        """Visualizer."""
         ...
 
 
@@ -135,6 +150,75 @@ def collect_image_files(image_dir: str) -> list[Path] | None:
 
     logger.info(f"Found {len(image_files)} images in {image_dir}")
     return image_files
+
+
+# セットアップコールバックの型
+SetupPipelineFn = Callable[[dict[str, Any], Path], InferenceContext]
+
+
+def infer(
+    config: dict[str, Any],
+    image_dir: str,
+    setup_pipeline: SetupPipelineFn,
+    model_dir: str | None = None,
+    config_path: str | None = None,
+) -> None:
+    """フォルダ内の画像を一括推論.
+
+    Args:
+        config: 設定辞書.
+        image_dir: 推論対象の画像フォルダパス.
+        setup_pipeline: パイプライン構築コールバック.
+            (config, model_path) を受け取り InferenceContext を返す.
+        model_dir: モデルディレクトリ. None の場合は最新ワークスペースの best を使用.
+        config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
+    """
+    model_path = resolve_model_path(config, model_dir)
+    if model_path is None:
+        return
+
+    image_files = collect_image_files(image_dir)
+    if image_files is None:
+        return
+
+    logger.info(f"Loading model from {model_path}")
+
+    ctx = setup_pipeline(config, model_path)
+    logger.info(f"Results will be saved to {ctx.saver.output_dir}")
+
+    all_predictions = run_inference(image_files, ctx)
+    write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
+
+
+def run_inference(
+    image_files: list[Path],
+    ctx: InferenceContext,
+) -> dict[str, list[Detection]]:
+    """画像ループで推論を実行.
+
+    Args:
+        image_files: 推論対象の画像ファイルリスト.
+        ctx: パイプラインコンテキスト.
+
+    Returns:
+        ファイル名をキー, 検出結果リストを値とする辞書.
+    """
+    all_predictions: dict[str, list[Detection]] = {}
+
+    for image_file in image_files:
+        image = Image.open(image_file).convert("RGB")
+        detections = ctx.pipeline.run(image)
+        all_predictions[image_file.name] = detections
+        result_image = ctx.visualizer.draw(image, detections)
+        output_path = ctx.saver.save(result_image, image_file.name)
+
+        inf_timer = ctx.phased_timer.get_timer("inference")
+        logger.info(
+            f"  {image_file.name} ({inf_timer.last_time_ms:.1f}ms) - "
+            f"{len(detections)} objects -> {output_path.name}"
+        )
+
+    return all_predictions
 
 
 def write_reports(

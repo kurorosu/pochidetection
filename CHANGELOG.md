@@ -12,7 +12,8 @@
 
 ### Changed
 - `cli/main.py` を `parser.py` + `commands/` に分割. main.py を 50 行以下に縮小. ([#252](https://github.com/kurorosu/pochidetection/pull/252).)
-- SSDLite ONNX/TensorRT バックエンドの後処理ロジック (`_generate_anchors`, `_postprocess`, `_decode_boxes`) を `postprocessing.py` に共通化. ~150行の重複を解消. (N/A.)
+- SSDLite ONNX/TensorRT バックエンドの後処理ロジック (`_generate_anchors`, `_postprocess`, `_decode_boxes`) を `postprocessing.py` に共通化. ~150行の重複を解消. ([#285](https://github.com/kurorosu/pochidetection/pull/285).)
+- RT-DETR/SSDLite 推論エントリポイント `infer()` と `_run_inference()` を `scripts/common/inference.py` に共通化. 各アーキテクチャは `_setup_pipeline` のみ担当する設計に変更. (N/A.)
 
 ### Removed
 - 無し.
