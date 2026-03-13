@@ -19,7 +19,8 @@
 - RT-DETR/SSDLite 学習セットアップ (`_setup_training`) を `scripts/common/training.py` の `setup_training()` に共通化. ワークスペース作成, オプティマイザ, スケジューラ, mAP メトリクス初期化を単一箇所に集約. ([#304](https://github.com/kurorosu/pochidetection/pull/304).)
 - RT-DETR/SSDLite PyTorch バックエンドの `synchronize()` メソッドを `inference/sync.py` の `synchronize_cuda()` に共通化. ([#305](https://github.com/kurorosu/pochidetection/pull/305).)
 - RT-DETR/SSDLite ONNX バックエンドの `_resolve_providers()` を `inference/providers.py` の `resolve_providers()` に共通化. ([#306](https://github.com/kurorosu/pochidetection/pull/306).)
-- RT-DETR/SSDLite ONNX エクスポーターの検証ロジック (`verify`) を `onnx/validation.py` の `verify_onnx_outputs()` に共通化. 構造検証, ONNX Runtime 推論, 出力比較, ログ出力を単一関数に集約. (N/A.)
+- RT-DETR/SSDLite ONNX エクスポーターの検証ロジック (`verify`) を `onnx/validation.py` の `verify_onnx_outputs()` に共通化. 構造検証, ONNX Runtime 推論, 出力比較, ログ出力を単一関数に集約. ([#307](https://github.com/kurorosu/pochidetection/pull/307).)
+- RT-DETR/SSDLite 推論パイプラインの `run()` フェーズ計測ロジックを `IDetectionPipeline` に共通化. `_validate_phased_timer()`, `_measure()`, `phased_timer` プロパティを基底クラスに集約し, サブクラスの if/else 分岐を解消. (N/A.)
 
 ### Removed
 - 無し.

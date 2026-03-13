@@ -31,8 +31,6 @@ class SSDLitePipeline(IDetectionPipeline):
         _phased_timer: フェーズ別タイマー.
     """
 
-    PHASES = ["preprocess", "inference", "postprocess"]
-
     def __init__(
         self,
         backend: IInferenceBackend,
@@ -57,13 +55,7 @@ class SSDLitePipeline(IDetectionPipeline):
         Raises:
             ValueError: phased_timer に必須フェーズが含まれていない場合.
         """
-        if phased_timer is not None:
-            missing = set(self.PHASES) - set(phased_timer.phases)
-            if missing:
-                raise ValueError(
-                    f"phased_timer is missing required phases: {sorted(missing)}. "
-                    f"Required: {self.PHASES}"
-                )
+        self._validate_phased_timer(phased_timer)
 
         self._backend = backend
         self._transform = transform
@@ -71,7 +63,6 @@ class SSDLitePipeline(IDetectionPipeline):
         self._device = device
         self._threshold = threshold
         self._use_fp16 = is_fp16_available(use_fp16, device)
-        self._phased_timer = phased_timer
 
     def preprocess(self, image: Image.Image) -> tuple[torch.Tensor, int, int]:
         """画像を前処理し, モデル入力テンソルを返す.
@@ -161,21 +152,11 @@ class SSDLitePipeline(IDetectionPipeline):
         Returns:
             検出結果のリスト.
         """
-        if self._phased_timer is not None:
-            with self._phased_timer.measure("preprocess"):
-                pixel_values, orig_w, orig_h = self.preprocess(image)
-            with self._phased_timer.measure("inference"):
-                pred = self.infer(pixel_values)
-            with self._phased_timer.measure("postprocess"):
-                detections = self.postprocess(pred, orig_w, orig_h)
-        else:
+        with self._measure("preprocess"):
             pixel_values, orig_w, orig_h = self.preprocess(image)
+        with self._measure("inference"):
             pred = self.infer(pixel_values)
+        with self._measure("postprocess"):
             detections = self.postprocess(pred, orig_w, orig_h)
 
         return detections
-
-    @property
-    def phased_timer(self) -> PhasedTimer | None:
-        """フェーズ別タイマーを取得."""
-        return self._phased_timer
