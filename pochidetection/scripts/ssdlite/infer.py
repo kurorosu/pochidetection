@@ -7,10 +7,8 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 import torch
-from PIL import Image
 from torchvision.transforms import v2
 
-from pochidetection.core.detection import Detection
 from pochidetection.inference import SSDLiteOnnxBackend, SSDLitePyTorchBackend
 
 try:
@@ -26,11 +24,7 @@ from pochidetection.scripts.common import (
     InferenceSaver,
     Visualizer,
 )
-from pochidetection.scripts.common.inference import (
-    collect_image_files,
-    resolve_model_path,
-    write_reports,
-)
+from pochidetection.scripts.common.inference import infer as common_infer
 from pochidetection.scripts.ssdlite.inference import SSDLitePipeline
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
@@ -54,21 +48,7 @@ def infer(
             None の場合は最新ワークスペースの best を使用.
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
-    model_path = resolve_model_path(config, model_dir)
-    if model_path is None:
-        return
-
-    image_files = collect_image_files(image_dir)
-    if image_files is None:
-        return
-
-    logger.info(f"Loading model from {model_path}")
-
-    ctx = _setup_pipeline(config, model_path)
-    logger.info(f"Results will be saved to {ctx.saver.output_dir}")
-
-    all_predictions = _run_inference(image_files, ctx)
-    write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
+    common_infer(config, image_dir, _setup_pipeline, model_dir, config_path)
 
 
 # ---------------------------------------------------------------------------
@@ -241,34 +221,3 @@ def _setup_pipeline(
         actual_device=actual_device,
         precision=precision,
     )
-
-
-def _run_inference(
-    image_files: list[Path],
-    ctx: _PipelineContext,
-) -> dict[str, list[Detection]]:
-    """画像ループで推論を実行.
-
-    Args:
-        image_files: 推論対象の画像ファイルリスト.
-        ctx: パイプラインコンテキスト.
-
-    Returns:
-        ファイル名をキー, 検出結果リストを値とする辞書.
-    """
-    all_predictions: dict[str, list[Detection]] = {}
-
-    for image_file in image_files:
-        image = Image.open(image_file).convert("RGB")
-        detections = ctx.pipeline.run(image)
-        all_predictions[image_file.name] = detections
-        result_image = ctx.visualizer.draw(image, detections)
-        output_path = ctx.saver.save(result_image, image_file.name)
-
-        inf_timer = ctx.phased_timer.get_timer("inference")
-        logger.info(
-            f"  {image_file.name} ({inf_timer.last_time_ms:.1f}ms) - "
-            f"{len(detections)} objects -> {output_path.name}"
-        )
-
-    return all_predictions
