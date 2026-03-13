@@ -156,3 +156,68 @@ class TestConfigLoader:
         assert "num_classes" in config
         assert "data_root" in config
         assert "image_size" in config
+
+    def test_load_merges_base_config(self, tmp_path: Path) -> None:
+        """_base.py が存在する場合にマージされることを確認."""
+        base_file = tmp_path / "_base.py"
+        base_file.write_text(
+            'data_root = "data"\n'
+            "num_classes = 2\n"
+            'train_split = "train"\n'
+            'val_split = "val"\n',
+            encoding="utf-8",
+        )
+        config_file = tmp_path / "model_config.py"
+        config_file.write_text(
+            "batch_size = 16\n",
+            encoding="utf-8",
+        )
+
+        config = ConfigLoader.load(str(config_file))
+
+        assert config["data_root"] == "data"
+        assert config["num_classes"] == 2
+        assert config["batch_size"] == 16
+
+    def test_load_individual_overrides_base(self, tmp_path: Path) -> None:
+        """個別設定がベース設定を上書きすることを確認."""
+        base_file = tmp_path / "_base.py"
+        base_file.write_text(
+            'data_root = "data"\n'
+            "num_classes = 2\n"
+            "batch_size = 4\n"
+            'train_split = "train"\n'
+            'val_split = "val"\n',
+            encoding="utf-8",
+        )
+        config_file = tmp_path / "model_config.py"
+        config_file.write_text(
+            "batch_size = 32\n",
+            encoding="utf-8",
+        )
+
+        config = ConfigLoader.load(str(config_file))
+
+        assert config["batch_size"] == 32
+
+    def test_write_config_creates_python_file(self, tmp_path: Path) -> None:
+        """write_configがPythonファイルを作成することを確認."""
+        config = {"batch_size": 32, "learning_rate": 0.001}
+        output_path = tmp_path / "saved_config.py"
+
+        ConfigLoader.write_config(config, output_path)
+
+        assert output_path.exists()
+        content = output_path.read_text()
+        assert "batch_size = 32" in content
+        assert "learning_rate = 0.001" in content
+
+    def test_write_config_roundtrip(self, tmp_path: Path) -> None:
+        """write_configで保存した設定をloadで読み込めることを確認."""
+        original = ConfigLoader.load("configs/rtdetr_coco.py")
+        saved_path = tmp_path / "roundtrip_config.py"
+
+        ConfigLoader.write_config(original, saved_path)
+        reloaded = ConfigLoader.load(str(saved_path))
+
+        assert original == reloaded

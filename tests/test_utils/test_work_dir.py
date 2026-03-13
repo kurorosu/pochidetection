@@ -196,36 +196,27 @@ class TestWorkspaceManager:
         with pytest.raises(RuntimeError, match="ワークスペースが作成されていません"):
             manager.get_last_dir()
 
-    def test_save_config_copies_file(self, tmp_path: Path) -> None:
-        """save_configが元のファイル名を保持してコピーする."""
-        config_file = tmp_path / "ssdlite_coco.py"
-        config_file.write_text("# config")
+    def test_save_config_writes_merged_dict(self, tmp_path: Path) -> None:
+        """save_configがマージ済み設定辞書をPythonファイルとして保存する."""
+        config = {"batch_size": 32, "learning_rate": 0.001}
         work_dir = tmp_path / "work_dirs"
         manager = WorkspaceManager(work_dir)
         manager.create_workspace()
 
-        target = manager.save_config(config_file)
+        target = manager.save_config(config, "ssdlite_coco.py")
 
         assert target.exists()
         assert target.name == "ssdlite_coco.py"
-        assert target.read_text() == "# config"
+        content = target.read_text()
+        assert "batch_size = 32" in content
+        assert "learning_rate = 0.001" in content
 
     def test_save_config_raises_without_workspace(self, tmp_path: Path) -> None:
         """ワークスペース未作成でsave_configがRuntimeErrorを発生させる."""
-        config_file = tmp_path / "config.py"
-        config_file.write_text("# config")
         manager = WorkspaceManager(tmp_path)
 
         with pytest.raises(RuntimeError, match="ワークスペースが作成されていません"):
-            manager.save_config(config_file)
-
-    def test_save_config_raises_on_missing_file(self, tmp_path: Path) -> None:
-        """存在しないファイルでsave_configがFileNotFoundErrorを発生させる."""
-        manager = WorkspaceManager(tmp_path)
-        manager.create_workspace()
-
-        with pytest.raises(FileNotFoundError, match="設定ファイルが見つかりません"):
-            manager.save_config(tmp_path / "missing.py")
+            manager.save_config({"key": "value"}, "config.py")
 
     def test_get_available_workspaces_returns_empty_when_no_dir(
         self, tmp_path: Path

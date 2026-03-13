@@ -81,7 +81,7 @@ def setup_training(
 
     workspace_manager = WorkspaceManager(config["work_dir"])
     workspace = workspace_manager.create_workspace()
-    workspace_manager.save_config(config_path)
+    workspace_manager.save_config(config, Path(config_path).name)
 
     logger.info(f"Device: {device}")
     logger.info(f"Num classes: {config['num_classes']}")
