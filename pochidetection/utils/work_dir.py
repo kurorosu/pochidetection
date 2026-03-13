@@ -4,9 +4,9 @@ yyyymmdd_001形式の作業ディレクトリ自動生成機能を提供する.
 """
 
 import re
-import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 
 def get_current_date_str() -> str:
@@ -195,29 +195,24 @@ class WorkspaceManager:
         """
         return self._ensure_workspace_created() / "last"
 
-    def save_config(self, config_path: str | Path) -> Path:
-        """設定ファイルをワークスペースにコピー.
-
-        元のファイル名を保持してコピーする.
+    def save_config(self, config: dict[str, Any], config_name: str) -> Path:
+        """マージ済み設定辞書を Python ファイルとしてワークスペースに保存.
 
         Args:
-            config_path: コピー元の設定ファイルパス.
+            config: マージ済みの設定辞書.
+            config_name: 保存するファイル名 (例: "ssdlite_coco.py").
 
         Returns:
-            コピー先のファイルパス.
+            保存先のファイルパス.
 
         Raises:
             RuntimeError: ワークスペースが作成されていない場合.
-            FileNotFoundError: コピー元ファイルが存在しない場合.
         """
+        from pochidetection.utils.config_loader import ConfigLoader
+
         workspace = self._ensure_workspace_created()
-
-        config_path = Path(config_path)
-        if not config_path.exists():
-            raise FileNotFoundError(f"設定ファイルが見つかりません: {config_path}")
-
-        target_path = workspace / config_path.name
-        shutil.copy2(config_path, target_path)
+        target_path = workspace / config_name
+        ConfigLoader.write_config(config, target_path)
 
         return target_path
 

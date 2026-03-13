@@ -4,7 +4,6 @@ RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 ベンチマークサマリーのロジックを提供する.
 """
 
-import shutil
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
@@ -424,7 +423,7 @@ def write_reports(
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
     if config_path is not None:
-        _save_config(config_path, ctx.saver.output_dir)
+        _save_config(config, config_path, ctx.saver.output_dir)
 
     detection_metrics = _evaluate_map(config, all_predictions)
 
@@ -481,19 +480,18 @@ def write_reports(
 # ---------------------------------------------------------------------------
 
 
-def _save_config(config_path: str, output_dir: Path) -> None:
-    """設定ファイルを推論結果ディレクトリにコピーする.
+def _save_config(config: dict[str, Any], config_path: str, output_dir: Path) -> None:
+    """マージ済み設定辞書を推論結果ディレクトリに保存する.
 
     Args:
-        config_path: 設定ファイルのパス.
+        config: マージ済みの設定辞書.
+        config_path: 設定ファイルのパス (ファイル名の取得に使用).
         output_dir: 推論結果の出力ディレクトリ.
     """
-    src = Path(config_path)
-    if not src.exists():
-        logger.warning(f"Config file not found: {config_path}")
-        return
-    dst = output_dir / src.name
-    shutil.copy2(src, dst)
+    from pochidetection.utils.config_loader import ConfigLoader
+
+    dst = output_dir / Path(config_path).name
+    ConfigLoader.write_config(config, dst)
     logger.info(f"Config saved to {dst}")
 
 

@@ -22,7 +22,8 @@
 - RT-DETR/SSDLite ONNX エクスポーターの検証ロジック (`verify`) を `onnx/validation.py` の `verify_onnx_outputs()` に共通化. 構造検証, ONNX Runtime 推論, 出力比較, ログ出力を単一関数に集約. ([#307](https://github.com/kurorosu/pochidetection/pull/307).)
 - RT-DETR/SSDLite 推論パイプラインの `run()` フェーズ計測ロジックを `IDetectionPipeline` に共通化. `_validate_phased_timer()`, `_measure()`, `phased_timer` プロパティを基底クラスに集約し, サブクラスの if/else 分岐を解消. ([#308](https://github.com/kurorosu/pochidetection/pull/308).)
 - 全推論バックエンド (ONNX/TensorRT × RT-DETR/SSDLite) の入力検証パターンを `inference/validation.py` の `validate_inputs()` に共通化. ([#309](https://github.com/kurorosu/pochidetection/pull/309).)
-- 全推論バックエンド (ONNX/TensorRT × RT-DETR/SSDLite) のモデルファイル検証パターン (存在確認, ファイル確認, 拡張子確認) を `inference/validation.py` の `validate_model_file()` に共通化. (N/A.)
+- 全推論バックエンド (ONNX/TensorRT × RT-DETR/SSDLite) のモデルファイル検証パターン (存在確認, ファイル確認, 拡張子確認) を `inference/validation.py` の `validate_model_file()` に共通化. ([#310](https://github.com/kurorosu/pochidetection/pull/310).)
+- 設定ファイルの共通パラメータ (クラス, データ, 学習, Early Stopping, デバイス, 閾値, ワークスペース) を `configs/_base.py` に抽出. `ConfigLoader` がベースと個別設定を自動マージし, `save_config` はマージ済み設定を展開して保存する構成に変更. (N/A.)
 
 ### Removed
 - 無し.
