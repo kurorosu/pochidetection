@@ -46,6 +46,7 @@ def infer(
     config: dict[str, Any],
     image_dir: str,
     model_dir: str | None = None,
+    config_path: str | None = None,
 ) -> None:
     """フォルダ内の画像を一括推論.
 
@@ -53,6 +54,7 @@ def infer(
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
         model_dir: モデルディレクトリ. Noneの場合は最新ワークスペースのbestを使用.
+        config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
     model_path = resolve_model_path(config, model_dir)
     if model_path is None:
@@ -68,7 +70,7 @@ def infer(
     logger.info(f"Results will be saved to {ctx.saver.output_dir}")
 
     all_predictions = _run_inference(image_files, ctx)
-    write_reports(config, image_files, all_predictions, ctx, model_path)
+    write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
 
 
 # ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 ベンチマークサマリーのロジックを提供する.
 """
 
+import shutil
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -142,6 +143,7 @@ def write_reports(
     all_predictions: dict[str, list[Detection]],
     ctx: InferenceContext,
     model_path: Path,
+    config_path: str | None = None,
 ) -> None:
     """レポート出力 (mAP, summary, CSV, confusion matrix, benchmark).
 
@@ -151,7 +153,11 @@ def write_reports(
         all_predictions: ファイル名をキー, 検出結果リストを値とする辞書.
         ctx: 推論コンテキスト.
         model_path: モデルのパス.
+        config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
+    if config_path is not None:
+        _save_config(config_path, ctx.saver.output_dir)
+
     detection_metrics = _evaluate_map(config, all_predictions)
 
     summary = build_detection_summary(all_predictions, ctx.label_mapper)
@@ -205,6 +211,22 @@ def write_reports(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _save_config(config_path: str, output_dir: Path) -> None:
+    """設定ファイルを推論結果ディレクトリにコピーする.
+
+    Args:
+        config_path: 設定ファイルのパス.
+        output_dir: 推論結果の出力ディレクトリ.
+    """
+    src = Path(config_path)
+    if not src.exists():
+        logger.warning(f"Config file not found: {config_path}")
+        return
+    dst = output_dir / src.name
+    shutil.copy2(src, dst)
+    logger.info(f"Config saved to {dst}")
 
 
 def _evaluate_map(
