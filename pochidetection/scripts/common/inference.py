@@ -7,8 +7,9 @@ RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 import shutil
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
 
+import torch
 from PIL import Image
 
 from pochidetection.core.detection import Detection
@@ -236,6 +237,103 @@ def create_backend(
 
     precision = "fp16" if fp16 else "fp32"
     return backend, precision, use_fp16
+
+
+class PipelineContext(NamedTuple):
+    """推論パイプラインコンテキスト."""
+
+    pipeline: IDetectionPipeline
+    phased_timer: PhasedTimer
+    visualizer: Visualizer
+    saver: InferenceSaver
+    label_mapper: LabelMapper | None
+    class_names: list[str] | None
+    actual_device: str
+    precision: str
+
+
+def setup_cudnn_benchmark(config: dict[str, Any]) -> None:
+    """cudnn.benchmark を設定する.
+
+    Args:
+        config: 設定辞書.
+    """
+    device = config["device"]
+    if config.get("cudnn_benchmark", False) and device == "cuda":
+        torch.backends.cudnn.benchmark = True
+        logger.info("cudnn.benchmark enabled")
+
+
+def resolve_device(
+    model_path: Path,
+    config: dict[str, Any],
+    backend: IInferenceBackend,
+) -> tuple[str, str]:
+    """モデル形式に応じたデバイスを解決する.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+        backend: 生成済みのバックエンド.
+
+    Returns:
+        (actual_device, runtime_device) のタプル.
+    """
+    device = config["device"]
+
+    if is_tensorrt_model(model_path):
+        return "cuda", "cuda"
+
+    if is_onnx_model(model_path):
+        active_providers = getattr(backend, "active_providers", [])
+        actual_device = "cuda" if "CUDAExecutionProvider" in active_providers else "cpu"
+        return actual_device, "cpu"
+
+    return device, device
+
+
+def build_pipeline_context(
+    *,
+    pipeline: IDetectionPipeline,
+    phased_timer: PhasedTimer,
+    config: dict[str, Any],
+    model_path: Path,
+    actual_device: str,
+    precision: str,
+) -> PipelineContext:
+    """共通の初期化ステップから PipelineContext を構築する.
+
+    LabelMapper, Visualizer, InferenceSaver の構築を共通化する.
+
+    Args:
+        pipeline: 構築済みの推論パイプライン.
+        phased_timer: 構築済みの PhasedTimer.
+        config: 設定辞書.
+        model_path: モデルのパス.
+        actual_device: 実際のデバイス名.
+        precision: 精度 (fp32/fp16).
+
+    Returns:
+        構築済みの PipelineContext.
+    """
+    class_names = config.get("class_names")
+    label_mapper = LabelMapper(class_names) if class_names else None
+    visualizer = Visualizer(label_mapper=label_mapper)
+
+    is_single_file = is_onnx_model(model_path) or is_tensorrt_model(model_path)
+    saver_base = model_path.parent if is_single_file else model_path
+    saver = InferenceSaver(saver_base)
+
+    return PipelineContext(
+        pipeline=pipeline,
+        phased_timer=phased_timer,
+        visualizer=visualizer,
+        saver=saver,
+        label_mapper=label_mapper,
+        class_names=class_names,
+        actual_device=actual_device,
+        precision=precision,
+    )
 
 
 # セットアップコールバックの型

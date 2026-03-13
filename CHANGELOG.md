@@ -14,7 +14,8 @@
 - `cli/main.py` を `parser.py` + `commands/` に分割. main.py を 50 行以下に縮小. ([#252](https://github.com/kurorosu/pochidetection/pull/252).)
 - SSDLite ONNX/TensorRT バックエンドの後処理ロジック (`_generate_anchors`, `_postprocess`, `_decode_boxes`) を `postprocessing.py` に共通化. ~150行の重複を解消. ([#285](https://github.com/kurorosu/pochidetection/pull/285).)
 - RT-DETR/SSDLite 推論エントリポイント `infer()` と `_run_inference()` を `scripts/common/inference.py` に共通化. 各アーキテクチャは `_setup_pipeline` のみ担当する設計に変更. ([#290](https://github.com/kurorosu/pochidetection/pull/290).)
-- RT-DETR/SSDLite バックエンド生成ロジック (`_create_backend`, `_is_onnx_model`, `_is_tensorrt_model`) を `scripts/common/inference.py` に共通化. ファクトリコールバックパターンで分岐を単一箇所に集約. (N/A.)
+- RT-DETR/SSDLite バックエンド生成ロジック (`_create_backend`, `_is_onnx_model`, `_is_tensorrt_model`) を `scripts/common/inference.py` に共通化. ファクトリコールバックパターンで分岐を単一箇所に集約. ([#302](https://github.com/kurorosu/pochidetection/pull/302).)
+- RT-DETR/SSDLite パイプライン初期化ロジック (cudnn 設定, デバイス判定, LabelMapper/Visualizer/Saver 構築) を `scripts/common/inference.py` に共通化. `PipelineContext` NamedTuple, `setup_cudnn_benchmark()`, `resolve_device()`, `build_pipeline_context()` を追加. (N/A.)
 
 ### Removed
 - 無し.

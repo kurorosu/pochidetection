@@ -4,7 +4,7 @@
 """
 
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 
 import torch
 from torchvision.transforms import v2
@@ -20,21 +20,18 @@ except ImportError:
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
-from pochidetection.scripts.common import (
-    InferenceSaver,
-    Visualizer,
-)
 from pochidetection.scripts.common.inference import (
+    PipelineContext,
+    build_pipeline_context,
     create_backend,
 )
 from pochidetection.scripts.common.inference import infer as common_infer
 from pochidetection.scripts.common.inference import (
-    is_onnx_model,
-    is_tensorrt_model,
+    resolve_device,
+    setup_cudnn_benchmark,
 )
 from pochidetection.scripts.ssdlite.inference import SSDLitePipeline
 from pochidetection.utils import PhasedTimer
-from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -90,23 +87,10 @@ def _create_pytorch_backend(
     return SSDLitePyTorchBackend(model)
 
 
-class _PipelineContext(NamedTuple):
-    """_setup_pipeline の戻り値."""
-
-    pipeline: SSDLitePipeline
-    phased_timer: PhasedTimer
-    visualizer: Visualizer
-    saver: InferenceSaver
-    label_mapper: LabelMapper | None
-    class_names: list[str] | None
-    actual_device: str
-    precision: str
-
-
 def _setup_pipeline(
     config: dict[str, Any],
     model_path: Path,
-) -> _PipelineContext:
+) -> PipelineContext:
     """推論パイプラインの構築.
 
     Args:
@@ -116,17 +100,13 @@ def _setup_pipeline(
     Returns:
         構築済みのパイプラインコンテキスト.
     """
-    device = config["device"]
     threshold = config["infer_score_threshold"]
     num_classes = config["num_classes"]
     image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
     image_size = (image_size_cfg["height"], image_size_cfg["width"])
     nms_iou_threshold = config.get("nms_iou_threshold", 0.55)
-    use_fp16 = config.get("use_fp16", False)
 
-    if config.get("cudnn_benchmark", False) and device == "cuda":
-        torch.backends.cudnn.benchmark = True
-        logger.info("cudnn.benchmark enabled")
+    setup_cudnn_benchmark(config)
 
     backend, precision, use_fp16 = create_backend(
         model_path,
@@ -148,12 +128,7 @@ def _setup_pipeline(
         trt_available=_TRT_AVAILABLE,
     )
 
-    if is_tensorrt_model(model_path):
-        actual_device = "cuda"
-        runtime_device = "cuda"
-    else:
-        actual_device = device
-        runtime_device = device
+    actual_device, runtime_device = resolve_device(model_path, config, backend)
 
     transform = v2.Compose(
         [
@@ -174,21 +149,11 @@ def _setup_pipeline(
         phased_timer=phased_timer,
     )
 
-    class_names = config.get("class_names")
-    label_mapper = LabelMapper(class_names) if class_names else None
-    visualizer = Visualizer(label_mapper=label_mapper)
-
-    is_single_file = is_onnx_model(model_path) or is_tensorrt_model(model_path)
-    saver_base = model_path.parent if is_single_file else model_path
-    saver = InferenceSaver(saver_base)
-
-    return _PipelineContext(
+    return build_pipeline_context(
         pipeline=pipeline,
         phased_timer=phased_timer,
-        visualizer=visualizer,
-        saver=saver,
-        label_mapper=label_mapper,
-        class_names=class_names,
+        config=config,
+        model_path=model_path,
         actual_device=actual_device,
         precision=precision,
     )
