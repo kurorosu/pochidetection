@@ -7,6 +7,7 @@ import pytest
 import torch
 
 from pochidetection.inference import RTDetrOnnxBackend
+from pochidetection.inference.providers import resolve_providers
 from pochidetection.models import RTDetrModel
 from tests.test_onnx.conftest import RTDETR_INPUT_SIZE as INPUT_SIZE
 
@@ -69,12 +70,12 @@ class TestRTDetrOnnxBackendProviders:
 
     def test_resolve_providers_cpu_device(self) -> None:
         """device='cpu' で CPUExecutionProvider のみ返ることを確認."""
-        providers = RTDetrOnnxBackend._resolve_providers("cpu")
+        providers = resolve_providers("cpu")
         assert providers == ["CPUExecutionProvider"]
 
     def test_resolve_providers_cuda_device_includes_cpu(self) -> None:
         """device='cuda' で CPUExecutionProvider が含まれることを確認."""
-        providers = RTDetrOnnxBackend._resolve_providers("cuda")
+        providers = resolve_providers("cuda")
         assert "CPUExecutionProvider" in providers
 
 

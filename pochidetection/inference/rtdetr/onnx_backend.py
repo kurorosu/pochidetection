@@ -8,6 +8,7 @@ import numpy as np
 import onnxruntime as ort
 import torch
 
+from pochidetection.inference.providers import resolve_providers
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 
@@ -55,7 +56,7 @@ class RTDetrOnnxBackend(IInferenceBackend):
             )
 
         if providers is None:
-            providers = self._resolve_providers(device)
+            providers = resolve_providers(device)
 
         # RT-DETR の ScatterND オペレータが CUDA EP で大量の WARNING を出すため,
         # ONNX Runtime の C++ ロガーを ERROR 以上に制限する.
@@ -70,26 +71,6 @@ class RTDetrOnnxBackend(IInferenceBackend):
         logger.info(f"ONNX Runtime providers: {active_providers}")
 
         self._validate_input_dtype()
-
-    @staticmethod
-    def _resolve_providers(device: str) -> list[str]:
-        """デバイス設定に応じた Execution Providers を返す.
-
-        Args:
-            device: 推論デバイス ("cpu" または "cuda").
-
-        Returns:
-            Execution Providers のリスト.
-        """
-        if device == "cuda":
-            available = ort.get_available_providers()
-            providers: list[str] = []
-            if "CUDAExecutionProvider" in available:
-                providers.append("CUDAExecutionProvider")
-            providers.append("CPUExecutionProvider")
-            return providers
-
-        return ["CPUExecutionProvider"]
 
     def _validate_input_dtype(self) -> None:
         """入力テンソルの dtype を検証する.
