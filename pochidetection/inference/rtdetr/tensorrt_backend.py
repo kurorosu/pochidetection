@@ -13,6 +13,7 @@ try:
 except ImportError:
     _TRT_AVAILABLE = False
 
+from pochidetection.inference.validation import validate_inputs
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
@@ -130,12 +131,7 @@ class RTDetrTensorRTBackend(IInferenceBackend):
         Raises:
             ValueError: 必須入力が不足している場合.
         """
-        missing = [name for name in self._input_names if name not in inputs]
-        if missing:
-            raise ValueError(
-                f"TensorRT入力が不足しています: {missing}. "
-                f"利用可能なキー: {list(inputs.keys())}"
-            )
+        validate_inputs(inputs, self._input_names, "TensorRT")
 
         # 入力テンソルを GPU バッファにコピー
         self._stream.wait_stream(torch.cuda.default_stream())

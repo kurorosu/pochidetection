@@ -13,6 +13,7 @@ from pochidetection.inference.ssdlite.postprocessing import (
     generate_anchors,
     postprocess,
 )
+from pochidetection.inference.validation import validate_inputs
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 
@@ -110,12 +111,7 @@ class SSDLiteOnnxBackend(IInferenceBackend):
         Returns:
             検出結果の辞書 (boxes, scores, labels).
         """
-        missing = [name for name in self._input_names if name not in inputs]
-        if missing:
-            raise ValueError(
-                f"ONNX入力が不足しています: {missing}. "
-                f"利用可能なキー: {list(inputs.keys())}"
-            )
+        validate_inputs(inputs, self._input_names, "ONNX")
 
         # FP16 モデルの場合は FP16 で入力, それ以外は FP32
         is_fp16 = self._input_dtype == "tensor(float16)"
