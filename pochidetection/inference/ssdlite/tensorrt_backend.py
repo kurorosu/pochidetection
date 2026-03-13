@@ -1,15 +1,10 @@
 """SSDLite TensorRT 推論バックエンド."""
 
 import logging
-import math
 from pathlib import Path
 from typing import Any
 
 import torch
-import torch.nn.functional as F
-from torchvision.models.detection import ssdlite320_mobilenet_v3_large
-from torchvision.models.detection.anchor_utils import DefaultBoxGenerator
-from torchvision.ops import batched_nms
 
 try:
     import tensorrt as trt
@@ -18,16 +13,15 @@ try:
 except ImportError:
     _TRT_AVAILABLE = False
 
+from pochidetection.inference.ssdlite.postprocessing import (
+    generate_anchors,
+    postprocess,
+)
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
-
-# BoxCoder の重み (torchvision SSD デフォルト)
-_BOX_CODER_WEIGHTS = (10.0, 10.0, 5.0, 5.0)
-# exp() オーバーフロー防止用クランプ値
-_BBOX_XFORM_CLIP = math.log(1000.0 / 16)
 
 
 class SSDLiteTensorRTBackend(IInferenceBackend):
@@ -132,7 +126,7 @@ class SSDLiteTensorRTBackend(IInferenceBackend):
 
         self._stream = torch.cuda.Stream()
 
-        self._anchors = self._generate_anchors()
+        self._anchors = generate_anchors(num_classes, image_size)
 
         logger.info(f"TensorRT backend loaded: {engine_path}")
         for b in self._bindings:
@@ -142,43 +136,6 @@ class SSDLiteTensorRTBackend(IInferenceBackend):
             f"アンカー生成完了: {self._anchors.shape[0]} boxes, "
             f"image_size={image_size}"
         )
-
-    def _generate_anchors(self) -> torch.Tensor:
-        """アンカーボックスを動的生成する.
-
-        軽量な SSD モデル (重みロード不要) を構築し,
-        backbone のダミー forward で grid_sizes を取得.
-        DefaultBoxGenerator でアンカーを生成し, xyxy ピクセル座標に変換する.
-
-        Returns:
-            アンカーボックス (num_anchors, 4), xyxy ピクセル座標.
-        """
-        h, w = self._image_size
-        ssd_num_classes = self._num_classes + 1
-
-        dummy_model = ssdlite320_mobilenet_v3_large(
-            weights_backbone=None, num_classes=ssd_num_classes
-        )
-        dummy_model.eval()
-
-        with torch.no_grad():
-            dummy_input = torch.randn(1, 3, h, w)
-            features = dummy_model.backbone(dummy_input)
-
-        grid_sizes = [list(f.shape[-2:]) for f in features.values()]
-
-        anchor_generator: DefaultBoxGenerator = dummy_model.anchor_generator
-        dboxes = anchor_generator._grid_default_boxes(grid_sizes, self._image_size)
-
-        x_y_size = torch.tensor([w, h], dtype=dboxes.dtype)
-        anchors = torch.cat(
-            [
-                (dboxes[:, :2] - 0.5 * dboxes[:, 2:]) * x_y_size,
-                (dboxes[:, :2] + 0.5 * dboxes[:, 2:]) * x_y_size,
-            ],
-            dim=-1,
-        )
-        return anchors
 
     def infer(self, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """推論を実行する.
@@ -225,7 +182,17 @@ class SSDLiteTensorRTBackend(IInferenceBackend):
         cls_logits = cls_logits.float().cpu()
         bbox_regression = bbox_regression.float().cpu()
 
-        return self._postprocess(cls_logits, bbox_regression)
+        return postprocess(
+            cls_logits,
+            bbox_regression,
+            self._anchors,
+            self._num_classes,
+            self._image_size,
+            self._nms_iou_threshold,
+            self._score_thresh,
+            self._topk_candidates,
+            self._detections_per_img,
+        )
 
     def _resolve_output(self, candidates: tuple[str, ...]) -> torch.Tensor:
         """候補名から出力バインディングのテンソルを解決する.
@@ -248,121 +215,6 @@ class SSDLiteTensorRTBackend(IInferenceBackend):
             f"候補: {candidates}, 利用可能な出力: {available}. "
             f"SSDLite は 'cls_logits' と 'bbox_regression' の出力が必要です."
         )
-
-    def _postprocess(
-        self,
-        cls_logits: torch.Tensor,
-        bbox_regression: torch.Tensor,
-    ) -> dict[str, torch.Tensor]:
-        """後処理を実行する.
-
-        torchvision SSD の postprocess_detections と等価な処理を行う.
-
-        Args:
-            cls_logits: クラスロジット (num_anchors, num_classes+1).
-            bbox_regression: ボックス回帰値 (num_anchors, 4).
-
-        Returns:
-            検出結果の辞書 (boxes, scores, labels).
-        """
-        scores_all = F.softmax(cls_logits, dim=-1)
-
-        boxes = self._decode_boxes(bbox_regression, self._anchors)
-
-        h, w = self._image_size
-        boxes[:, 0::2] = boxes[:, 0::2].clamp(min=0, max=w)
-        boxes[:, 1::2] = boxes[:, 1::2].clamp(min=0, max=h)
-
-        all_boxes: list[torch.Tensor] = []
-        all_scores: list[torch.Tensor] = []
-        all_labels: list[torch.Tensor] = []
-
-        ssd_num_classes = self._num_classes + 1
-        for class_idx in range(1, ssd_num_classes):
-            class_scores = scores_all[:, class_idx]
-
-            mask = class_scores > self._score_thresh
-            filtered_scores = class_scores[mask]
-            filtered_boxes = boxes[mask]
-
-            if filtered_scores.numel() == 0:
-                continue
-
-            if filtered_scores.numel() > self._topk_candidates:
-                topk_scores, topk_indices = filtered_scores.topk(self._topk_candidates)
-                filtered_scores = topk_scores
-                filtered_boxes = filtered_boxes[topk_indices]
-
-            all_boxes.append(filtered_boxes)
-            all_scores.append(filtered_scores)
-            all_labels.append(
-                torch.full_like(filtered_scores, class_idx - 1, dtype=torch.int64)
-            )
-
-        if len(all_boxes) == 0:
-            return {
-                "boxes": torch.zeros(0, 4),
-                "scores": torch.zeros(0),
-                "labels": torch.zeros(0, dtype=torch.int64),
-            }
-
-        cat_boxes = torch.cat(all_boxes, dim=0)
-        cat_scores = torch.cat(all_scores, dim=0)
-        cat_labels = torch.cat(all_labels, dim=0)
-
-        keep = batched_nms(cat_boxes, cat_scores, cat_labels, self._nms_iou_threshold)
-        keep = keep[: self._detections_per_img]
-
-        return {
-            "boxes": cat_boxes[keep],
-            "scores": cat_scores[keep],
-            "labels": cat_labels[keep],
-        }
-
-    @staticmethod
-    def _decode_boxes(rel_codes: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
-        """Boxcoder デコード.
-
-        アンカー相対のオフセットを xyxy 絶対座標に変換する.
-        torchvision の BoxCoder.decode_single と等価.
-
-        Args:
-            rel_codes: 回帰オフセット (N, 4).
-            anchors: アンカーボックス (N, 4), xyxy 形式.
-
-        Returns:
-            デコード済みボックス (N, 4), xyxy 形式.
-        """
-        wx, wy, ww, wh = _BOX_CODER_WEIGHTS
-
-        widths = anchors[:, 2] - anchors[:, 0]
-        heights = anchors[:, 3] - anchors[:, 1]
-        ctr_x = anchors[:, 0] + 0.5 * widths
-        ctr_y = anchors[:, 1] + 0.5 * heights
-
-        dx = rel_codes[:, 0] / wx
-        dy = rel_codes[:, 1] / wy
-        dw = rel_codes[:, 2] / ww
-        dh = rel_codes[:, 3] / wh
-
-        dw = dw.clamp(max=_BBOX_XFORM_CLIP)
-        dh = dh.clamp(max=_BBOX_XFORM_CLIP)
-
-        pred_ctr_x = dx * widths + ctr_x
-        pred_ctr_y = dy * heights + ctr_y
-        pred_w = torch.exp(dw) * widths
-        pred_h = torch.exp(dh) * heights
-
-        pred_boxes = torch.stack(
-            [
-                pred_ctr_x - 0.5 * pred_w,
-                pred_ctr_y - 0.5 * pred_h,
-                pred_ctr_x + 0.5 * pred_w,
-                pred_ctr_y + 0.5 * pred_h,
-            ],
-            dim=-1,
-        )
-        return pred_boxes
 
     def synchronize(self) -> None:
         """CUDA 同期. ストリームの完了を待機する."""
