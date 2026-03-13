@@ -4,6 +4,7 @@ from typing import Any
 
 import torch
 
+from pochidetection.inference.sync import synchronize_cuda
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.models import SSDLiteModel
 
@@ -40,11 +41,8 @@ class SSDLitePyTorchBackend(IInferenceBackend):
         return pred
 
     def synchronize(self) -> None:
-        """CUDA 同期.
+        """CUDA同期.
 
-        GPU を使用している場合のみ torch.cuda.synchronize() を呼び出す.
+        GPUを使用している場合のみ torch.cuda.synchronize() を呼び出す.
         """
-        if torch.cuda.is_available():
-            device = next(self._model.parameters()).device
-            if device.type == "cuda":
-                torch.cuda.synchronize(device)
+        synchronize_cuda(self._model)
