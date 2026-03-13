@@ -18,7 +18,8 @@
 - RT-DETR/SSDLite パイプライン初期化ロジック (cudnn 設定, デバイス判定, LabelMapper/Visualizer/Saver 構築) を `scripts/common/inference.py` に共通化. `PipelineContext` NamedTuple, `setup_cudnn_benchmark()`, `resolve_device()`, `build_pipeline_context()` を追加. ([#303](https://github.com/kurorosu/pochidetection/pull/303).)
 - RT-DETR/SSDLite 学習セットアップ (`_setup_training`) を `scripts/common/training.py` の `setup_training()` に共通化. ワークスペース作成, オプティマイザ, スケジューラ, mAP メトリクス初期化を単一箇所に集約. ([#304](https://github.com/kurorosu/pochidetection/pull/304).)
 - RT-DETR/SSDLite PyTorch バックエンドの `synchronize()` メソッドを `inference/sync.py` の `synchronize_cuda()` に共通化. ([#305](https://github.com/kurorosu/pochidetection/pull/305).)
-- RT-DETR/SSDLite ONNX バックエンドの `_resolve_providers()` を `inference/providers.py` の `resolve_providers()` に共通化. (N/A.)
+- RT-DETR/SSDLite ONNX バックエンドの `_resolve_providers()` を `inference/providers.py` の `resolve_providers()` に共通化. ([#306](https://github.com/kurorosu/pochidetection/pull/306).)
+- RT-DETR/SSDLite ONNX エクスポーターの検証ロジック (`verify`) を `onnx/validation.py` の `verify_onnx_outputs()` に共通化. 構造検証, ONNX Runtime 推論, 出力比較, ログ出力を単一関数に集約. (N/A.)
 
 ### Removed
 - 無し.

@@ -5,14 +5,12 @@ import logging
 import warnings
 from pathlib import Path
 
-import numpy as np
-import onnx
-import onnxruntime as ort
 import torch
 import torch.nn as nn
 
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
+from pochidetection.onnx.validation import verify_onnx_outputs
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
@@ -227,12 +225,6 @@ class SSDLiteOnnxExporter:
         Raises:
             ValueError: モデルが設定されていない場合.
         """
-        logger.debug("ONNXモデルの構造を検証中...")
-        onnx_model = onnx.load(str(onnx_path))
-        onnx.checker.check_model(onnx_model)
-        logger.debug("構造検証: OK")
-
-        logger.debug("PyTorchとONNXの出力を比較中...")
         wrapper, dummy_input = self._prepare_wrapper_and_input(input_size, fp16)
 
         with torch.no_grad():
@@ -241,46 +233,16 @@ class SSDLiteOnnxExporter:
         pt_logits_np = pt_logits.float().cpu().numpy()
         pt_boxes_np = pt_boxes.float().cpu().numpy()
 
-        session = ort.InferenceSession(
-            str(onnx_path), providers=["CPUExecutionProvider"]
-        )
-        output_names = [o.name for o in session.get_outputs()]
-        onnx_input_np = dummy_input.cpu().numpy()
-        onnx_results = session.run(
-            output_names,
-            {"pixel_values": onnx_input_np},
-        )
-        onnx_output_dict = dict(zip(output_names, onnx_results))
-        onnx_logits = onnx_output_dict["cls_logits"].astype(np.float32)
-        onnx_boxes = onnx_output_dict["bbox_regression"].astype(np.float32)
-
         # FP16 では数値精度の制約により許容誤差を緩める
         if fp16:
             rtol = max(rtol, 5e-2)
             atol = max(atol, 1e-1)
 
-        logits_close: bool = bool(
-            np.allclose(pt_logits_np, onnx_logits, rtol=rtol, atol=atol)
+        return verify_onnx_outputs(
+            onnx_path=onnx_path,
+            pytorch_outputs=[pt_logits_np, pt_boxes_np],
+            dummy_input=dummy_input.cpu().numpy(),
+            output_names=["cls_logits", "bbox_regression"],
+            rtol=rtol,
+            atol=atol,
         )
-        boxes_close: bool = bool(
-            np.allclose(pt_boxes_np, onnx_boxes, rtol=rtol, atol=atol)
-        )
-        is_close = logits_close and boxes_close
-
-        max_diff_logits = float(np.max(np.abs(pt_logits_np - onnx_logits)))
-        max_diff_boxes = float(np.max(np.abs(pt_boxes_np - onnx_boxes)))
-
-        if is_close:
-            logger.info("出力比較: OK")
-            logger.debug(
-                f"最大差分 - cls_logits: {max_diff_logits:.2e}, "
-                f"bbox_regression: {max_diff_boxes:.2e}"
-            )
-        else:
-            logger.warning("出力比較: NG")
-            logger.warning(
-                f"最大差分 - cls_logits: {max_diff_logits:.2e}, "
-                f"bbox_regression: {max_diff_boxes:.2e}"
-            )
-
-        return is_close

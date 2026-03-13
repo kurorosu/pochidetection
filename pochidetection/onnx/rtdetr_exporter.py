@@ -4,13 +4,11 @@ import logging
 import warnings
 from pathlib import Path
 
-import numpy as np
-import onnx
-import onnxruntime as ort
 import torch
 
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
+from pochidetection.onnx.validation import verify_onnx_outputs
 
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
@@ -134,12 +132,6 @@ class RTDetrOnnxExporter:
                 "コンストラクタまたはload_model()でモデルを設定してください."
             )
 
-        logger.debug("ONNXモデルの構造を検証中...")
-        onnx_model = onnx.load(str(onnx_path))
-        onnx.checker.check_model(onnx_model)
-        logger.debug("構造検証: OK")
-
-        logger.debug("PyTorchとONNXの出力を比較中...")
         dummy_input = torch.randn(
             1, 3, input_size[0], input_size[1], device=self.device
         )
@@ -152,40 +144,11 @@ class RTDetrOnnxExporter:
         pytorch_logits = pytorch_outputs.logits.cpu().numpy()
         pytorch_boxes = pytorch_outputs.pred_boxes.cpu().numpy()
 
-        session = ort.InferenceSession(
-            str(onnx_path), providers=["CPUExecutionProvider"]
+        return verify_onnx_outputs(
+            onnx_path=onnx_path,
+            pytorch_outputs=[pytorch_logits, pytorch_boxes],
+            dummy_input=dummy_input.cpu().numpy(),
+            output_names=["logits", "pred_boxes"],
+            rtol=rtol,
+            atol=atol,
         )
-        output_names = [o.name for o in session.get_outputs()]
-        onnx_results = session.run(
-            output_names, {"pixel_values": dummy_input.cpu().numpy()}
-        )
-        onnx_output_dict = dict(zip(output_names, onnx_results))
-        onnx_logits = onnx_output_dict["logits"]
-        onnx_boxes = onnx_output_dict["pred_boxes"]
-
-        logits_close: bool = bool(
-            np.allclose(pytorch_logits, onnx_logits, rtol=rtol, atol=atol)
-        )
-        boxes_close: bool = bool(
-            np.allclose(pytorch_boxes, onnx_boxes, rtol=rtol, atol=atol)
-        )
-        is_close = logits_close and boxes_close
-
-        if is_close:
-            logger.info("出力比較: OK")
-            max_diff_logits = np.max(np.abs(pytorch_logits - onnx_logits))
-            max_diff_boxes = np.max(np.abs(pytorch_boxes - onnx_boxes))
-            logger.debug(
-                f"最大差分 - logits: {max_diff_logits:.2e}, "
-                f"pred_boxes: {max_diff_boxes:.2e}"
-            )
-        else:
-            logger.warning("出力比較: NG")
-            max_diff_logits = np.max(np.abs(pytorch_logits - onnx_logits))
-            max_diff_boxes = np.max(np.abs(pytorch_boxes - onnx_boxes))
-            logger.warning(
-                f"最大差分 - logits: {max_diff_logits:.2e}, "
-                f"pred_boxes: {max_diff_boxes:.2e}"
-            )
-
-        return is_close
