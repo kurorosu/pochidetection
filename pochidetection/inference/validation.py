@@ -1,5 +1,6 @@
-"""推論バックエンドの入力検証ユーティリティ."""
+"""推論バックエンドの検証ユーティリティ."""
 
+from pathlib import Path
 from typing import Any
 
 
@@ -23,4 +24,31 @@ def validate_inputs(
         raise ValueError(
             f"{backend_name}入力が不足しています: {missing}. "
             f"利用可能なキー: {list(inputs.keys())}"
+        )
+
+
+def validate_model_file(
+    path: Path,
+    label: str,
+    expected_suffix: str,
+) -> None:
+    """モデルファイルの存在・形式を検証する.
+
+    Args:
+        path: モデルファイルのパス.
+        label: エラーメッセージに表示する名前 (例: "ONNXモデル", "TensorRTエンジン").
+        expected_suffix: 期待するファイル拡張子 (例: ".onnx", ".engine").
+
+    Raises:
+        FileNotFoundError: ファイルが存在しない場合.
+        ValueError: パスがファイルでない, または拡張子が一致しない場合.
+    """
+    if not path.exists():
+        raise FileNotFoundError(f"{label}が見つかりません: {path}")
+    if not path.is_file():
+        raise ValueError(f"{label}のパスはファイルである必要があります: {path}")
+    if path.suffix.lower() != expected_suffix:
+        raise ValueError(
+            f"{label}のファイル拡張子は {expected_suffix} である必要があります: "
+            f"{path}"
         )

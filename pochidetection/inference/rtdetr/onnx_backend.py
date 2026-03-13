@@ -9,7 +9,7 @@ import onnxruntime as ort
 import torch
 
 from pochidetection.inference.providers import resolve_providers
-from pochidetection.inference.validation import validate_inputs
+from pochidetection.inference.validation import validate_inputs, validate_model_file
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 
@@ -45,16 +45,7 @@ class RTDetrOnnxBackend(IInferenceBackend):
             ValueError: model_path がファイルでない, または .onnx でない場合.
             ValueError: モデルの入力 dtype が tensor(float) でない場合.
         """
-        if not model_path.exists():
-            raise FileNotFoundError(f"ONNXモデルが見つかりません: {model_path}")
-        if not model_path.is_file():
-            raise ValueError(
-                f"ONNXモデルのパスはファイルである必要があります: {model_path}"
-            )
-        if model_path.suffix.lower() != ".onnx":
-            raise ValueError(
-                f"ONNXモデルのファイル拡張子は .onnx である必要があります: {model_path}"
-            )
+        validate_model_file(model_path, "ONNXモデル", ".onnx")
 
         if providers is None:
             providers = resolve_providers(device)
