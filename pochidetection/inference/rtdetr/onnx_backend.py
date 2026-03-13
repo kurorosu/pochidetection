@@ -9,6 +9,7 @@ import onnxruntime as ort
 import torch
 
 from pochidetection.inference.providers import resolve_providers
+from pochidetection.inference.validation import validate_inputs
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 
@@ -101,12 +102,7 @@ class RTDetrOnnxBackend(IInferenceBackend):
         Returns:
             pred_logits と pred_boxes のタプル.
         """
-        missing = [name for name in self._input_names if name not in inputs]
-        if missing:
-            raise ValueError(
-                f"ONNX入力が不足しています: {missing}. "
-                f"利用可能なキー: {list(inputs.keys())}"
-            )
+        validate_inputs(inputs, self._input_names, "ONNX")
 
         numpy_inputs: dict[str, np.ndarray] = {
             name: inputs[name].cpu().float().numpy() for name in self._input_names
