@@ -92,8 +92,10 @@ class TestSSDLiteOnnxBackendAnchors:
         self, ssdlite_onnx_backend: SSDLiteOnnxBackend
     ) -> None:
         """2 回生成して同一結果になることを確認する."""
-        anchors1 = ssdlite_onnx_backend._generate_anchors()
-        anchors2 = ssdlite_onnx_backend._generate_anchors()
+        from pochidetection.inference.ssdlite.postprocessing import generate_anchors
+
+        anchors1 = generate_anchors(SSDLITE_NUM_CLASSES, SSDLITE_INPUT_SIZE)
+        anchors2 = generate_anchors(SSDLITE_NUM_CLASSES, SSDLITE_INPUT_SIZE)
         assert torch.allclose(anchors1, anchors2, atol=1e-6)
 
 
