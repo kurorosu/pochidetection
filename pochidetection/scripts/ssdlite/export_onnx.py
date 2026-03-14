@@ -3,8 +3,8 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Any
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.logging import LoggerManager
 from pochidetection.onnx import SSDLiteOnnxExporter
 
@@ -12,7 +12,7 @@ logger: logging.Logger = LoggerManager().get_logger(__name__)
 
 
 def export_onnx(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     model_dir: str,
     output: str | None,
     opset_version: int,

@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics.detection import MeanAveragePrecision
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core import DetectionCollator
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
@@ -49,11 +50,11 @@ class TrainingContext(NamedTuple):
 
 
 DatasetFactory = Callable[[Path], Dataset[dict[str, Any]]]
-ModelFactory = Callable[[dict[str, Any]], IDetectionModel]
+ModelFactory = Callable[[DetectionConfigDict], IDetectionModel]
 
 
 def setup_training(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     config_path: str,
     model_factory: ModelFactory,
     dataset_factory: DatasetFactory,
@@ -124,7 +125,7 @@ def setup_training(
 
 
 def build_data_loaders(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     dataset_factory: DatasetFactory,
     logger: logging.Logger,
 ) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
@@ -195,7 +196,7 @@ class Validator(Protocol):
 
 
 def run_training_loop(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     ctx: TrainingContext,
     validate: Validator,
 ) -> None:
@@ -278,7 +279,7 @@ def run_training_loop(
     save_results(config, ctx, history, map_result, logger)
 
 
-def build_early_stopping(config: dict[str, Any]) -> EarlyStopping | None:
+def build_early_stopping(config: DetectionConfigDict) -> EarlyStopping | None:
     """設定から EarlyStopping を構築.
 
     Args:
@@ -329,7 +330,7 @@ def train_one_epoch(ctx: TrainingContext) -> tuple[float, float]:
 
 
 def save_results(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     ctx: TrainingContext,
     history: TrainingHistory,
     map_result: dict[str, Any],

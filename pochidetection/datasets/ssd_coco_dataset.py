@@ -8,6 +8,7 @@ from PIL import Image
 from torchvision import tv_tensors
 from torchvision.transforms import v2
 
+from pochidetection.configs.schemas import ImageSizeDict
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
 
 
@@ -29,7 +30,7 @@ class SsdCocoDataset(BaseCocoDataset):
     def __init__(
         self,
         root: str | Path,
-        image_size: dict[str, int],
+        image_size: ImageSizeDict,
         annotation_file: str | None = None,
     ) -> None:
         """初期化.

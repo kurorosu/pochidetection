@@ -5,11 +5,12 @@ import sys
 from pathlib import Path
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 
 
-def _run_trt_export(args: argparse.Namespace, config: dict[str, object]) -> None:
+def _run_trt_export(args: argparse.Namespace, config: DetectionConfigDict) -> None:
     """Tensorrt エクスポート.
 
     Args:
@@ -55,7 +56,7 @@ def _run_trt_export(args: argparse.Namespace, config: dict[str, object]) -> None
     )
 
 
-def _run_onnx_export(args: argparse.Namespace, config: dict[str, object]) -> None:
+def _run_onnx_export(args: argparse.Namespace, config: DetectionConfigDict) -> None:
     """ONNX エクスポートを実行する.
 
     Args:

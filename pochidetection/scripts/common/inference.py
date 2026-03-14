@@ -11,6 +11,7 @@ from typing import Any, NamedTuple, Protocol
 import torch
 from PIL import Image
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
@@ -90,7 +91,7 @@ class InferenceContext(Protocol):
 
 
 def resolve_model_path(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     model_dir: str | None,
 ) -> Path | None:
     """モデルパスを解決.
@@ -186,7 +187,7 @@ CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend[Any]]
 
 def create_backend(
     model_path: Path,
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     create_trt: CreateTrtFn,
     create_onnx: CreateOnnxFn,
     create_pytorch: CreatePytorchFn,
@@ -251,7 +252,7 @@ class PipelineContext(NamedTuple):
     precision: str
 
 
-def setup_cudnn_benchmark(config: dict[str, Any]) -> None:
+def setup_cudnn_benchmark(config: DetectionConfigDict) -> None:
     """cudnn.benchmark を設定する.
 
     Args:
@@ -265,7 +266,7 @@ def setup_cudnn_benchmark(config: dict[str, Any]) -> None:
 
 def resolve_device(
     model_path: Path,
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     backend: IInferenceBackend[Any],
 ) -> tuple[str, str]:
     """モデル形式に応じたデバイスを解決する.
@@ -295,7 +296,7 @@ def build_pipeline_context(
     *,
     pipeline: IDetectionPipeline,
     phased_timer: PhasedTimer,
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     model_path: Path,
     actual_device: str,
     precision: str,
@@ -336,11 +337,11 @@ def build_pipeline_context(
 
 
 # セットアップコールバックの型
-SetupPipelineFn = Callable[[dict[str, Any], Path], InferenceContext]
+SetupPipelineFn = Callable[[DetectionConfigDict, Path], InferenceContext]
 
 
 def infer(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     image_dir: str,
     setup_pipeline: SetupPipelineFn,
     model_dir: str | None = None,
@@ -405,7 +406,7 @@ def run_inference(
 
 
 def write_reports(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     image_files: list[Path],
     all_predictions: dict[str, list[Detection]],
     ctx: InferenceContext,
@@ -480,7 +481,9 @@ def write_reports(
 # ---------------------------------------------------------------------------
 
 
-def _save_config(config: dict[str, Any], config_path: str, output_dir: Path) -> None:
+def _save_config(
+    config: DetectionConfigDict, config_path: str, output_dir: Path
+) -> None:
     """マージ済み設定辞書を推論結果ディレクトリに保存する.
 
     Args:
@@ -496,7 +499,7 @@ def _save_config(config: dict[str, Any], config_path: str, output_dir: Path) -> 
 
 
 def _evaluate_map(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     predictions: dict[str, list[Detection]],
 ) -> DetectionMetrics | None:
     """Config に annotation_path が指定されていれば mAP を計算する.

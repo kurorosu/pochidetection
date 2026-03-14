@@ -3,16 +3,16 @@
 import argparse
 import sys
 from collections.abc import Callable
-from typing import Any
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 
 
 def _resolve_infer(
-    config: dict[str, Any],
-) -> Callable[[dict[str, Any], str, str | None, str | None], None]:
+    config: DetectionConfigDict,
+) -> Callable[[DetectionConfigDict, str, str | None, str | None], None]:
     """Architecture に基づいて infer 関数を返す.
 
     Args:

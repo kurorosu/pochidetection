@@ -2,9 +2,11 @@
 
 import re
 from pathlib import Path
+from typing import cast
 
 import pytest
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.utils.work_dir import (
     WorkspaceManager,
     find_next_index,
@@ -198,7 +200,7 @@ class TestWorkspaceManager:
 
     def test_save_config_writes_merged_dict(self, tmp_path: Path) -> None:
         """save_configがマージ済み設定辞書をPythonファイルとして保存する."""
-        config = {"batch_size": 32, "learning_rate": 0.001}
+        config = cast(DetectionConfigDict, {"batch_size": 32, "learning_rate": 0.001})
         work_dir = tmp_path / "work_dirs"
         manager = WorkspaceManager(work_dir)
         manager.create_workspace()
@@ -216,7 +218,9 @@ class TestWorkspaceManager:
         manager = WorkspaceManager(tmp_path)
 
         with pytest.raises(RuntimeError, match="ワークスペースが作成されていません"):
-            manager.save_config({"key": "value"}, "config.py")
+            manager.save_config(
+                cast(DetectionConfigDict, {"key": "value"}), "config.py"
+            )
 
     def test_get_available_workspaces_returns_empty_when_no_dir(
         self, tmp_path: Path

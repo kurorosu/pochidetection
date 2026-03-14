@@ -4,12 +4,12 @@
 """
 
 from pathlib import Path
-from typing import Any
 
 import torch
 from torchvision.transforms import v2
 from transformers import RTDetrImageProcessor
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.inference import RTDetrOnnxBackend, RTDetrPyTorchBackend
 
 try:
@@ -41,7 +41,7 @@ logger = LoggerManager().get_logger(__name__)
 
 
 def infer(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     image_dir: str,
     model_dir: str | None = None,
     config_path: str | None = None,
@@ -63,7 +63,7 @@ def infer(
 
 
 def _setup_pipeline(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     model_path: Path,
 ) -> PipelineContext:
     """推論パイプラインの構築.
@@ -129,7 +129,9 @@ def _setup_pipeline(
     )
 
 
-def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProcessor:
+def _load_processor(
+    model_path: Path, config: DetectionConfigDict
+) -> RTDetrImageProcessor:
     """画像前処理プロセッサを読み込む.
 
     ONNX / TensorRT モデルの場合, processor ファイルはモデルファイルと

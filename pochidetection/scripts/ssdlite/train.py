@@ -10,6 +10,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.datasets import SsdCocoDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
@@ -21,7 +22,7 @@ from pochidetection.scripts.common.training import (
 )
 
 
-def train(config: dict[str, Any], config_path: str) -> None:
+def train(config: DetectionConfigDict, config_path: str) -> None:
     """ファインチューニング.
 
     Args:
@@ -38,7 +39,7 @@ def train(config: dict[str, Any], config_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _create_model(config: dict[str, Any]) -> IDetectionModel:
+def _create_model(config: DetectionConfigDict) -> IDetectionModel:
     """モデル固有の SSDLite インスタンスを構築する.
 
     Args:
@@ -53,7 +54,7 @@ def _create_model(config: dict[str, Any]) -> IDetectionModel:
 
 
 def _setup_training(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     config_path: str,
     logger: logging.Logger,
 ) -> TrainingContext:
@@ -69,7 +70,7 @@ def _setup_training(
     """
     logger.info("Architecture: SSDLite MobileNetV3")
 
-    image_size = config.get("image_size", {"height": 320, "width": 320})
+    image_size = config["image_size"]
     dataset_factory = partial(SsdCocoDataset, image_size=image_size)
 
     return setup_training(
