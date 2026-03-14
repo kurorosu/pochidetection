@@ -18,7 +18,7 @@ logger: logging.Logger = LoggerManager().get_logger(__name__)
 SUPPORTED_ONNX_DTYPE = "tensor(float)"
 
 
-class RTDetrOnnxBackend(IInferenceBackend):
+class RTDetrOnnxBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
     """ONNX Runtime を使用した推論バックエンド.
 
     Attributes:

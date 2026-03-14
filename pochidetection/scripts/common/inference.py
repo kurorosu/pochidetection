@@ -179,9 +179,9 @@ def is_tensorrt_model(model_path: Path) -> bool:
 
 
 # バックエンドファクトリコールバックの型
-CreateTrtFn = Callable[[Path], IInferenceBackend]
-CreateOnnxFn = Callable[[Path, str], IInferenceBackend]
-CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend]
+CreateTrtFn = Callable[[Path], IInferenceBackend[Any]]
+CreateOnnxFn = Callable[[Path, str], IInferenceBackend[Any]]
+CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend[Any]]
 
 
 def create_backend(
@@ -191,7 +191,7 @@ def create_backend(
     create_onnx: CreateOnnxFn,
     create_pytorch: CreatePytorchFn,
     trt_available: bool = False,
-) -> tuple[IInferenceBackend, str, bool]:
+) -> tuple[IInferenceBackend[Any], str, bool]:
     """モデルパスからバックエンドを生成する.
 
     TensorRT / ONNX / PyTorch の分岐ロジックを共通化し,
@@ -266,7 +266,7 @@ def setup_cudnn_benchmark(config: dict[str, Any]) -> None:
 def resolve_device(
     model_path: Path,
     config: dict[str, Any],
-    backend: IInferenceBackend,
+    backend: IInferenceBackend[Any],
 ) -> tuple[str, str]:
     """モデル形式に応じたデバイスを解決する.
 

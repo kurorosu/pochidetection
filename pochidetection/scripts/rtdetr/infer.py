@@ -18,7 +18,6 @@ try:
     _TRT_AVAILABLE = True
 except ImportError:
     _TRT_AVAILABLE = False
-from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.common.inference import (
@@ -170,7 +169,7 @@ def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProc
 
 def _create_pytorch_backend(
     model_path: Path, device: str, use_fp16: bool
-) -> IInferenceBackend:
+) -> RTDetrPyTorchBackend:
     """RT-DETR 用 PyTorch バックエンドを生成する.
 
     Args:

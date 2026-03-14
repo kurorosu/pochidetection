@@ -21,7 +21,7 @@ from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
 
-class RTDetrTensorRTBackend(IInferenceBackend):
+class RTDetrTensorRTBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
     """TensorRT エンジンを使用した推論バックエンド.
 
     PyTorch CUDA テンソルをバッファとして使用し,

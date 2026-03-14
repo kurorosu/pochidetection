@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import numpy as np
 import onnxruntime as ort
@@ -20,7 +20,7 @@ from pochidetection.logging import LoggerManager
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
 
-class SSDLiteOnnxBackend(IInferenceBackend):
+class SSDLiteOnnxBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     """SSDLite ONNX Runtime 推論バックエンド.
 
     ONNX モデルの生出力 (cls_logits, bbox_regression) から
@@ -89,7 +89,7 @@ class SSDLiteOnnxBackend(IInferenceBackend):
             f"image_size={image_size}"
         )
 
-    def infer(self, inputs: Any) -> dict[str, torch.Tensor]:
+    def infer(self, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """推論を実行する.
 
         ONNX Runtime で推論し, 後処理 (softmax, デコード, NMS) を適用して

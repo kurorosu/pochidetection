@@ -9,7 +9,7 @@
 - 無し.
 
 ### Changed
-- 無し.
+- `IInferenceBackend` を `Generic[TOutput]` に変更し, 全バックエンド実装の `infer()` 入出力型を具体化. `Any` を排除し mypy による型不整合検出を可能にした. (N/A.)
 
 ### Removed
 - 無し.
