@@ -83,5 +83,6 @@ addopts = "-v -n 6"
 filterwarnings = [
     "ignore:.*legacy TorchScript-based ONNX export.*:DeprecationWarning",
     "ignore::torch.jit.TracerWarning",
-    "ignore:.*The feature will be removed.*:DeprecationWarning"
+    "ignore:.*The feature will be removed.*:DeprecationWarning",
+    "ignore:.*Superseded by explicit quantization.*:DeprecationWarning",
 ]

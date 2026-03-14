@@ -26,8 +26,6 @@ class TestRTDetrModel:
 
     def test_forward_inference(self, rtdetr_model: RTDetrModel) -> None:
         """推論時のforward処理が正しく動作することを確認."""
-        was_training = rtdetr_model.training
-        rtdetr_model.eval()
         batch_size = 1
         pixel_values = torch.randn(batch_size, 3, 64, 64)
 
@@ -39,8 +37,6 @@ class TestRTDetrModel:
         assert outputs["pred_logits"].shape[0] == batch_size
         assert outputs["pred_boxes"].shape[0] == batch_size
         assert outputs["pred_boxes"].shape[2] == 4  # [cx, cy, w, h]
-
-        rtdetr_model.train(was_training)
 
     def test_forward_with_labels(self, rtdetr_model: RTDetrModel) -> None:
         """学習時のforward処理が損失を返すことを確認."""
