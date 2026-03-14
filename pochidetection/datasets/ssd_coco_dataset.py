@@ -8,7 +8,9 @@ from PIL import Image
 from torchvision import tv_tensors
 from torchvision.transforms import v2
 
+from pochidetection.configs.schemas import ImageSizeDict
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
+from pochidetection.interfaces.dataset import DatasetSampleDict
 
 
 class SsdCocoDataset(BaseCocoDataset):
@@ -29,7 +31,7 @@ class SsdCocoDataset(BaseCocoDataset):
     def __init__(
         self,
         root: str | Path,
-        image_size: dict[str, int],
+        image_size: ImageSizeDict,
         annotation_file: str | None = None,
     ) -> None:
         """初期化.
@@ -59,7 +61,7 @@ class SsdCocoDataset(BaseCocoDataset):
         annotations: list[dict[str, Any]],
         orig_w: int,
         orig_h: int,
-    ) -> dict[str, Any]:
+    ) -> DatasetSampleDict:
         """画像とアノテーションを SSD 形式に変換.
 
         v2 transforms が画像リサイズとボックス座標変換を一括処理する.

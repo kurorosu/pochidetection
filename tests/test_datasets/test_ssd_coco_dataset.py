@@ -7,6 +7,7 @@ import pytest
 import torch
 from PIL import Image
 
+from pochidetection.configs.schemas import ImageSizeDict
 from pochidetection.datasets import SsdCocoDataset
 from pochidetection.interfaces import IDetectionDataset
 
@@ -84,24 +85,24 @@ class TestSsdCocoDataset:
         return tmp_path
 
     @pytest.fixture
-    def image_size(self) -> dict[str, int]:
+    def image_size(self) -> ImageSizeDict:
         """テスト用の画像サイズ."""
         return {"height": 320, "width": 320}
 
     def test_implements_interface(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """IDetectionDataset を実装していることを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
         assert isinstance(dataset, IDetectionDataset)
 
-    def test_len(self, sample_dataset_dir: Path, image_size: dict[str, int]) -> None:
+    def test_len(self, sample_dataset_dir: Path, image_size: ImageSizeDict) -> None:
         """__len__ が正しい値を返すことを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
         assert len(dataset) == 3
 
     def test_getitem_returns_correct_keys(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """__getitem__ が正しいキーを持つ辞書を返すことを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
@@ -113,7 +114,7 @@ class TestSsdCocoDataset:
         assert "class_labels" in sample["labels"]
 
     def test_getitem_pixel_values_shape(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """pixel_values がリサイズ後のサイズであることを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
@@ -122,7 +123,7 @@ class TestSsdCocoDataset:
         assert sample["pixel_values"].shape == (3, 320, 320)
 
     def test_getitem_boxes_are_xyxy(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """ボックスが xyxy ピクセル座標であることを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
@@ -139,7 +140,7 @@ class TestSsdCocoDataset:
         assert torch.allclose(boxes[0], expected_first_box)
 
     def test_getitem_labels_are_0_indexed(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """ラベルが 0-indexed であることを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
@@ -155,7 +156,7 @@ class TestSsdCocoDataset:
         assert class_labels[1].item() == 1  # dog
 
     def test_getitem_no_annotations(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """アノテーションがない画像でも正しく動作することを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
@@ -168,7 +169,7 @@ class TestSsdCocoDataset:
         assert class_labels.shape == (0,)
 
     def test_get_categories(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """get_categories が正しいカテゴリ情報を返すことを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
@@ -179,14 +180,14 @@ class TestSsdCocoDataset:
         assert categories[1]["name"] == "dog"
 
     def test_get_num_classes(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """get_num_classes が正しいクラス数を返すことを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
         assert dataset.get_num_classes() == 2
 
     def test_pixel_values_are_zero_one_range(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """pixel_values が [0, 1] 範囲であることを確認.
 
@@ -201,7 +202,7 @@ class TestSsdCocoDataset:
         assert pixel_values.max() <= 1.0
 
     def test_get_category_names(
-        self, sample_dataset_dir: Path, image_size: dict[str, int]
+        self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
         """get_category_names が正しいカテゴリ名を返すことを確認."""
         dataset = SsdCocoDataset(sample_dataset_dir, image_size)
@@ -209,14 +210,14 @@ class TestSsdCocoDataset:
         assert names == ["cat", "dog"]
 
     def test_annotation_file_not_found(
-        self, tmp_path: Path, image_size: dict[str, int]
+        self, tmp_path: Path, image_size: ImageSizeDict
     ) -> None:
         """アノテーションファイルが見つからない場合にエラーが発生することを確認."""
         with pytest.raises(FileNotFoundError):
             SsdCocoDataset(tmp_path, image_size)
 
     def test_zero_size_bbox_is_skipped(
-        self, tmp_path: Path, image_size: dict[str, int]
+        self, tmp_path: Path, image_size: ImageSizeDict
     ) -> None:
         """w=0 または h=0 の bbox がスキップされることを確認."""
         images_dir = tmp_path / "JPEGImages"

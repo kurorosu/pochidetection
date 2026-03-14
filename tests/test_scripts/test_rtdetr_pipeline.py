@@ -8,7 +8,7 @@ from PIL import Image
 from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
-from pochidetection.interfaces.backend import IInferenceBackend
+from pochidetection.interfaces import IInferenceBackend
 from pochidetection.scripts.rtdetr.inference.rtdetr_pipeline import (
     RTDetrPipeline,
 )
@@ -25,14 +25,16 @@ DUMMY_TRANSFORM = v2.Compose(
 )
 
 
-class DummyBackend(IInferenceBackend):
+class DummyBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
     """テスト用のダミー推論バックエンド."""
 
     def __init__(self) -> None:
         self.infer_called = False
         self.synchronize_called = False
 
-    def infer(self, inputs: Any) -> tuple[Any, Any]:
+    def infer(
+        self, inputs: dict[str, torch.Tensor]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """ダミー推論."""
         self.infer_called = True
         return torch.zeros((1, 100, 2)), torch.zeros((1, 100, 4))

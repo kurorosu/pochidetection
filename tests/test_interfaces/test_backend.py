@@ -1,17 +1,16 @@
 """IInferenceBackendのテスト."""
 
-from typing import Any
-
 import numpy as np
 import pytest
+import torch
 
 from pochidetection.interfaces import IInferenceBackend
 
 
-class DummyBackend(IInferenceBackend):
+class DummyBackend(IInferenceBackend[tuple[np.ndarray, np.ndarray]]):
     """テスト用のダミーバックエンド."""
 
-    def infer(self, inputs: Any) -> tuple[np.ndarray, np.ndarray]:
+    def infer(self, inputs: dict[str, torch.Tensor]) -> tuple[np.ndarray, np.ndarray]:
         """ダミーの推論を実行."""
         logits = np.zeros((1, 5, 2))
         boxes = np.zeros((1, 5, 4))
@@ -41,7 +40,7 @@ class TestIInferenceBackend:
     def test_concrete_implementation(self) -> None:
         """具象クラスでメソッドが呼べることを確認."""
         backend = DummyBackend()
-        inputs = np.zeros((1, 3, 64, 64))
+        inputs = {"pixel_values": torch.zeros(1, 3, 64, 64)}
 
         logits, boxes = backend.infer(inputs)
         assert logits.shape == (1, 5, 2)

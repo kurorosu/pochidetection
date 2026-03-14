@@ -6,7 +6,8 @@ from typing import Any
 import torch
 from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
 
-from pochidetection.interfaces.model import IDetectionModel
+from pochidetection.configs.schemas import ImageSizeDict
+from pochidetection.interfaces.model import IDetectionModel, ModelOutputDict
 
 
 class RTDetrModel(IDetectionModel):
@@ -26,7 +27,7 @@ class RTDetrModel(IDetectionModel):
         model_name: str = "PekingU/rtdetr_r50vd",
         num_classes: int | None = None,
         pretrained: bool = True,
-        image_size: dict[str, int] | None = None,
+        image_size: ImageSizeDict | None = None,
     ) -> None:
         """RTDetrModelを初期化.
 
@@ -66,7 +67,7 @@ class RTDetrModel(IDetectionModel):
         self,
         pixel_values: torch.Tensor,
         labels: list[dict[str, torch.Tensor]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> ModelOutputDict:
         """順伝播.
 
         Args:
@@ -83,7 +84,7 @@ class RTDetrModel(IDetectionModel):
         """
         outputs = self._model(pixel_values=pixel_values, labels=labels)
 
-        result: dict[str, Any] = {
+        result: ModelOutputDict = {
             "pred_logits": outputs.logits,
             "pred_boxes": outputs.pred_boxes,
         }

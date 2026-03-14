@@ -8,6 +8,7 @@ from PIL import Image
 from transformers import RTDetrImageProcessor
 
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
+from pochidetection.interfaces.dataset import DatasetSampleDict
 
 
 class CocoDetectionDataset(BaseCocoDataset):
@@ -53,7 +54,7 @@ class CocoDetectionDataset(BaseCocoDataset):
         annotations: list[dict[str, Any]],
         orig_w: int,
         orig_h: int,
-    ) -> dict[str, Any]:
+    ) -> DatasetSampleDict:
         """画像とアノテーションを RT-DETR 形式に変換.
 
         Args:

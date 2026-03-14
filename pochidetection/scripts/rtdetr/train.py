@@ -3,10 +3,13 @@
 transformersのRT-DETRをCOCO形式データセットでファインチューニングする.
 """
 
+import logging
 from typing import Any
 
 import torch
+from transformers import RTDetrImageProcessor
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
@@ -18,7 +21,7 @@ from pochidetection.scripts.common.training import (
 )
 
 
-def train(config: dict[str, Any], config_path: str) -> None:
+def train(config: DetectionConfigDict, config_path: str) -> None:
     """ファインチューニング.
 
     Args:
@@ -36,9 +39,9 @@ def train(config: dict[str, Any], config_path: str) -> None:
 
 
 def _setup_training(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     config_path: str,
-    logger: Any,
+    logger: logging.Logger,
 ) -> TrainingContext:
     """学習環境の構築.
 
@@ -51,13 +54,13 @@ def _setup_training(
         構築済みの学習コンテキスト.
     """
     # processor はモデル構築後に取得する必要があるため, リストで共有する
-    processor_holder: list[Any] = []
+    processor_holder: list[RTDetrImageProcessor] = []
 
-    def model_factory(cfg: dict[str, Any]) -> IDetectionModel:
+    def model_factory(cfg: DetectionConfigDict) -> IDetectionModel:
         model = RTDetrModel(
             cfg["model_name"],
             num_classes=cfg["num_classes"],
-            image_size=cfg.get("image_size", {"height": 640, "width": 640}),
+            image_size=cfg["image_size"],
         )
         processor_holder.append(model.processor)
         return model
@@ -76,7 +79,7 @@ def _setup_training(
 
 def _validate(
     ctx: TrainingContext,
-    logger: Any,
+    logger: logging.Logger,
 ) -> tuple[float, dict[str, Any]]:
     """検証ループ + mAP 計算.
 

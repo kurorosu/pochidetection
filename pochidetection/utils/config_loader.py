@@ -12,7 +12,7 @@ from typing import Any, cast
 
 from pydantic import ValidationError
 
-from pochidetection.configs.schemas import DetectionConfig
+from pochidetection.configs.schemas import DetectionConfig, DetectionConfigDict
 
 _BASE_CONFIG_NAME = "_base.py"
 
@@ -34,7 +34,7 @@ class ConfigLoader:
     CONFIG_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
     @classmethod
-    def load(cls, config_path: str | Path) -> dict[str, Any]:
+    def load(cls, config_path: str | Path) -> DetectionConfigDict:
         """設定を読み込み, Pydantic バリデーションを行う.
 
         Args:
@@ -53,7 +53,7 @@ class ConfigLoader:
         except ValidationError as error:
             error.add_note(f"設定ファイルのバリデーションに失敗しました: {config_path}")
             raise
-        return cast(dict[str, Any], validated.model_dump())
+        return cast(DetectionConfigDict, validated.model_dump())
 
     @classmethod
     def _load_file(cls, config_path: str | Path) -> dict[str, Any]:
@@ -86,7 +86,7 @@ class ConfigLoader:
         return config
 
     @staticmethod
-    def write_config(config: dict[str, Any], path: Path) -> None:
+    def write_config(config: DetectionConfigDict, path: Path) -> None:
         """設定辞書を Python ファイルとして書き出す.
 
         ベースマージ済みの全パラメータを単一ファイルに展開して保存する.

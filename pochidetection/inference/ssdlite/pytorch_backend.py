@@ -1,7 +1,5 @@
 """SSDLite PyTorch 推論バックエンド."""
 
-from typing import Any
-
 import torch
 
 from pochidetection.inference.sync import synchronize_cuda
@@ -9,7 +7,7 @@ from pochidetection.interfaces import IInferenceBackend
 from pochidetection.models import SSDLiteModel
 
 
-class SSDLitePyTorchBackend(IInferenceBackend):
+class SSDLitePyTorchBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     """SSDLiteModel を使用した PyTorch 推論バックエンド.
 
     Attributes:
@@ -24,7 +22,7 @@ class SSDLitePyTorchBackend(IInferenceBackend):
         """
         self._model = model
 
-    def infer(self, inputs: Any) -> dict[str, torch.Tensor]:
+    def infer(self, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """推論を実行する.
 
         Args:

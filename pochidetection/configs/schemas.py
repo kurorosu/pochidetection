@@ -1,7 +1,7 @@
 """Pydantic 設定スキーマ."""
 
 import warnings
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from pydantic import (
     BaseModel,
@@ -12,6 +12,63 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+
+class ImageSizeDict(TypedDict):
+    """画像サイズの TypedDict."""
+
+    height: int
+    width: int
+
+
+class DetectionConfigDict(TypedDict, total=False):
+    """DetectionConfig.model_dump() の出力に対応する TypedDict.
+
+    ConfigLoader.load() の戻り値型として使用する.
+    ランタイムのバリデーションは DetectionConfig (Pydantic) が担い,
+    この TypedDict は mypy による静的型チェック (キー名の typo 検出,
+    値の型検査) を目的とする.
+
+    total=False により全キーがオプショナルとなるが,
+    Pydantic バリデーション済みのため実行時は全キーが存在する.
+    """
+
+    architecture: str
+    model_name: str
+    pretrained: bool
+    image_size: ImageSizeDict
+
+    data_root: str
+    train_split: str
+    val_split: str
+    batch_size: int
+    epochs: int
+    learning_rate: float
+    num_classes: int
+    class_names: list[str] | None
+
+    loss: str
+    metrics: str
+    dataset: str
+    device: str
+    cudnn_benchmark: bool
+    use_fp16: bool
+
+    train_score_threshold: float
+    infer_score_threshold: float
+    nms_iou_threshold: float
+
+    lr_scheduler: str | None
+    lr_scheduler_params: dict[str, Any] | None
+
+    early_stopping_patience: int | None
+    early_stopping_metric: str
+    early_stopping_min_delta: float
+
+    annotation_path: str | None
+    infer_image_dir: str | None
+
+    work_dir: str
 
 
 class ImageSizeConfig(BaseModel):

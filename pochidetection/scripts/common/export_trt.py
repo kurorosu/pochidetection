@@ -66,7 +66,7 @@ def export_trt(
             int8_calibrator=int8_calibrator,
             build_memory=build_memory,
         )
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         logger.error(f"TensorRTエクスポートに失敗しました: {e}")
         sys.exit(1)
 

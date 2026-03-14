@@ -1,7 +1,5 @@
 """PyTorch 推論バックエンド."""
 
-from typing import Any
-
 import torch
 
 from pochidetection.inference.sync import synchronize_cuda
@@ -9,7 +7,7 @@ from pochidetection.interfaces import IInferenceBackend
 from pochidetection.models import RTDetrModel
 
 
-class RTDetrPyTorchBackend(IInferenceBackend):
+class RTDetrPyTorchBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
     """PyTorch および RTDetrModel を使用した推論バックエンド."""
 
     def __init__(self, model: RTDetrModel) -> None:
@@ -26,7 +24,7 @@ class RTDetrPyTorchBackend(IInferenceBackend):
         """推論を実行する.
 
         Args:
-            inputs: モデルの forward に渡す引数辞書.
+            inputs: 前処理済みの入力テンソル辞書.
 
         Returns:
             pred_logits と pred_boxes のタプル.

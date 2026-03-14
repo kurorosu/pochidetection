@@ -33,7 +33,7 @@ class SSDLitePipeline(IDetectionPipeline):
 
     def __init__(
         self,
-        backend: IInferenceBackend,
+        backend: IInferenceBackend[dict[str, torch.Tensor]],
         transform: v2.Compose,
         image_size: tuple[int, int],
         device: str = "cuda",

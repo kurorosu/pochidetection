@@ -2,9 +2,11 @@
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.scripts.common.inference import is_onnx_model
 from pochidetection.scripts.rtdetr.infer import _load_processor
 
@@ -49,7 +51,7 @@ class TestLoadProcessor:
             )
         )
 
-        processor = _load_processor(onnx_file, {})
+        processor = _load_processor(onnx_file, cast(DetectionConfigDict, {}))
         assert processor is not None
 
     def test_onnx_with_model_name_fallback(self, tmp_path: Path) -> None:
@@ -57,7 +59,7 @@ class TestLoadProcessor:
         onnx_file = tmp_path / "model.onnx"
         onnx_file.write_bytes(b"dummy")
 
-        config = {"model_name": "PekingU/rtdetr_r18vd"}
+        config = cast(DetectionConfigDict, {"model_name": "PekingU/rtdetr_r18vd"})
         processor = _load_processor(onnx_file, config)
         assert processor is not None
 
@@ -67,4 +69,4 @@ class TestLoadProcessor:
         onnx_file.write_bytes(b"dummy")
 
         with pytest.raises(RuntimeError, match="RTDetrImageProcessor を解決できません"):
-            _load_processor(onnx_file, {})
+            _load_processor(onnx_file, cast(DetectionConfigDict, {}))

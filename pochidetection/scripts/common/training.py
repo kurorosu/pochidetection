@@ -4,6 +4,7 @@ RT-DETR と SSDLite で共有されるエポックループ, Early Stopping,
 データローダー構築, レポート出力のロジックを提供する.
 """
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, NamedTuple, Protocol
@@ -13,6 +14,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics.detection import MeanAveragePrecision
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core import DetectionCollator
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
@@ -35,8 +37,8 @@ class TrainingContext(NamedTuple):
     """学習コンテキスト (アーキテクチャ共通)."""
 
     model: IDetectionModel
-    train_loader: DataLoader  # type: ignore[type-arg]
-    val_loader: DataLoader  # type: ignore[type-arg]
+    train_loader: DataLoader[dict[str, Any]]
+    val_loader: DataLoader[dict[str, Any]]
     optimizer: torch.optim.Optimizer
     scheduler: torch.optim.lr_scheduler.LRScheduler | None
     map_metric: MeanAveragePrecision
@@ -48,15 +50,15 @@ class TrainingContext(NamedTuple):
 
 
 DatasetFactory = Callable[[Path], Dataset[dict[str, Any]]]
-ModelFactory = Callable[[dict[str, Any]], IDetectionModel]
+ModelFactory = Callable[[DetectionConfigDict], IDetectionModel]
 
 
 def setup_training(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     config_path: str,
     model_factory: ModelFactory,
     dataset_factory: DatasetFactory,
-    logger: Any,
+    logger: logging.Logger,
 ) -> TrainingContext:
     """学習環境の共通セットアップ.
 
@@ -123,10 +125,10 @@ def setup_training(
 
 
 def build_data_loaders(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     dataset_factory: DatasetFactory,
-    logger: Any,
-) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
+    logger: logging.Logger,
+) -> tuple[DataLoader[dict[str, Any]], DataLoader[dict[str, Any]]]:
     """学習・検証用データローダーを構築.
 
     Args:
@@ -179,7 +181,7 @@ class Validator(Protocol):
     """検証ループのプロトコル."""
 
     def __call__(
-        self, ctx: TrainingContext, logger: Any
+        self, ctx: TrainingContext, logger: logging.Logger
     ) -> tuple[float, dict[str, Any]]:
         """検証を実行して損失と mAP 結果を返す.
 
@@ -194,7 +196,7 @@ class Validator(Protocol):
 
 
 def run_training_loop(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     ctx: TrainingContext,
     validate: Validator,
 ) -> None:
@@ -277,7 +279,7 @@ def run_training_loop(
     save_results(config, ctx, history, map_result, logger)
 
 
-def build_early_stopping(config: dict[str, Any]) -> EarlyStopping | None:
+def build_early_stopping(config: DetectionConfigDict) -> EarlyStopping | None:
     """設定から EarlyStopping を構築.
 
     Args:
@@ -328,11 +330,11 @@ def train_one_epoch(ctx: TrainingContext) -> tuple[float, float]:
 
 
 def save_results(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     ctx: TrainingContext,
     history: TrainingHistory,
     map_result: dict[str, Any],
-    logger: Any,
+    logger: logging.Logger,
 ) -> None:
     """モデル保存 + レポート出力.
 
@@ -386,7 +388,7 @@ def _save_best(
     ctx: TrainingContext,
     metric_name: str,
     metric_value: float,
-    logger: Any,
+    logger: logging.Logger,
 ) -> None:
     """Best model を保存.
 

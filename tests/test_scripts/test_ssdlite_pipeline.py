@@ -1,7 +1,5 @@
 """SSDLitePipeline のテスト."""
 
-from typing import Any
-
 import pytest
 import torch
 from PIL import Image
@@ -16,7 +14,7 @@ from pochidetection.scripts.ssdlite.inference.ssdlite_pipeline import (
 from pochidetection.utils import PhasedTimer
 
 
-class DummyBackend(IInferenceBackend):
+class DummyBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     """テスト用のダミー推論バックエンド.
 
     SSDLitePyTorchBackend と同じ出力形式を返す.
@@ -41,7 +39,7 @@ class DummyBackend(IInferenceBackend):
             }
         ]
 
-    def infer(self, inputs: Any) -> dict[str, torch.Tensor]:
+    def infer(self, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """ダミー推論."""
         self.call_count += 1
         return self._predictions[0]
