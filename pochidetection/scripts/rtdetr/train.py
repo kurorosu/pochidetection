@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 import torch
+from transformers import RTDetrImageProcessor
 
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.interfaces.model import IDetectionModel
@@ -52,7 +53,7 @@ def _setup_training(
         構築済みの学習コンテキスト.
     """
     # processor はモデル構築後に取得する必要があるため, リストで共有する
-    processor_holder: list[Any] = []
+    processor_holder: list[RTDetrImageProcessor] = []
 
     def model_factory(cfg: dict[str, Any]) -> IDetectionModel:
         model = RTDetrModel(

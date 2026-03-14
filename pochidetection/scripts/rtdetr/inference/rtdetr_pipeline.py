@@ -1,11 +1,10 @@
 """E2E 推論パイプライン."""
 
-from typing import Any
-
 import torch
 import torchvision
 from PIL import Image
 from torchvision.transforms import v2
+from transformers import RTDetrImageProcessor
 
 from pochidetection.core.detection import Detection, OutputWrapper
 from pochidetection.interfaces.backend import IInferenceBackend
@@ -34,7 +33,7 @@ class RTDetrPipeline(IDetectionPipeline):
     def __init__(
         self,
         backend: IInferenceBackend[tuple[torch.Tensor, torch.Tensor]],
-        processor: Any,
+        processor: RTDetrImageProcessor,
         transform: v2.Compose,
         device: str = "cuda",
         threshold: float = 0.5,
