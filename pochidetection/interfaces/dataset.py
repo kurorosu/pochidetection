@@ -1,7 +1,21 @@
 """物体検出データセットのインターフェース."""
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TypedDict
+
+import torch
+
+
+class DatasetSampleDict(TypedDict):
+    """IDetectionDataset.__getitem__() の戻り値型.
+
+    データセットが返す 1 サンプルの構造を定義する.
+    ``pixel_values`` は前処理済み画像テンソル,
+    ``labels`` はバウンディングボックスとクラスラベルを含む辞書.
+    """
+
+    pixel_values: torch.Tensor
+    labels: dict[str, torch.Tensor]
 
 
 class IDetectionDataset(ABC):
@@ -20,7 +34,7 @@ class IDetectionDataset(ABC):
         pass
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> dict[str, Any]:
+    def __getitem__(self, idx: int) -> DatasetSampleDict:
         """インデックスでサンプルを取得.
 
         Args:

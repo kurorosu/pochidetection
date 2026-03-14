@@ -16,6 +16,7 @@
 - エクスポートスクリプトの `except Exception` を `(OSError, ValueError, RuntimeError)` 等の具体的な例外型に絞り込み. 想定外の例外を握りつぶさないように改善. ([#317](https://github.com/kurorosu/pochidetection/pull/317).)
 - `type: ignore` コメント 6 箇所を解消. `DataLoader` 型引数の明示化, `SSD` 型アノテーション追加, `DetectionConfigDict` 導入による `[index]` 抑制解消. 条件付き基底クラス (`calibrator.py`) の 1 箇所は mypy の制約により残存. ([#318](https://github.com/kurorosu/pochidetection/pull/318).)
 - `IDetectionModel.forward()` の戻り値 `dict[str, Any]` を `ModelOutputDict` (TypedDict) に変更. `RTDetrModel`, `SSDLiteModel` も同様に適用. ([#319](https://github.com/kurorosu/pochidetection/pull/319).)
+- `IDetectionDataset.__getitem__()` の戻り値 `dict[str, Any]` を `DatasetSampleDict` (TypedDict) に変更. `BaseCocoDataset`, `CocoDetectionDataset`, `SsdCocoDataset` も同様に適用. ([#320](https://github.com/kurorosu/pochidetection/pull/320).)
 
 ### Removed
 - 無し.

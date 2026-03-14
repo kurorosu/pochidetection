@@ -8,14 +8,14 @@ from typing import Any
 from PIL import Image
 from torch.utils.data import Dataset
 
-from pochidetection.interfaces.dataset import IDetectionDataset
+from pochidetection.interfaces.dataset import DatasetSampleDict, IDetectionDataset
 from pochidetection.utils.category_utils import (
     build_category_id_to_idx,
     filter_categories,
 )
 
 
-class BaseCocoDataset(Dataset[dict[str, Any]], IDetectionDataset):
+class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
     """COCO 形式データセットの基底クラス.
 
     アノテーション読み込み, カテゴリ管理, 画像ロードの共通ロジックを提供する.
@@ -119,7 +119,7 @@ class BaseCocoDataset(Dataset[dict[str, Any]], IDetectionDataset):
         """
         return len(self._images)
 
-    def __getitem__(self, idx: int) -> dict[str, Any]:
+    def __getitem__(self, idx: int) -> DatasetSampleDict:
         """インデックスでサンプルを取得.
 
         Args:
@@ -159,7 +159,7 @@ class BaseCocoDataset(Dataset[dict[str, Any]], IDetectionDataset):
         annotations: list[dict[str, Any]],
         orig_w: int,
         orig_h: int,
-    ) -> dict[str, Any]:
+    ) -> DatasetSampleDict:
         """画像とアノテーションを変換してサンプルを生成する.
 
         Args:
