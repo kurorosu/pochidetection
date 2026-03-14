@@ -3,6 +3,7 @@
 torchvision の SSDLite を COCO 形式データセットでファインチューニングする.
 """
 
+import logging
 from functools import partial
 from typing import Any
 
@@ -54,7 +55,7 @@ def _create_model(config: dict[str, Any]) -> IDetectionModel:
 def _setup_training(
     config: dict[str, Any],
     config_path: str,
-    logger: Any,
+    logger: logging.Logger,
 ) -> TrainingContext:
     """学習環境の構築.
 
@@ -82,7 +83,7 @@ def _setup_training(
 
 def _validate(
     ctx: TrainingContext,
-    logger: Any,
+    logger: logging.Logger,
 ) -> tuple[float, dict[str, Any]]:
     """検証ループ + mAP 計算.
 

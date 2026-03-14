@@ -4,6 +4,7 @@ RT-DETR と SSDLite で共有されるエポックループ, Early Stopping,
 データローダー構築, レポート出力のロジックを提供する.
 """
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal, NamedTuple, Protocol
@@ -56,7 +57,7 @@ def setup_training(
     config_path: str,
     model_factory: ModelFactory,
     dataset_factory: DatasetFactory,
-    logger: Any,
+    logger: logging.Logger,
 ) -> TrainingContext:
     """学習環境の共通セットアップ.
 
@@ -125,7 +126,7 @@ def setup_training(
 def build_data_loaders(
     config: dict[str, Any],
     dataset_factory: DatasetFactory,
-    logger: Any,
+    logger: logging.Logger,
 ) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
     """学習・検証用データローダーを構築.
 
@@ -179,7 +180,7 @@ class Validator(Protocol):
     """検証ループのプロトコル."""
 
     def __call__(
-        self, ctx: TrainingContext, logger: Any
+        self, ctx: TrainingContext, logger: logging.Logger
     ) -> tuple[float, dict[str, Any]]:
         """検証を実行して損失と mAP 結果を返す.
 
@@ -332,7 +333,7 @@ def save_results(
     ctx: TrainingContext,
     history: TrainingHistory,
     map_result: dict[str, Any],
-    logger: Any,
+    logger: logging.Logger,
 ) -> None:
     """モデル保存 + レポート出力.
 
@@ -386,7 +387,7 @@ def _save_best(
     ctx: TrainingContext,
     metric_name: str,
     metric_value: float,
-    logger: Any,
+    logger: logging.Logger,
 ) -> None:
     """Best model を保存.
 

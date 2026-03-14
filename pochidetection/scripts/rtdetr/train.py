@@ -3,6 +3,7 @@
 transformersのRT-DETRをCOCO形式データセットでファインチューニングする.
 """
 
+import logging
 from typing import Any
 
 import torch
@@ -38,7 +39,7 @@ def train(config: dict[str, Any], config_path: str) -> None:
 def _setup_training(
     config: dict[str, Any],
     config_path: str,
-    logger: Any,
+    logger: logging.Logger,
 ) -> TrainingContext:
     """学習環境の構築.
 
@@ -76,7 +77,7 @@ def _setup_training(
 
 def _validate(
     ctx: TrainingContext,
-    logger: Any,
+    logger: logging.Logger,
 ) -> tuple[float, dict[str, Any]]:
     """検証ループ + mAP 計算.
 
