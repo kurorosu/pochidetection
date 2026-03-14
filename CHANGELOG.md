@@ -13,6 +13,7 @@
 - 学習スクリプトの `logger: Any` 型アノテーションを `logging.Logger` に修正. `Validator` Protocol を含む全 9 箇所を修正. mypy の `work_dirs/` 除外設定を追加. ([#314](https://github.com/kurorosu/pochidetection/pull/314).)
 - `RTDetrPipeline` の `processor: Any` を `RTDetrImageProcessor` に修正. `processor_holder: list[Any]` も同様に具体化. ([#315](https://github.com/kurorosu/pochidetection/pull/315).)
 - 設定辞書 `config: dict[str, Any]` を `DetectionConfigDict` (TypedDict) に置換. `ImageSizeDict` も導入し, mypy によるキー名・値型の静的チェックを可能にした. 全 17 ソースファイル + 6 テストファイルを修正. ([#316](https://github.com/kurorosu/pochidetection/pull/316).)
+- エクスポートスクリプトの `except Exception` を `(OSError, ValueError, RuntimeError)` 等の具体的な例外型に絞り込み. 想定外の例外を握りつぶさないように改善. ([#317](https://github.com/kurorosu/pochidetection/pull/317).)
 
 ### Removed
 - 無し.

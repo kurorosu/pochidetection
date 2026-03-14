@@ -55,7 +55,7 @@ def export_onnx(
 
     try:
         exporter.load_model(model_path)
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         logger.error(f"モデルの読み込みに失敗: {e}")
         sys.exit(1)
 
@@ -66,7 +66,7 @@ def export_onnx(
             input_size=(height, width),
             opset_version=opset_version,
         )
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         logger.error(f"ONNX変換に失敗: {e}")
         sys.exit(1)
 
@@ -82,7 +82,7 @@ def export_onnx(
             else:
                 logger.warning("PyTorchとONNXの出力に差異があります")
                 sys.exit(1)
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"ONNX検証に失敗: {e}")
             sys.exit(1)
     else:
