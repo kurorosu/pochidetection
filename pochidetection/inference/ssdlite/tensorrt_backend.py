@@ -25,7 +25,7 @@ from pochidetection.tensorrt.memory import TensorBinding, allocate_bindings
 logger: logging.Logger = LoggerManager().get_logger(__name__)
 
 
-class SSDLiteTensorRTBackend(IInferenceBackend):
+class SSDLiteTensorRTBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     """TensorRT エンジンを使用した SSDLite 推論バックエンド.
 
     TensorRT エンジンの生出力 (cls_logits, bbox_regression) から

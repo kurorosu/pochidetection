@@ -33,7 +33,7 @@ class RTDetrPipeline(IDetectionPipeline):
 
     def __init__(
         self,
-        backend: IInferenceBackend,
+        backend: IInferenceBackend[tuple[torch.Tensor, torch.Tensor]],
         processor: Any,
         transform: v2.Compose,
         device: str = "cuda",

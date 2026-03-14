@@ -17,7 +17,6 @@ try:
     _TRT_AVAILABLE = True
 except ImportError:
     _TRT_AVAILABLE = False
-from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
 from pochidetection.scripts.common.inference import (
@@ -61,7 +60,7 @@ def infer(
 
 def _create_pytorch_backend(
     model_path: Path, device: str, use_fp16: bool, config: dict[str, Any]
-) -> IInferenceBackend:
+) -> SSDLitePyTorchBackend:
     """モデル固有の PyTorch バックエンドを生成する.
 
     Args:
