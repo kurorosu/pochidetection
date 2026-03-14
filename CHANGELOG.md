@@ -22,7 +22,7 @@
 - 無し.
 
 ### Fixed
-- 無し.
+- `EarlyStopping._is_improvement()` の `assert` を明示的な `RuntimeError` に置き換え. `python -O` 実行時にもガードが有効になるよう改善. ([#321](https://github.com/kurorosu/pochidetection/pull/321).)
 
 ## v0.10.0 (2026-03-14)
 
