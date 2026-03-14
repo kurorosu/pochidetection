@@ -21,7 +21,6 @@ def rtdetr_onnx_path(
     """エクスポート済みONNXファイルを作成するfixture."""
     tmp_dir = tmp_path_factory.mktemp("onnx")
     output_path = tmp_dir / "model.onnx"
-    rtdetr_model.eval()
     exporter = RTDetrOnnxExporter(model=rtdetr_model)
     exporter.export(output_path, input_size=RTDETR_INPUT_SIZE)
     return Path(output_path)

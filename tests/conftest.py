@@ -15,11 +15,14 @@ def rtdetr_model() -> RTDetrModel:
     """テスト用の軽量RTDetrModelを作成するsessionスコープfixture.
 
     全テストで1つのインスタンスを共有し, モデル初期化コストを削減する.
+    eval モードで返すため, train モードが必要なテストでは
+    was_training パターンで一時切り替え・復元すること.
     """
     model = RTDetrModel(
         model_name="PekingU/rtdetr_r18vd", num_classes=2, pretrained=False
     )
     model.model.config.num_queries = 50
+    model.eval()
     return model
 
 
