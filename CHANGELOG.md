@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し.
+- CLI 統合テストを追加. 引数パース (train/infer/export), アーキテクチャ別ディスパッチ (`_resolve_train`/`_resolve_infer`), コマンド間パス引き継ぎ (`resolve_config_path`), `run_infer` バリデーションの計 22 テストケース. (N/A.)
 
 ### Changed
 - 無し.
