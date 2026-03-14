@@ -8,6 +8,8 @@ import numpy as np
 import onnxruntime as ort
 import torch
 
+from pochidetection.inference.providers import resolve_providers
+from pochidetection.inference.validation import validate_inputs, validate_model_file
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
 
@@ -43,19 +45,10 @@ class RTDetrOnnxBackend(IInferenceBackend):
             ValueError: model_path がファイルでない, または .onnx でない場合.
             ValueError: モデルの入力 dtype が tensor(float) でない場合.
         """
-        if not model_path.exists():
-            raise FileNotFoundError(f"ONNXモデルが見つかりません: {model_path}")
-        if not model_path.is_file():
-            raise ValueError(
-                f"ONNXモデルのパスはファイルである必要があります: {model_path}"
-            )
-        if model_path.suffix.lower() != ".onnx":
-            raise ValueError(
-                f"ONNXモデルのファイル拡張子は .onnx である必要があります: {model_path}"
-            )
+        validate_model_file(model_path, "ONNXモデル", ".onnx")
 
         if providers is None:
-            providers = self._resolve_providers(device)
+            providers = resolve_providers(device)
 
         # RT-DETR の ScatterND オペレータが CUDA EP で大量の WARNING を出すため,
         # ONNX Runtime の C++ ロガーを ERROR 以上に制限する.
@@ -70,26 +63,6 @@ class RTDetrOnnxBackend(IInferenceBackend):
         logger.info(f"ONNX Runtime providers: {active_providers}")
 
         self._validate_input_dtype()
-
-    @staticmethod
-    def _resolve_providers(device: str) -> list[str]:
-        """デバイス設定に応じた Execution Providers を返す.
-
-        Args:
-            device: 推論デバイス ("cpu" または "cuda").
-
-        Returns:
-            Execution Providers のリスト.
-        """
-        if device == "cuda":
-            available = ort.get_available_providers()
-            providers: list[str] = []
-            if "CUDAExecutionProvider" in available:
-                providers.append("CUDAExecutionProvider")
-            providers.append("CPUExecutionProvider")
-            return providers
-
-        return ["CPUExecutionProvider"]
 
     def _validate_input_dtype(self) -> None:
         """入力テンソルの dtype を検証する.
@@ -120,12 +93,7 @@ class RTDetrOnnxBackend(IInferenceBackend):
         Returns:
             pred_logits と pred_boxes のタプル.
         """
-        missing = [name for name in self._input_names if name not in inputs]
-        if missing:
-            raise ValueError(
-                f"ONNX入力が不足しています: {missing}. "
-                f"利用可能なキー: {list(inputs.keys())}"
-            )
+        validate_inputs(inputs, self._input_names, "ONNX")
 
         numpy_inputs: dict[str, np.ndarray] = {
             name: inputs[name].cpu().float().numpy() for name in self._input_names

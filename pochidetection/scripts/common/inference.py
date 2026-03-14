@@ -4,14 +4,21 @@ RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 ベンチマークサマリーのロジックを提供する.
 """
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
+
+import torch
+from PIL import Image
 
 from pochidetection.core.detection import Detection
+from pochidetection.interfaces.backend import IInferenceBackend
+from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
 from pochidetection.scripts.common import (
     DetectionSummary,
     InferenceSaver,
+    Visualizer,
     build_detection_results,
     build_detection_summary,
     write_detection_results_csv,
@@ -25,6 +32,7 @@ from pochidetection.utils import (
     build_benchmark_result,
     write_benchmark_result,
 )
+from pochidetection.utils.device import is_fp16_available
 from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import (
     ConfusionMatrixPlotter,
@@ -39,6 +47,11 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 
 class InferenceContext(Protocol):
     """推論コンテキストのプロトコル."""
+
+    @property
+    def pipeline(self) -> IDetectionPipeline:
+        """推論パイプライン."""
+        ...
 
     @property
     def phased_timer(self) -> PhasedTimer:
@@ -68,6 +81,11 @@ class InferenceContext(Protocol):
     @property
     def precision(self) -> str:
         """精度 (fp32/fp16)."""
+        ...
+
+    @property
+    def visualizer(self) -> Visualizer:
+        """Visualizer."""
         ...
 
 
@@ -136,12 +154,263 @@ def collect_image_files(image_dir: str) -> list[Path] | None:
     return image_files
 
 
+def is_onnx_model(model_path: Path) -> bool:
+    """モデルパスが ONNX ファイルかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .onnx ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".onnx"
+
+
+def is_tensorrt_model(model_path: Path) -> bool:
+    """モデルパスが TensorRT エンジンかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .engine ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".engine"
+
+
+# バックエンドファクトリコールバックの型
+CreateTrtFn = Callable[[Path], IInferenceBackend]
+CreateOnnxFn = Callable[[Path, str], IInferenceBackend]
+CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend]
+
+
+def create_backend(
+    model_path: Path,
+    config: dict[str, Any],
+    create_trt: CreateTrtFn,
+    create_onnx: CreateOnnxFn,
+    create_pytorch: CreatePytorchFn,
+    trt_available: bool = False,
+) -> tuple[IInferenceBackend, str, bool]:
+    """モデルパスからバックエンドを生成する.
+
+    TensorRT / ONNX / PyTorch の分岐ロジックを共通化し,
+    具象バックエンドの生成はコールバックに委譲する.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+        create_trt: TensorRT バックエンド生成コールバック.
+            (model_path,) を受け取り IInferenceBackend を返す.
+        create_onnx: ONNX バックエンド生成コールバック.
+            (model_path, device) を受け取り IInferenceBackend を返す.
+        create_pytorch: PyTorch バックエンド生成コールバック.
+            (model_path, device, use_fp16) を受け取り IInferenceBackend を返す.
+            FP16 適用 (model.half()) はコールバック側で行う.
+        trt_available: TensorRT が利用可能かどうか.
+
+    Returns:
+        (backend, precision, use_fp16) のタプル.
+    """
+    device = config["device"]
+    use_fp16 = config.get("use_fp16", False)
+
+    if is_tensorrt_model(model_path):
+        if not trt_available:
+            raise ImportError(
+                "tensorrt パッケージがインストールされていません. "
+                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
+            )
+        logger.info("TensorRT backend selected")
+        return create_trt(model_path), "fp32", False
+
+    if is_onnx_model(model_path):
+        logger.info("ONNX backend selected")
+        return create_onnx(model_path, device), "fp32", False
+
+    fp16 = is_fp16_available(use_fp16, device)
+    backend = create_pytorch(model_path, device, fp16)
+
+    if fp16:
+        logger.info("FP16 enabled")
+
+    precision = "fp16" if fp16 else "fp32"
+    return backend, precision, use_fp16
+
+
+class PipelineContext(NamedTuple):
+    """推論パイプラインコンテキスト."""
+
+    pipeline: IDetectionPipeline
+    phased_timer: PhasedTimer
+    visualizer: Visualizer
+    saver: InferenceSaver
+    label_mapper: LabelMapper | None
+    class_names: list[str] | None
+    actual_device: str
+    precision: str
+
+
+def setup_cudnn_benchmark(config: dict[str, Any]) -> None:
+    """cudnn.benchmark を設定する.
+
+    Args:
+        config: 設定辞書.
+    """
+    device = config["device"]
+    if config.get("cudnn_benchmark", False) and device == "cuda":
+        torch.backends.cudnn.benchmark = True
+        logger.info("cudnn.benchmark enabled")
+
+
+def resolve_device(
+    model_path: Path,
+    config: dict[str, Any],
+    backend: IInferenceBackend,
+) -> tuple[str, str]:
+    """モデル形式に応じたデバイスを解決する.
+
+    Args:
+        model_path: モデルのパス.
+        config: 設定辞書.
+        backend: 生成済みのバックエンド.
+
+    Returns:
+        (actual_device, runtime_device) のタプル.
+    """
+    device = config["device"]
+
+    if is_tensorrt_model(model_path):
+        return "cuda", "cuda"
+
+    if is_onnx_model(model_path):
+        active_providers = getattr(backend, "active_providers", [])
+        actual_device = "cuda" if "CUDAExecutionProvider" in active_providers else "cpu"
+        return actual_device, "cpu"
+
+    return device, device
+
+
+def build_pipeline_context(
+    *,
+    pipeline: IDetectionPipeline,
+    phased_timer: PhasedTimer,
+    config: dict[str, Any],
+    model_path: Path,
+    actual_device: str,
+    precision: str,
+) -> PipelineContext:
+    """共通の初期化ステップから PipelineContext を構築する.
+
+    LabelMapper, Visualizer, InferenceSaver の構築を共通化する.
+
+    Args:
+        pipeline: 構築済みの推論パイプライン.
+        phased_timer: 構築済みの PhasedTimer.
+        config: 設定辞書.
+        model_path: モデルのパス.
+        actual_device: 実際のデバイス名.
+        precision: 精度 (fp32/fp16).
+
+    Returns:
+        構築済みの PipelineContext.
+    """
+    class_names = config.get("class_names")
+    label_mapper = LabelMapper(class_names) if class_names else None
+    visualizer = Visualizer(label_mapper=label_mapper)
+
+    is_single_file = is_onnx_model(model_path) or is_tensorrt_model(model_path)
+    saver_base = model_path.parent if is_single_file else model_path
+    saver = InferenceSaver(saver_base)
+
+    return PipelineContext(
+        pipeline=pipeline,
+        phased_timer=phased_timer,
+        visualizer=visualizer,
+        saver=saver,
+        label_mapper=label_mapper,
+        class_names=class_names,
+        actual_device=actual_device,
+        precision=precision,
+    )
+
+
+# セットアップコールバックの型
+SetupPipelineFn = Callable[[dict[str, Any], Path], InferenceContext]
+
+
+def infer(
+    config: dict[str, Any],
+    image_dir: str,
+    setup_pipeline: SetupPipelineFn,
+    model_dir: str | None = None,
+    config_path: str | None = None,
+) -> None:
+    """フォルダ内の画像を一括推論.
+
+    Args:
+        config: 設定辞書.
+        image_dir: 推論対象の画像フォルダパス.
+        setup_pipeline: パイプライン構築コールバック.
+            (config, model_path) を受け取り InferenceContext を返す.
+        model_dir: モデルディレクトリ. None の場合は最新ワークスペースの best を使用.
+        config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
+    """
+    model_path = resolve_model_path(config, model_dir)
+    if model_path is None:
+        return
+
+    image_files = collect_image_files(image_dir)
+    if image_files is None:
+        return
+
+    logger.info(f"Loading model from {model_path}")
+
+    ctx = setup_pipeline(config, model_path)
+    logger.info(f"Results will be saved to {ctx.saver.output_dir}")
+
+    all_predictions = run_inference(image_files, ctx)
+    write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
+
+
+def run_inference(
+    image_files: list[Path],
+    ctx: InferenceContext,
+) -> dict[str, list[Detection]]:
+    """画像ループで推論を実行.
+
+    Args:
+        image_files: 推論対象の画像ファイルリスト.
+        ctx: パイプラインコンテキスト.
+
+    Returns:
+        ファイル名をキー, 検出結果リストを値とする辞書.
+    """
+    all_predictions: dict[str, list[Detection]] = {}
+
+    for image_file in image_files:
+        image = Image.open(image_file).convert("RGB")
+        detections = ctx.pipeline.run(image)
+        all_predictions[image_file.name] = detections
+        result_image = ctx.visualizer.draw(image, detections)
+        output_path = ctx.saver.save(result_image, image_file.name)
+
+        inf_timer = ctx.phased_timer.get_timer("inference")
+        logger.info(
+            f"  {image_file.name} ({inf_timer.last_time_ms:.1f}ms) - "
+            f"{len(detections)} objects -> {output_path.name}"
+        )
+
+    return all_predictions
+
+
 def write_reports(
     config: dict[str, Any],
     image_files: list[Path],
     all_predictions: dict[str, list[Detection]],
     ctx: InferenceContext,
     model_path: Path,
+    config_path: str | None = None,
 ) -> None:
     """レポート出力 (mAP, summary, CSV, confusion matrix, benchmark).
 
@@ -151,7 +420,11 @@ def write_reports(
         all_predictions: ファイル名をキー, 検出結果リストを値とする辞書.
         ctx: 推論コンテキスト.
         model_path: モデルのパス.
+        config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
+    if config_path is not None:
+        _save_config(config, config_path, ctx.saver.output_dir)
+
     detection_metrics = _evaluate_map(config, all_predictions)
 
     summary = build_detection_summary(all_predictions, ctx.label_mapper)
@@ -205,6 +478,21 @@ def write_reports(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _save_config(config: dict[str, Any], config_path: str, output_dir: Path) -> None:
+    """マージ済み設定辞書を推論結果ディレクトリに保存する.
+
+    Args:
+        config: マージ済みの設定辞書.
+        config_path: 設定ファイルのパス (ファイル名の取得に使用).
+        output_dir: 推論結果の出力ディレクトリ.
+    """
+    from pochidetection.utils.config_loader import ConfigLoader
+
+    dst = output_dir / Path(config_path).name
+    ConfigLoader.write_config(config, dst)
+    logger.info(f"Config saved to {dst}")
 
 
 def _evaluate_map(

@@ -4,10 +4,9 @@
 """
 
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 
 import torch
-from PIL import Image
 from torchvision.transforms import v2
 from transformers import RTDetrImageProcessor
 
@@ -19,25 +18,25 @@ try:
     _TRT_AVAILABLE = True
 except ImportError:
     _TRT_AVAILABLE = False
-from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
-from pochidetection.scripts.common import (
-    InferenceSaver,
-    Visualizer,
-)
 from pochidetection.scripts.common.inference import (
-    collect_image_files,
-    resolve_model_path,
-    write_reports,
+    PipelineContext,
+    build_pipeline_context,
+    create_backend,
+)
+from pochidetection.scripts.common.inference import infer as common_infer
+from pochidetection.scripts.common.inference import (
+    is_onnx_model,
+    is_tensorrt_model,
+    resolve_device,
+    setup_cudnn_benchmark,
 )
 from pochidetection.scripts.rtdetr.inference import (
     RTDetrPipeline,
 )
 from pochidetection.utils import PhasedTimer
-from pochidetection.utils.device import is_fp16_available
-from pochidetection.visualization import LabelMapper
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -46,6 +45,7 @@ def infer(
     config: dict[str, Any],
     image_dir: str,
     model_dir: str | None = None,
+    config_path: str | None = None,
 ) -> None:
     """フォルダ内の画像を一括推論.
 
@@ -53,22 +53,9 @@ def infer(
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
         model_dir: モデルディレクトリ. Noneの場合は最新ワークスペースのbestを使用.
+        config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
-    model_path = resolve_model_path(config, model_dir)
-    if model_path is None:
-        return
-
-    image_files = collect_image_files(image_dir)
-    if image_files is None:
-        return
-
-    logger.info(f"Loading model from {model_path}")
-
-    ctx = _setup_pipeline(config, model_path)
-    logger.info(f"Results will be saved to {ctx.saver.output_dir}")
-
-    all_predictions = _run_inference(image_files, ctx)
-    write_reports(config, image_files, all_predictions, ctx, model_path)
+    common_infer(config, image_dir, _setup_pipeline, model_dir, config_path)
 
 
 # ---------------------------------------------------------------------------
@@ -76,23 +63,10 @@ def infer(
 # ---------------------------------------------------------------------------
 
 
-class _PipelineContext(NamedTuple):
-    """_setup_pipeline の戻り値."""
-
-    pipeline: RTDetrPipeline
-    phased_timer: PhasedTimer
-    visualizer: Visualizer
-    saver: InferenceSaver
-    label_mapper: LabelMapper | None
-    class_names: list[str] | None
-    actual_device: str
-    precision: str
-
-
 def _setup_pipeline(
     config: dict[str, Any],
     model_path: Path,
-) -> _PipelineContext:
+) -> PipelineContext:
     """推論パイプラインの構築.
 
     Args:
@@ -102,16 +76,20 @@ def _setup_pipeline(
     Returns:
         構築済みのパイプラインコンテキスト.
     """
-    device = config["device"]
     threshold = config["infer_score_threshold"]
     nms_iou_threshold = config["nms_iou_threshold"]
 
-    if config.get("cudnn_benchmark", False) and device == "cuda":
-        torch.backends.cudnn.benchmark = True
-        logger.info("cudnn.benchmark enabled")
+    setup_cudnn_benchmark(config)
 
     processor = _load_processor(model_path, config)
-    backend, precision, use_fp16 = _create_backend(model_path, config)
+    backend, precision, use_fp16 = create_backend(
+        model_path,
+        config,
+        create_trt=lambda p: RTDetrTensorRTBackend(p),
+        create_onnx=lambda p, d: RTDetrOnnxBackend(p, device=d),
+        create_pytorch=_create_pytorch_backend,
+        trt_available=_TRT_AVAILABLE,
+    )
 
     image_size = (
         int(config["image_size"]["height"]),
@@ -125,19 +103,7 @@ def _setup_pipeline(
         ]
     )
 
-    if _is_tensorrt_model(model_path):
-        actual_device = "cuda"
-        runtime_device = "cuda"
-    elif _is_onnx_model(model_path):
-        if not isinstance(backend, RTDetrOnnxBackend):
-            raise TypeError(f"Expected RTDetrOnnxBackend, got {type(backend).__name__}")
-        actual_device = (
-            "cuda" if "CUDAExecutionProvider" in backend.active_providers else "cpu"
-        )
-        runtime_device = "cpu"
-    else:
-        actual_device = device
-        runtime_device = device
+    actual_device, runtime_device = resolve_device(model_path, config, backend)
 
     phased_timer = PhasedTimer(
         phases=RTDetrPipeline.PHASES,
@@ -154,79 +120,14 @@ def _setup_pipeline(
         phased_timer=phased_timer,
     )
 
-    class_names = config.get("class_names")
-    label_mapper = LabelMapper(class_names) if class_names else None
-    visualizer = Visualizer(label_mapper=label_mapper)
-
-    is_single_file = _is_onnx_model(model_path) or _is_tensorrt_model(model_path)
-    saver_base = model_path.parent if is_single_file else model_path
-    saver = InferenceSaver(saver_base)
-
-    return _PipelineContext(
+    return build_pipeline_context(
         pipeline=pipeline,
         phased_timer=phased_timer,
-        visualizer=visualizer,
-        saver=saver,
-        label_mapper=label_mapper,
-        class_names=class_names,
+        config=config,
+        model_path=model_path,
         actual_device=actual_device,
         precision=precision,
     )
-
-
-def _run_inference(
-    image_files: list[Path],
-    ctx: _PipelineContext,
-) -> dict[str, list[Detection]]:
-    """画像ループで推論を実行.
-
-    Args:
-        image_files: 推論対象の画像ファイルリスト.
-        ctx: パイプラインコンテキスト.
-
-    Returns:
-        ファイル名をキー, 検出結果リストを値とする辞書.
-    """
-    all_predictions: dict[str, list[Detection]] = {}
-
-    for image_file in image_files:
-        image = Image.open(image_file).convert("RGB")
-        detections = ctx.pipeline.run(image)
-        all_predictions[image_file.name] = detections
-        result_image = ctx.visualizer.draw(image, detections)
-        output_path = ctx.saver.save(result_image, image_file.name)
-
-        inf_timer = ctx.phased_timer.get_timer("inference")
-        logger.info(
-            f"  {image_file.name} ({inf_timer.last_time_ms:.1f}ms) - "
-            f"{len(detections)} objects -> {output_path.name}"
-        )
-
-    return all_predictions
-
-
-def _is_onnx_model(model_path: Path) -> bool:
-    """モデルパスが ONNX ファイルかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .onnx ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".onnx"
-
-
-def _is_tensorrt_model(model_path: Path) -> bool:
-    """モデルパスが TensorRT エンジンかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .engine ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".engine"
 
 
 def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProcessor:
@@ -246,7 +147,7 @@ def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProc
     Raises:
         RuntimeError: processor が解決できない場合.
     """
-    if not _is_onnx_model(model_path) and not _is_tensorrt_model(model_path):
+    if not is_onnx_model(model_path) and not is_tensorrt_model(model_path):
         return RTDetrImageProcessor.from_pretrained(model_path)
 
     processor_dir = model_path.parent
@@ -267,42 +168,24 @@ def _load_processor(model_path: Path, config: dict[str, Any]) -> RTDetrImageProc
     )
 
 
-def _create_backend(
-    model_path: Path, config: dict[str, Any]
-) -> tuple[IInferenceBackend, str, bool]:
-    """モデルパスからバックエンドを生成する.
+def _create_pytorch_backend(
+    model_path: Path, device: str, use_fp16: bool
+) -> IInferenceBackend:
+    """RT-DETR 用 PyTorch バックエンドを生成する.
 
     Args:
         model_path: モデルのパス.
-        config: 設定辞書.
+        device: 推論デバイス.
+        use_fp16: FP16 推論を使用するか.
 
     Returns:
-        (backend, precision, use_fp16) のタプル.
+        RTDetrPyTorchBackend インスタンス.
     """
-    device = config["device"]
-    use_fp16 = config.get("use_fp16", False)
-
-    if _is_tensorrt_model(model_path):
-        if not _TRT_AVAILABLE:
-            raise ImportError(
-                "tensorrt パッケージがインストールされていません. "
-                "TensorRT バックエンドを使用するには TensorRT をインストールしてください."
-            )
-        logger.info("TensorRT backend selected")
-        return RTDetrTensorRTBackend(model_path), "fp32", False
-
-    if _is_onnx_model(model_path):
-        logger.info("ONNX backend selected")
-        return RTDetrOnnxBackend(model_path, device=device), "fp32", False
-
     model = RTDetrModel(str(model_path))
     model.to(device)
     model.eval()
 
-    fp16 = is_fp16_available(use_fp16, device)
-    if fp16:
+    if use_fp16:
         model.half()
-        logger.info("FP16 enabled")
 
-    precision = "fp16" if fp16 else "fp32"
-    return RTDetrPyTorchBackend(model), precision, use_fp16
+    return RTDetrPyTorchBackend(model)

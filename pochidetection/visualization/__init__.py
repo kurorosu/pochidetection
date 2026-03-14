@@ -4,6 +4,7 @@ from pochidetection.visualization.color_palette import ColorPalette
 from pochidetection.visualization.label_mapper import LabelMapper
 from pochidetection.visualization.plotters import (
     ConfusionMatrixPlotter,
+    F1ConfidencePlotter,
     LossPlotter,
     MetricsPlotter,
     PRCurvePlotter,
@@ -14,6 +15,7 @@ from pochidetection.visualization.plotters import (
 __all__ = [
     "ColorPalette",
     "ConfusionMatrixPlotter",
+    "F1ConfidencePlotter",
     "LabelMapper",
     "LossPlotter",
     "MetricsPlotter",
