@@ -14,6 +14,7 @@
 - `RTDetrPipeline` の `processor: Any` を `RTDetrImageProcessor` に修正. `processor_holder: list[Any]` も同様に具体化. ([#315](https://github.com/kurorosu/pochidetection/pull/315).)
 - 設定辞書 `config: dict[str, Any]` を `DetectionConfigDict` (TypedDict) に置換. `ImageSizeDict` も導入し, mypy によるキー名・値型の静的チェックを可能にした. 全 17 ソースファイル + 6 テストファイルを修正. ([#316](https://github.com/kurorosu/pochidetection/pull/316).)
 - エクスポートスクリプトの `except Exception` を `(OSError, ValueError, RuntimeError)` 等の具体的な例外型に絞り込み. 想定外の例外を握りつぶさないように改善. ([#317](https://github.com/kurorosu/pochidetection/pull/317).)
+- `type: ignore` コメント 6 箇所を解消. `DataLoader` 型引数の明示化, `SSD` 型アノテーション追加, `DetectionConfigDict` 導入による `[index]` 抑制解消. 条件付き基底クラス (`calibrator.py`) の 1 箇所は mypy の制約により残存. ([#318](https://github.com/kurorosu/pochidetection/pull/318).)
 
 ### Removed
 - 無し.

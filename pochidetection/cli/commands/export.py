@@ -22,8 +22,8 @@ def _run_trt_export(args: argparse.Namespace, config: DetectionConfigDict) -> No
         (args.input_size[0], args.input_size[1])
         if args.input_size
         else (
-            int(config["image_size"]["height"]),  # type: ignore[index]
-            int(config["image_size"]["width"]),  # type: ignore[index]
+            int(config["image_size"]["height"]),
+            int(config["image_size"]["width"]),
         )
     )
 
