@@ -6,7 +6,8 @@
 ## [Unreleased]
 
 ### Added
-- CLI 統合テストを追加. 引数パース (train/infer/export), アーキテクチャ別ディスパッチ (`_resolve_train`/`_resolve_infer`), コマンド間パス引き継ぎ (`resolve_config_path`), `run_infer` バリデーションの計 22 テストケース. (N/A.)
+- CLI 統合テストを追加. 引数パース (train/infer/export), アーキテクチャ別ディスパッチ (`_resolve_train`/`_resolve_infer`), コマンド間パス引き継ぎ (`resolve_config_path`), `run_infer` バリデーションの計 22 テストケース. ([#324](https://github.com/kurorosu/pochidetection/pull/324).)
+- `write_reports()` の統合テストを追加. 正常検出, 空検出, GT アノテーション不在, config 保存の計 7 テストケース. (N/A.)
 
 ### Changed
 - 無し.
