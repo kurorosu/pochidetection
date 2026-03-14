@@ -11,6 +11,7 @@
 ### Changed
 - `IInferenceBackend` を `Generic[TOutput]` に変更し, 全バックエンド実装の `infer()` 入出力型を具体化. `Any` を排除し mypy による型不整合検出を可能にした. ([#313](https://github.com/kurorosu/pochidetection/pull/313).)
 - 学習スクリプトの `logger: Any` 型アノテーションを `logging.Logger` に修正. `Validator` Protocol を含む全 9 箇所を修正. mypy の `work_dirs/` 除外設定を追加. ([#314](https://github.com/kurorosu/pochidetection/pull/314).)
+- `RTDetrPipeline` の `processor: Any` を `RTDetrImageProcessor` に修正. `processor_holder: list[Any]` も同様に具体化. ([#315](https://github.com/kurorosu/pochidetection/pull/315).)
 
 ### Removed
 - 無し.
