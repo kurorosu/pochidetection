@@ -132,6 +132,57 @@ class TestINT8CalibratorGetBatch:
         assert batch_count == CALIB_NUM_IMAGES
 
 
+class TestINT8CalibratorCalibrationFlow:
+    """キャリブレーションフローの統合テスト."""
+
+    def test_multi_batch_sequence(self, calib_image_dir: Path) -> None:
+        """複数バッチにわたる get_batch() シーケンスが正しく動作することを確認."""
+        calibrator = INT8Calibrator(
+            image_dir=calib_image_dir,
+            input_size=INPUT_SIZE,
+            batch_size=2,
+        )
+        # 5 枚, batch_size=2 → ceil(5/2)=3 バッチ
+        batch_count = 0
+        while calibrator.get_batch(["pixel_values"]) is not None:
+            batch_count += 1
+        assert batch_count == 3
+
+    def test_images_fewer_than_batch_size(self, calib_image_dir: Path) -> None:
+        """画像枚数がバッチサイズ未満でも正しく動作することを確認."""
+        calibrator = INT8Calibrator(
+            image_dir=calib_image_dir,
+            input_size=INPUT_SIZE,
+            batch_size=3,
+            max_images=1,
+        )
+        result = calibrator.get_batch(["pixel_values"])
+        assert result is not None
+        # 1枚で完了
+        assert calibrator.get_batch(["pixel_values"]) is None
+
+    def test_cache_reuse_across_instances(
+        self, calib_image_dir: Path, tmp_path: Path
+    ) -> None:
+        """キャッシュが別インスタンスで再利用できることを確認."""
+        cache_path = tmp_path / "reuse_cache.bin"
+        calibrator1 = INT8Calibrator(
+            image_dir=calib_image_dir,
+            input_size=INPUT_SIZE,
+            cache_path=cache_path,
+        )
+        test_data = b"calibration_cache_for_reuse"
+        calibrator1.write_calibration_cache(test_data)
+
+        # 別インスタンスで読み込み
+        calibrator2 = INT8Calibrator(
+            image_dir=calib_image_dir,
+            input_size=INPUT_SIZE,
+            cache_path=cache_path,
+        )
+        assert calibrator2.read_calibration_cache() == test_data
+
+
 class TestINT8CalibratorCache:
     """INT8Calibrator のキャッシュ機能テスト."""
 

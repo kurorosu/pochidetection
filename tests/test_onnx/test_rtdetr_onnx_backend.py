@@ -155,7 +155,6 @@ class TestRTDetrOnnxBackendOutputEquivalence:
         self, rtdetr_model: RTDetrModel, rtdetr_onnx_path: Path
     ) -> None:
         """PyTorch と ONNX の出力が許容誤差内で一致することを確認."""
-        rtdetr_model.eval()
         dummy_input = torch.randn(1, 3, *INPUT_SIZE)
 
         with torch.no_grad():
