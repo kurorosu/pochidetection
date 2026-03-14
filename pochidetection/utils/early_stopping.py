@@ -74,7 +74,10 @@ class EarlyStopping:
 
     def _is_improvement(self, current_value: float) -> bool:
         """現在の値が改善かどうかを判定."""
-        assert self._best_value is not None
+        if self._best_value is None:
+            raise RuntimeError(
+                "_best_value が未設定の状態で _is_improvement() が呼ばれました"
+            )
         if self._mode == "max":
             return current_value > self._best_value + self._min_delta
         return current_value < self._best_value - self._min_delta
