@@ -6,6 +6,7 @@ from typing import Any
 import torch
 from torchvision.models import MobileNet_V3_Large_Weights
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
+from torchvision.models.detection.ssd import SSD
 
 from pochidetection.interfaces.model import IDetectionModel
 
@@ -52,7 +53,7 @@ class SSDLiteModel(IDetectionModel):
         ssd_num_classes = num_classes + 1
 
         weights_backbone = MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
-        self._model = ssdlite320_mobilenet_v3_large(
+        self._model: SSD = ssdlite320_mobilenet_v3_large(
             weights_backbone=weights_backbone,
             num_classes=ssd_num_classes,
             nms_thresh=nms_iou_threshold,
@@ -146,4 +147,4 @@ class SSDLiteModel(IDetectionModel):
         Returns:
             torchvision の SSD モデルインスタンス.
         """
-        return self._model  # type: ignore[no-any-return]
+        return self._model

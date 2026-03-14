@@ -37,8 +37,8 @@ class TrainingContext(NamedTuple):
     """学習コンテキスト (アーキテクチャ共通)."""
 
     model: IDetectionModel
-    train_loader: DataLoader  # type: ignore[type-arg]
-    val_loader: DataLoader  # type: ignore[type-arg]
+    train_loader: DataLoader[dict[str, Any]]
+    val_loader: DataLoader[dict[str, Any]]
     optimizer: torch.optim.Optimizer
     scheduler: torch.optim.lr_scheduler.LRScheduler | None
     map_metric: MeanAveragePrecision
@@ -128,7 +128,7 @@ def build_data_loaders(
     config: DetectionConfigDict,
     dataset_factory: DatasetFactory,
     logger: logging.Logger,
-) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
+) -> tuple[DataLoader[dict[str, Any]], DataLoader[dict[str, Any]]]:
     """学習・検証用データローダーを構築.
 
     Args:
