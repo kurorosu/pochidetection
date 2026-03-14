@@ -6,9 +6,11 @@ GPU メモリの確保・アドレス設定・ホスト転送を行う.
 cuda-python (cudart) への依存を回避する.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -19,6 +21,9 @@ try:
     _TRT_AVAILABLE = True
 except ImportError:
     _TRT_AVAILABLE = False
+
+if TYPE_CHECKING:
+    import tensorrt as trt
 
 from pochidetection.logging import LoggerManager
 
@@ -64,8 +69,8 @@ class TensorBinding:
 
 
 def allocate_bindings(
-    engine: Any,
-    context: Any,
+    engine: trt.ICudaEngine,
+    context: trt.IExecutionContext,
 ) -> list[TensorBinding]:
     """Tensorrt エンジンの I/O テンソルに対して GPU メモリを確保する.
 

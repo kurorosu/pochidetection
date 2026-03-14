@@ -17,6 +17,7 @@
 - `type: ignore` コメント 6 箇所を解消. `DataLoader` 型引数の明示化, `SSD` 型アノテーション追加, `DetectionConfigDict` 導入による `[index]` 抑制解消. 条件付き基底クラス (`calibrator.py`) の 1 箇所は mypy の制約により残存. ([#318](https://github.com/kurorosu/pochidetection/pull/318).)
 - `IDetectionModel.forward()` の戻り値 `dict[str, Any]` を `ModelOutputDict` (TypedDict) に変更. `RTDetrModel`, `SSDLiteModel` も同様に適用. ([#319](https://github.com/kurorosu/pochidetection/pull/319).)
 - `IDetectionDataset.__getitem__()` の戻り値 `dict[str, Any]` を `DatasetSampleDict` (TypedDict) に変更. `BaseCocoDataset`, `CocoDetectionDataset`, `SsdCocoDataset` も同様に適用. ([#320](https://github.com/kurorosu/pochidetection/pull/320).)
+- `allocate_bindings()` の `engine: Any` / `context: Any` を `trt.ICudaEngine` / `trt.IExecutionContext` に変更. `TYPE_CHECKING` ブロックでインポートし mypy による型チェックを有効化. ([#322](https://github.com/kurorosu/pochidetection/pull/322).)
 
 ### Removed
 - 無し.
