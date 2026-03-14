@@ -6,7 +6,8 @@ yyyymmdd_001形式の作業ディレクトリ自動生成機能を提供する.
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+
+from pochidetection.configs.schemas import DetectionConfigDict
 
 
 def get_current_date_str() -> str:
@@ -195,7 +196,7 @@ class WorkspaceManager:
         """
         return self._ensure_workspace_created() / "last"
 
-    def save_config(self, config: dict[str, Any], config_name: str) -> Path:
+    def save_config(self, config: DetectionConfigDict, config_name: str) -> Path:
         """マージ済み設定辞書を Python ファイルとしてワークスペースに保存.
 
         Args:

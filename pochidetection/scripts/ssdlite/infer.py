@@ -4,11 +4,11 @@
 """
 
 from pathlib import Path
-from typing import Any
 
 import torch
 from torchvision.transforms import v2
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.inference import SSDLiteOnnxBackend, SSDLitePyTorchBackend
 
 try:
@@ -36,7 +36,7 @@ logger = LoggerManager().get_logger(__name__)
 
 
 def infer(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     image_dir: str,
     model_dir: str | None = None,
     config_path: str | None = None,
@@ -59,7 +59,7 @@ def infer(
 
 
 def _create_pytorch_backend(
-    model_path: Path, device: str, use_fp16: bool, config: dict[str, Any]
+    model_path: Path, device: str, use_fp16: bool, config: DetectionConfigDict
 ) -> SSDLitePyTorchBackend:
     """モデル固有の PyTorch バックエンドを生成する.
 
@@ -87,7 +87,7 @@ def _create_pytorch_backend(
 
 
 def _setup_pipeline(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     model_path: Path,
 ) -> PipelineContext:
     """推論パイプラインの構築.

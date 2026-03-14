@@ -2,14 +2,14 @@
 
 import argparse
 from collections.abc import Callable
-from typing import Any
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.utils import ConfigLoader
 
 
 def _resolve_train(
-    config: dict[str, Any],
-) -> Callable[[dict[str, Any], str], None]:
+    config: DetectionConfigDict,
+) -> Callable[[DetectionConfigDict, str], None]:
     """Architecture に基づいて train 関数を返す.
 
     Args:

@@ -1,10 +1,12 @@
 """ConfigLoaderのテスト."""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.utils import ConfigLoader
 
 
@@ -202,7 +204,7 @@ class TestConfigLoader:
 
     def test_write_config_creates_python_file(self, tmp_path: Path) -> None:
         """write_configがPythonファイルを作成することを確認."""
-        config = {"batch_size": 32, "learning_rate": 0.001}
+        config = cast(DetectionConfigDict, {"batch_size": 32, "learning_rate": 0.001})
         output_path = tmp_path / "saved_config.py"
 
         ConfigLoader.write_config(config, output_path)

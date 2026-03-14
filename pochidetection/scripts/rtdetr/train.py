@@ -9,6 +9,7 @@ from typing import Any
 import torch
 from transformers import RTDetrImageProcessor
 
+from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
@@ -20,7 +21,7 @@ from pochidetection.scripts.common.training import (
 )
 
 
-def train(config: dict[str, Any], config_path: str) -> None:
+def train(config: DetectionConfigDict, config_path: str) -> None:
     """ファインチューニング.
 
     Args:
@@ -38,7 +39,7 @@ def train(config: dict[str, Any], config_path: str) -> None:
 
 
 def _setup_training(
-    config: dict[str, Any],
+    config: DetectionConfigDict,
     config_path: str,
     logger: logging.Logger,
 ) -> TrainingContext:
@@ -55,11 +56,11 @@ def _setup_training(
     # processor はモデル構築後に取得する必要があるため, リストで共有する
     processor_holder: list[RTDetrImageProcessor] = []
 
-    def model_factory(cfg: dict[str, Any]) -> IDetectionModel:
+    def model_factory(cfg: DetectionConfigDict) -> IDetectionModel:
         model = RTDetrModel(
             cfg["model_name"],
             num_classes=cfg["num_classes"],
-            image_size=cfg.get("image_size", {"height": 640, "width": 640}),
+            image_size=cfg["image_size"],
         )
         processor_holder.append(model.processor)
         return model

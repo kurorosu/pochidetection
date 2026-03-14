@@ -6,6 +6,7 @@ from typing import Any
 import torch
 from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
 
+from pochidetection.configs.schemas import ImageSizeDict
 from pochidetection.interfaces.model import IDetectionModel
 
 
@@ -26,7 +27,7 @@ class RTDetrModel(IDetectionModel):
         model_name: str = "PekingU/rtdetr_r50vd",
         num_classes: int | None = None,
         pretrained: bool = True,
-        image_size: dict[str, int] | None = None,
+        image_size: ImageSizeDict | None = None,
     ) -> None:
         """RTDetrModelを初期化.
 
