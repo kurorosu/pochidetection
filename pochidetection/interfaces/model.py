@@ -2,10 +2,24 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 import torch
 import torch.nn as nn
+
+
+class ModelOutputDict(TypedDict, total=False):
+    """IDetectionModel.forward() の戻り値型.
+
+    学習時は ``loss`` を含み, 推論時はモデル固有のキーを含む.
+    total=False により全キーがオプショナルだが,
+    各モデル実装は対応するキーを必ず設定する.
+    """
+
+    loss: torch.Tensor
+    pred_logits: torch.Tensor
+    pred_boxes: torch.Tensor
+    predictions: list[dict[str, torch.Tensor]]
 
 
 class IDetectionModel(ABC, nn.Module):
@@ -20,7 +34,7 @@ class IDetectionModel(ABC, nn.Module):
         self,
         pixel_values: torch.Tensor,
         labels: list[dict[str, torch.Tensor]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> ModelOutputDict:
         """順伝播.
 
         Args:
