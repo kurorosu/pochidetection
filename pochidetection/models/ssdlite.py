@@ -1,14 +1,13 @@
 """SSDLite MobileNetV3 物体検出モデル."""
 
 from pathlib import Path
-from typing import Any
 
 import torch
 from torchvision.models import MobileNet_V3_Large_Weights
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
 from torchvision.models.detection.ssd import SSD
 
-from pochidetection.interfaces.model import IDetectionModel
+from pochidetection.interfaces.model import IDetectionModel, ModelOutputDict
 
 
 class SSDLiteModel(IDetectionModel):
@@ -64,7 +63,7 @@ class SSDLiteModel(IDetectionModel):
         self,
         pixel_values: torch.Tensor,
         labels: list[dict[str, torch.Tensor]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> ModelOutputDict:
         """順伝播.
 
         Args:
