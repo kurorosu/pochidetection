@@ -80,8 +80,10 @@ class SSDLiteOnnxBackend(IInferenceBackend[dict[str, torch.Tensor]]):
         self._output_names = tuple(out.name for out in self._session.get_outputs())
         self._input_dtype = self._session.get_inputs()[0].type
 
-        active_providers = self._session.get_providers()
-        logger.info(f"ONNX Runtime providers: {active_providers}")
+        self._active_providers: list[str] = cast(
+            list[str], self._session.get_providers()
+        )
+        logger.info(f"ONNX Runtime providers: {self._active_providers}")
 
         self._anchors = generate_anchors(num_classes, image_size)
         logger.info(
@@ -145,7 +147,7 @@ class SSDLiteOnnxBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     @property
     def active_providers(self) -> list[str]:
         """実際に使用されている Execution Providers を取得."""
-        return cast(list[str], self._session.get_providers())
+        return self._active_providers
 
     @property
     def session(self) -> ort.InferenceSession:

@@ -59,8 +59,10 @@ class RTDetrOnnxBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
         self._input_names = tuple(inp.name for inp in self._session.get_inputs())
         self._output_names = tuple(out.name for out in self._session.get_outputs())
 
-        active_providers = self._session.get_providers()
-        logger.info(f"ONNX Runtime providers: {active_providers}")
+        self._active_providers: list[str] = cast(
+            list[str], self._session.get_providers()
+        )
+        logger.info(f"ONNX Runtime providers: {self._active_providers}")
 
         self._validate_input_dtype()
 
@@ -141,7 +143,7 @@ class RTDetrOnnxBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
     @property
     def active_providers(self) -> list[str]:
         """実際に使用されている Execution Providers を取得."""
-        return cast(list[str], self._session.get_providers())
+        return self._active_providers
 
     @property
     def session(self) -> ort.InferenceSession:
