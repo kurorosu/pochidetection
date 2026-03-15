@@ -16,9 +16,9 @@ class TestTrainingHistory:
             epoch=1,
             train_loss=0.5,
             val_loss=0.4,
-            mAP=0.3,
-            mAP_50=0.5,
-            mAP_75=0.2,
+            map=0.3,
+            map_50=0.5,
+            map_75=0.2,
             lr=0.001,
         )
 
@@ -36,9 +36,9 @@ class TestTrainingHistory:
         assert history.epochs == [1, 2]
         assert history.train_losses == [0.5, 0.4]
         assert history.val_losses == [0.4, 0.3]
-        assert history.mAPs == [0.3, 0.4]
-        assert history.mAP_50s == [0.5, 0.6]
-        assert history.mAP_75s == [0.2, 0.3]
+        assert history.maps == [0.3, 0.4]
+        assert history.map_50s == [0.5, 0.6]
+        assert history.map_75s == [0.2, 0.3]
 
     def test_save_and_load_csv(self, tmp_path: Path) -> None:
         """CSV の保存と読み込みが正しく動作することを確認."""
@@ -73,6 +73,6 @@ class TestTrainingHistory:
         lines = content.strip().split("\n")
 
         # ヘッダー確認
-        assert lines[0] == "epoch,train_loss,val_loss,mAP,mAP_50,mAP_75,lr"
+        assert lines[0] == "epoch,train_loss,val_loss,map,map_50,map_75,lr"
         # データ行確認
         assert lines[1] == "1,0.5,0.4,0.3,0.5,0.2,0.001"

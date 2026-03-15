@@ -48,21 +48,21 @@ class MetricsPlotter(ITrainingCurvePlotter):
         return [
             go.Scatter(
                 x=self._history.epochs,
-                y=self._history.mAPs,
+                y=self._history.maps,
                 mode="lines+markers",
                 name="mAP",
                 line={"color": "#2ca02c"},
             ),
             go.Scatter(
                 x=self._history.epochs,
-                y=self._history.mAP_50s,
+                y=self._history.map_50s,
                 mode="lines+markers",
                 name="mAP@50",
                 line={"color": "#9467bd"},
             ),
             go.Scatter(
                 x=self._history.epochs,
-                y=self._history.mAP_75s,
+                y=self._history.map_75s,
                 mode="lines+markers",
                 name="mAP@75",
                 line={"color": "#8c564b"},
