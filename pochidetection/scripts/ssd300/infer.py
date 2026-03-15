@@ -1,6 +1,6 @@
-"""SSDLite MobileNetV3 推論スクリプト.
+"""SSD300 VGG16 推論スクリプト.
 
-学習済み SSDLite モデルでフォルダ内の画像を一括推論する.
+学習済み SSD300 モデルでフォルダ内の画像を一括推論する.
 """
 
 from pathlib import Path
@@ -9,16 +9,9 @@ import torch
 from torchvision.transforms import v2
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.inference import SSDLiteOnnxBackend, SsdPyTorchBackend
-
-try:
-    from pochidetection.inference import SSDLiteTensorRTBackend
-
-    _TRT_AVAILABLE = True
-except ImportError:
-    _TRT_AVAILABLE = False
+from pochidetection.inference import SsdPyTorchBackend
 from pochidetection.logging import LoggerManager
-from pochidetection.models import SSDLiteModel
+from pochidetection.models import SSD300Model
 from pochidetection.scripts.common.inference import (
     PipelineContext,
     build_pipeline_context,
@@ -46,7 +39,7 @@ def infer(
     Args:
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
-        model_dir: モデルディレクトリ, ONNX ファイル, または TensorRT エンジンのパス.
+        model_dir: モデルディレクトリのパス.
             None の場合は最新ワークスペースの best を使用.
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
@@ -56,6 +49,18 @@ def infer(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _unsupported_trt(model_path: Path) -> SsdPyTorchBackend:
+    """SSD300 は TensorRT バックエンド未対応."""
+    msg = "SSD300 TensorRT backend is not supported"
+    raise NotImplementedError(msg)
+
+
+def _unsupported_onnx(model_path: Path, device: str) -> SsdPyTorchBackend:
+    """SSD300 は ONNX バックエンド未対応."""
+    msg = "SSD300 ONNX backend is not supported"
+    raise NotImplementedError(msg)
 
 
 def _create_pytorch_backend(
@@ -75,7 +80,7 @@ def _create_pytorch_backend(
     num_classes = config["num_classes"]
     nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
 
-    model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
+    model = SSD300Model(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
     model.load(model_path)
     model.to(device)
     model.eval()
@@ -94,37 +99,24 @@ def _setup_pipeline(
 
     Args:
         config: 設定辞書.
-        model_path: モデルのパス (ディレクトリ, ONNX ファイル, または TensorRT エンジン).
+        model_path: モデルのパス (ディレクトリ).
 
     Returns:
         構築済みのパイプラインコンテキスト.
     """
     threshold = config["infer_score_threshold"]
-    num_classes = config["num_classes"]
-    image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
+    image_size_cfg = config.get("image_size", {"height": 300, "width": 300})
     image_size = (image_size_cfg["height"], image_size_cfg["width"])
-    nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
 
     setup_cudnn_benchmark(config)
 
     backend, precision, use_fp16 = create_backend(
         model_path,
         config,
-        create_trt=lambda p: SSDLiteTensorRTBackend(
-            engine_path=p,
-            num_classes=num_classes,
-            image_size=image_size,
-            nms_iou_threshold=nms_iou_threshold,
-        ),
-        create_onnx=lambda p, d: SSDLiteOnnxBackend(
-            model_path=p,
-            num_classes=num_classes,
-            image_size=image_size,
-            nms_iou_threshold=nms_iou_threshold,
-            device=d,
-        ),
+        create_trt=_unsupported_trt,
+        create_onnx=_unsupported_onnx,
         create_pytorch=lambda p, d, fp16: _create_pytorch_backend(p, d, fp16, config),
-        trt_available=_TRT_AVAILABLE,
+        trt_available=False,
     )
 
     actual_device, runtime_device = resolve_device(model_path, config, backend)

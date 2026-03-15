@@ -27,6 +27,11 @@ def _resolve_infer(
 
         return ssdlite_infer
 
+    if arch == "SSD300":
+        from pochidetection.scripts.ssd300.infer import infer as ssd300_infer
+
+        return ssd300_infer
+
     from pochidetection.scripts.rtdetr.infer import infer as rtdetr_infer
 
     return rtdetr_infer

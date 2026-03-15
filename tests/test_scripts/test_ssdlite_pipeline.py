@@ -1,4 +1,4 @@
-"""SSDLitePipeline のテスト."""
+"""SsdPipeline のテスト."""
 
 import pytest
 import torch
@@ -8,16 +8,14 @@ from torchvision.transforms import v2
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
-from pochidetection.scripts.ssdlite.inference.ssdlite_pipeline import (
-    SSDLitePipeline,
-)
+from pochidetection.scripts.ssd.inference.ssd_pipeline import SsdPipeline
 from pochidetection.utils import PhasedTimer
 
 
 class DummyBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     """テスト用のダミー推論バックエンド.
 
-    SSDLitePyTorchBackend と同じ出力形式を返す.
+    SsdPyTorchBackend と同じ出力形式を返す.
     """
 
     def __init__(
@@ -64,9 +62,9 @@ def _make_pipeline(
     threshold: float = 0.5,
     image_size: tuple[int, int] = (320, 320),
     phased_timer: PhasedTimer | None = None,
-) -> SSDLitePipeline:
+) -> SsdPipeline:
     """テスト用パイプラインを生成."""
-    return SSDLitePipeline(
+    return SsdPipeline(
         backend=backend or DummyBackend(),
         transform=_make_transform(image_size),
         image_size=image_size,
@@ -76,8 +74,8 @@ def _make_pipeline(
     )
 
 
-class TestSSDLitePipelineInit:
-    """SSDLitePipeline の初期化テスト."""
+class TestSsdPipelineInit:
+    """SsdPipeline の初期化テスト."""
 
     def test_init_without_phased_timer(self) -> None:
         """PhasedTimer なしで初期化できることを確認."""
@@ -113,13 +111,13 @@ class TestSSDLitePipelineInit:
             _make_pipeline(phased_timer=timer)
 
     def test_implements_idetection_pipeline(self) -> None:
-        """SSDLitePipeline が IDetectionPipeline を実装していることを確認."""
+        """SsdPipeline が IDetectionPipeline を実装していることを確認."""
         pipeline = _make_pipeline()
         assert isinstance(pipeline, IDetectionPipeline)
 
 
-class TestSSDLitePipelineRun:
-    """SSDLitePipeline の run テスト."""
+class TestSsdPipelineRun:
+    """SsdPipeline の run テスト."""
 
     def test_run_returns_detections(self) -> None:
         """run() が検出結果を返すことを確認."""
@@ -148,7 +146,7 @@ class TestSSDLitePipelineRun:
         pipeline.run(image)
 
         summary = timer.summary()
-        for phase in SSDLitePipeline.PHASES:
+        for phase in SsdPipeline.PHASES:
             assert summary[phase]["count"] == 1
 
     def test_run_without_phased_timer(self) -> None:
@@ -161,8 +159,8 @@ class TestSSDLitePipelineRun:
         assert len(detections) == 1
 
 
-class TestSSDLitePipelineMethods:
-    """SSDLitePipeline の個別メソッドテスト."""
+class TestSsdPipelineMethods:
+    """SsdPipeline の個別メソッドテスト."""
 
     def test_preprocess_returns_tensor_and_original_size(self) -> None:
         """preprocess() がテンソルと元画像サイズを返すことを確認."""
@@ -238,8 +236,8 @@ class TestSSDLitePipelineMethods:
         assert detections == []
 
 
-class TestSSDLitePipelineNoNms:
-    """SSDLitePipeline が外部 NMS を適用しないことのテスト."""
+class TestSsdPipelineNoNms:
+    """SsdPipeline が外部 NMS を適用しないことのテスト."""
 
     def test_no_external_nms_applied(self) -> None:
         """重複するボックスが全て保持されることを確認 (NMS は backend 側で適用済み)."""

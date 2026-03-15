@@ -12,8 +12,8 @@ architecture = "SSD300"
 image_size = {"height": 300, "width": 300}
 
 # データ設定
-batch_size = 16
+batch_size = 8
 
 # 学習設定
 learning_rate = 1e-3
-lr_scheduler_params = {"eta_min": 1e-5}  # Scheduler 固有パラメータ
+lr_scheduler_params = {"eta_min": 1e-3}  # Scheduler 固有パラメータ
