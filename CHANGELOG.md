@@ -10,7 +10,8 @@
 
 ### Changed
 - COCO JSON 読み込みのメモリ効率を改善. 必要フィールド抽出後に `data`, `raw_annotations`, `raw_categories` を即座に `del` で解放. ([#331](https://github.com/kurorosu/pochidetection/pull/331).)
-- アノテーションフィルタリングを `__getitem__()` から初期化時に移動. 毎回のフィルタリングを排除し `__getitem__()` を簡素化. (N/A.)
+- アノテーションフィルタリングを `__getitem__()` から初期化時に移動. 毎回のフィルタリングを排除し `__getitem__()` を簡素化. ([#332](https://github.com/kurorosu/pochidetection/pull/332).)
+- ONNX Provider チェックの不要な繰り返しを排除. `get_providers()` の結果を初期化時にキャッシュ (`rtdetr/onnx_backend.py`, `ssdlite/onnx_backend.py`). (N/A.)
 
 ### Removed
 - 無し.
