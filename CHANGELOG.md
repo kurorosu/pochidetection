@@ -9,7 +9,8 @@
 - 無し.
 
 ### Changed
-- COCO JSON 読み込みのメモリ効率を改善. 必要フィールド抽出後に `data`, `raw_annotations`, `raw_categories` を即座に `del` で解放. (N/A.)
+- COCO JSON 読み込みのメモリ効率を改善. 必要フィールド抽出後に `data`, `raw_annotations`, `raw_categories` を即座に `del` で解放. ([#331](https://github.com/kurorosu/pochidetection/pull/331).)
+- アノテーションフィルタリングを `__getitem__()` から初期化時に移動. 毎回のフィルタリングを排除し `__getitem__()` を簡素化. (N/A.)
 
 ### Removed
 - 無し.
