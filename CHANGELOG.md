@@ -3,7 +3,7 @@
 このファイルは最新の changelog を保持します.
 最新でなくなった履歴は `changelogs/` 配下へ移動して管理します.
 
-## [Unreleased]
+## v0.11.0 (2026-03-15)
 
 ### Added
 - `ConfigLoader.load()`, `load_coco_ground_truth()`, `MapEvaluator.evaluate()` に Examples セクションを追加. ([#341](https://github.com/kurorosu/pochidetection/pull/341).)
@@ -17,31 +17,10 @@
 ### Removed
 - `tests/conftest.py` の未使用 `training_history` fixture を削除. ([#349](https://github.com/kurorosu/pochidetection/pull/349).)
 - `tests/test_tensorrt/conftest.py` の未使用 `int8_engine_path` fixture を削除. ([#349](https://github.com/kurorosu/pochidetection/pull/349).)
-- `DetectionConfig` / `DetectionConfigDict` から未使用フィールド `loss`, `metrics`, `dataset` を削除. (N/A.)
+- `DetectionConfig` / `DetectionConfigDict` から未使用フィールド `loss`, `metrics`, `dataset` を削除. ([#350](https://github.com/kurorosu/pochidetection/pull/350).)
 
 ### Fixed
 - SSDLite 推論時の `nms_iou_threshold` デフォルト値を `0.55` から `0.5` に修正し, スキーマ・学習側と統一. ([#348](https://github.com/kurorosu/pochidetection/pull/348).)
-
-## v0.10.3 (2026-03-15)
-
-### Added
-- 無し.
-
-### Changed
-- COCO JSON 読み込みのメモリ効率を改善. 必要フィールド抽出後に `data`, `raw_annotations`, `raw_categories` を即座に `del` で解放. ([#331](https://github.com/kurorosu/pochidetection/pull/331).)
-- アノテーションフィルタリングを `__getitem__()` から初期化時に移動. 毎回のフィルタリングを排除し `__getitem__()` を簡素化. ([#332](https://github.com/kurorosu/pochidetection/pull/332).)
-- ONNX Provider チェックの不要な繰り返しを排除. `get_providers()` の結果を初期化時にキャッシュ (`rtdetr/onnx_backend.py`, `ssdlite/onnx_backend.py`). ([#333](https://github.com/kurorosu/pochidetection/pull/333).)
-- 検出-GT マッチングの O(n^2) ラベル比較をテンソルマスクに置換. ラベル一致マスクを事前計算し, ループ内の条件分岐を排除. ([#334](https://github.com/kurorosu/pochidetection/pull/334).)
-- `Visualizer.draw()` に `inplace` パラメータを追加. 推論ループでは `inplace=True` で不要な画像コピーを回避. ([#335](https://github.com/kurorosu/pochidetection/pull/335).)
-- TensorRT バックエンドの `.clone()` を `_resolve_output()` 内に移動. 呼び出し側の冗長な `.clone()` を排除し, バッファ保護の責務を集約. ([#336](https://github.com/kurorosu/pochidetection/pull/336).)
-- ONNX Runtime ロガーのグローバル設定を `configure_ort_logger()` に集約. プロセス内で1回のみ実行するガード付き. ([#337](https://github.com/kurorosu/pochidetection/pull/337).)
-
-### Removed
-- 無し.
-
-### Fixed
-- `Image.open()` のファイルハンドル未クローズを修正. `with` 文で明示的にクローズするよう変更 (`inference.py`, `base_coco_dataset.py`, `calibrator.py`). ([#329](https://github.com/kurorosu/pochidetection/pull/329).)
-- ONNX 検証セッション (`InferenceSession`) の未クローズを修正. `try/finally` で明示的に解放するよう変更 (`validation.py`). ([#330](https://github.com/kurorosu/pochidetection/pull/330).)
 
 ## Archived Changelogs
 
