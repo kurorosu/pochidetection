@@ -40,7 +40,10 @@ def verify_onnx_outputs(
 
     logger.debug("PyTorchとONNXの出力を比較中...")
     session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
-    onnx_results = session.run(None, {"pixel_values": dummy_input})
+    try:
+        onnx_results = session.run(None, {"pixel_values": dummy_input})
+    finally:
+        del session
 
     is_close = True
     diffs: list[str] = []
