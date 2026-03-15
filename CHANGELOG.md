@@ -15,7 +15,8 @@
 - 無し.
 
 ### Fixed
-- `Image.open()` のファイルハンドル未クローズを修正. `with` 文で明示的にクローズするよう変更 (`inference.py`, `base_coco_dataset.py`, `calibrator.py`). (N/A.)
+- `Image.open()` のファイルハンドル未クローズを修正. `with` 文で明示的にクローズするよう変更 (`inference.py`, `base_coco_dataset.py`, `calibrator.py`). ([#329](https://github.com/kurorosu/pochidetection/pull/329).)
+- ONNX 検証セッション (`InferenceSession`) の未クローズを修正. `try/finally` で明示的に解放するよう変更 (`validation.py`). (N/A.)
 
 ## v0.10.2 (2026-03-14)
 
