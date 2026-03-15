@@ -81,7 +81,7 @@ class DetectionConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    architecture: Literal["RTDetr", "SSDLite"] = "RTDetr"
+    architecture: Literal["RTDetr", "SSD300", "SSDLite"] = "RTDetr"
     model_name: str = Field(default="PekingU/rtdetr_r50vd", min_length=1)
     pretrained: bool = True
     image_size: ImageSizeConfig = Field(default_factory=ImageSizeConfig)
@@ -122,6 +122,7 @@ class DetectionConfig(BaseModel):
         """Architecture を case-insensitive に正規化."""
         mapping = {
             "rtdetr": "RTDetr",
+            "ssd300": "SSD300",
             "ssdlite": "SSDLite",
         }
         normalized = mapping.get(v.lower())
@@ -147,9 +148,9 @@ class DetectionConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def warn_ssdlite_ignored_fields(self) -> "DetectionConfig":
-        """Warn about config fields ignored by SSDLite."""
-        if self.architecture != "SSDLite":
+    def warn_ssd_ignored_fields(self) -> "DetectionConfig":
+        """Warn about config fields ignored by SSD variants."""
+        if self.architecture not in ("SSDLite", "SSD300"):
             return self
 
         ignored: list[str] = []
@@ -161,7 +162,7 @@ class DetectionConfig(BaseModel):
 
         for name in ignored:
             warnings.warn(
-                f"SSDLite では '{name}' は無視されます.",
+                f"{self.architecture} では '{name}' は無視されます.",
                 UserWarning,
                 stacklevel=2,
             )

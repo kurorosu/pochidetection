@@ -3,6 +3,20 @@
 このファイルは最新の changelog を保持します.
 最新でなくなった履歴は `changelogs/` 配下へ移動して管理します.
 
+## Unreleased
+
+### Added
+- SSD300 VGG16 の学習実装を追加. `architecture = "SSD300"` で SSD300 学習が可能に. (N/A.)
+
+### Changed
+- 無し
+
+### Removed
+- 無し
+
+### Fixed
+- 無し
+
 ## v0.11.0 (2026-03-15)
 
 ### Added
