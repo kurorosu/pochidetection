@@ -225,17 +225,17 @@ def run_training_loop(
         avg_loss, lr = train_one_epoch(ctx)
         avg_val_loss, map_result = validate(ctx, logger)
 
-        mAP = map_result["map"].item()
-        mAP_50 = map_result["map_50"].item()
-        mAP_75 = map_result["map_75"].item()
+        cur_map = map_result["map"].item()
+        cur_map_50 = map_result["map_50"].item()
+        cur_map_75 = map_result["map_75"].item()
 
         logger.info(
             f"Epoch {epoch + 1}/{ctx.epochs} - "
             f"Train Loss: {avg_loss:.4f}, "
             f"Val Loss: {avg_val_loss:.4f}, "
-            f"mAP: {mAP:.4f}, "
-            f"mAP@50: {mAP_50:.4f}, "
-            f"mAP@75: {mAP_75:.4f}, "
+            f"mAP: {cur_map:.4f}, "
+            f"mAP@50: {cur_map_50:.4f}, "
+            f"mAP@75: {cur_map_75:.4f}, "
             f"LR: {lr:.2e}"
         )
 
@@ -243,9 +243,9 @@ def run_training_loop(
             epoch=epoch + 1,
             train_loss=avg_loss,
             val_loss=avg_val_loss,
-            mAP=mAP,
-            mAP_50=mAP_50,
-            mAP_75=mAP_75,
+            map=cur_map,
+            map_50=cur_map_50,
+            map_75=cur_map_75,
             lr=lr,
         )
 
@@ -257,7 +257,7 @@ def run_training_loop(
 
         if early_stopping is not None:
             metric = config["early_stopping_metric"]
-            value = mAP if metric == "mAP" else avg_val_loss
+            value = cur_map if metric == "mAP" else avg_val_loss
             should_stop = early_stopping.step(value, epoch + 1)
 
             if early_stopping.counter == 0:
@@ -272,9 +272,9 @@ def run_training_loop(
                 )
                 break
         else:
-            if mAP > best_map:
-                best_map = mAP
-                _save_best(ctx, "mAP", mAP, logger)
+            if cur_map > best_map:
+                best_map = cur_map
+                _save_best(ctx, "mAP", cur_map, logger)
 
     save_results(config, ctx, history, map_result, logger)
 
