@@ -14,7 +14,8 @@
 - ONNX Provider チェックの不要な繰り返しを排除. `get_providers()` の結果を初期化時にキャッシュ (`rtdetr/onnx_backend.py`, `ssdlite/onnx_backend.py`). ([#333](https://github.com/kurorosu/pochidetection/pull/333).)
 - 検出-GT マッチングの O(n^2) ラベル比較をテンソルマスクに置換. ラベル一致マスクを事前計算し, ループ内の条件分岐を排除. ([#334](https://github.com/kurorosu/pochidetection/pull/334).)
 - `Visualizer.draw()` に `inplace` パラメータを追加. 推論ループでは `inplace=True` で不要な画像コピーを回避. ([#335](https://github.com/kurorosu/pochidetection/pull/335).)
-- TensorRT バックエンドの `.clone()` を `_resolve_output()` 内に移動. 呼び出し側の冗長な `.clone()` を排除し, バッファ保護の責務を集約. (N/A.)
+- TensorRT バックエンドの `.clone()` を `_resolve_output()` 内に移動. 呼び出し側の冗長な `.clone()` を排除し, バッファ保護の責務を集約. ([#336](https://github.com/kurorosu/pochidetection/pull/336).)
+- ONNX Runtime ロガーのグローバル設定を `configure_ort_logger()` に集約. プロセス内で1回のみ実行するガード付き. (N/A.)
 
 ### Removed
 - 無し.
