@@ -41,7 +41,11 @@ def _create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--debug", action="store_true", help="DEBUGログを有効化")
 
     # サブコマンド
-    subparsers = parser.add_subparsers(dest="command", help="実行するコマンド")
+    subparsers = parser.add_subparsers(
+        dest="command",
+        help="実行するコマンド",
+        required=True,
+    )
 
     # 学習コマンド
     train_parser = subparsers.add_parser("train", help="モデルの学習")
