@@ -8,7 +8,7 @@ import numpy as np
 import onnxruntime as ort
 import torch
 
-from pochidetection.inference.providers import resolve_providers
+from pochidetection.inference.providers import configure_ort_logger, resolve_providers
 from pochidetection.inference.validation import validate_inputs, validate_model_file
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.logging import LoggerManager
@@ -50,10 +50,7 @@ class RTDetrOnnxBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
         if providers is None:
             providers = resolve_providers(device)
 
-        # RT-DETR の ScatterND オペレータが CUDA EP で大量の WARNING を出すため,
-        # ONNX Runtime の C++ ロガーを ERROR 以上に制限する.
-        # NOTE: グローバル設定のため同一プロセス内の全セッションに影響する.
-        ort.set_default_logger_severity(3)
+        configure_ort_logger()
 
         self._session = ort.InferenceSession(str(model_path), providers=providers)
         self._input_names = tuple(inp.name for inp in self._session.get_inputs())
