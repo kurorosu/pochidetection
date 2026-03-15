@@ -157,8 +157,8 @@ class SSDLiteTensorRTBackend(IInferenceBackend[dict[str, torch.Tensor]]):
         self._context.execute_async_v3(self._stream.cuda_stream)
         self._stream.synchronize()
 
-        cls_logits = self._resolve_output(("cls_logits",)).clone()
-        bbox_regression = self._resolve_output(("bbox_regression",)).clone()
+        cls_logits = self._resolve_output(("cls_logits",))
+        bbox_regression = self._resolve_output(("bbox_regression",))
 
         # B=1 前提, batch 次元を除去
         cls_logits = cls_logits[0]  # (num_anchors, num_classes+1)
@@ -183,18 +183,21 @@ class SSDLiteTensorRTBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     def _resolve_output(self, candidates: tuple[str, ...]) -> torch.Tensor:
         """候補名から出力バインディングのテンソルを解決する.
 
+        バインディングバッファは次回推論で上書きされるため,
+        clone して独立したテンソルを返す.
+
         Args:
             candidates: 優先順の候補名タプル.
 
         Returns:
-            マッチした出力テンソル.
+            マッチした出力テンソルの clone.
 
         Raises:
             RuntimeError: どの候補名も見つからない場合.
         """
         for name in candidates:
             if name in self._output_bindings_by_name:
-                return self._output_bindings_by_name[name].device_tensor
+                return self._output_bindings_by_name[name].device_tensor.clone()
         available = list(self._output_bindings_by_name.keys())
         raise RuntimeError(
             f"TensorRTエンジンに必要な出力テンソルが見つかりません. "

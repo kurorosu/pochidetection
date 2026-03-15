@@ -137,25 +137,28 @@ class RTDetrTensorRTBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]
         self._stream.synchronize()
 
         # 出力テンソルを名前ベースで取得
-        pred_logits = self._resolve_output(("logits", "pred_logits")).clone()
-        pred_boxes = self._resolve_output(("pred_boxes",)).clone()
+        pred_logits = self._resolve_output(("logits", "pred_logits"))
+        pred_boxes = self._resolve_output(("pred_boxes",))
         return pred_logits, pred_boxes
 
     def _resolve_output(self, candidates: tuple[str, ...]) -> torch.Tensor:
         """候補名から出力バインディングのテンソルを解決する.
 
+        バインディングバッファは次回推論で上書きされるため,
+        clone して独立したテンソルを返す.
+
         Args:
             candidates: 優先順の候補名タプル.
 
         Returns:
-            マッチした出力テンソル.
+            マッチした出力テンソルの clone.
 
         Raises:
             RuntimeError: どの候補名も見つからない場合.
         """
         for name in candidates:
             if name in self._output_bindings_by_name:
-                return self._output_bindings_by_name[name].device_tensor
+                return self._output_bindings_by_name[name].device_tensor.clone()
         available = list(self._output_bindings_by_name.keys())
         raise RuntimeError(
             f"TensorRTエンジンに必要な出力テンソルが見つかりません. "
