@@ -47,12 +47,10 @@ class DetectionConfigDict(TypedDict, total=False):
     num_classes: int
     class_names: list[str] | None
 
-    loss: str
-    metrics: str
-    dataset: str
     device: str
     cudnn_benchmark: bool
     use_fp16: bool
+    enable_tensorboard: bool
 
     train_score_threshold: float
     infer_score_threshold: float
@@ -97,12 +95,10 @@ class DetectionConfig(BaseModel):
     num_classes: PositiveInt
     class_names: list[str] | None = None
 
-    loss: Literal["DetectionLoss"] = "DetectionLoss"
-    metrics: str = Field(default="DetectionMetrics", min_length=1)
-    dataset: str = Field(default="CocoDetectionDataset", min_length=1)
     device: Literal["cuda", "cpu"] = "cuda"
     cudnn_benchmark: bool = False
     use_fp16: bool = False
+    enable_tensorboard: bool = False
 
     train_score_threshold: float = Field(default=0.5, ge=0, le=1)
     infer_score_threshold: float = Field(default=0.5, ge=0, le=1)

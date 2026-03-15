@@ -24,8 +24,9 @@ early_stopping_min_delta = 0.001  # 改善と見なす最小変化量
 
 # デバイス設定
 device = "cuda"
-cudnn_benchmark = False  # 入力サイズ固定時に推論高速化
+cudnn_benchmark = False  # 入力サイズ固定時に学習・推論を高速化
 use_fp16 = False  # FP16 推論 (CUDA のみ)
+enable_tensorboard = True  # TensorBoard によるメトリクス記録
 
 # Threshold
 train_score_threshold = 0.2  # 学習時の mAP 計算で使用するスコア閾値

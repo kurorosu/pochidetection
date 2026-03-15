@@ -101,6 +101,13 @@ def load_coco_ground_truth(annotation_path: Path) -> CocoGroundTruth:
 
     Returns:
         構築された CocoGroundTruth.
+
+    Examples:
+        >>> gt = load_coco_ground_truth(Path("data/val/annotations.json"))
+        >>> gt.image_id_by_filename["image_001.jpg"]
+        1
+        >>> gt.category_id_to_idx
+        {1: 0, 2: 1, 3: 2}
     """
     with open(annotation_path, encoding="utf-8") as f:
         coco: dict[str, Any] = json.load(f)

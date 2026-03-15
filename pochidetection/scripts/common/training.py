@@ -18,6 +18,7 @@ from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core import DetectionCollator
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
+from pochidetection.scripts.common.inference import setup_cudnn_benchmark
 from pochidetection.utils import (
     EarlyStopping,
     TrainingHistory,
@@ -31,6 +32,7 @@ from pochidetection.visualization import (
     PRCurvePlotter,
     TrainingReportPlotter,
 )
+from pochidetection.visualization.tensorboard import TensorBoardWriter
 
 
 class TrainingContext(NamedTuple):
@@ -75,6 +77,8 @@ def setup_training(
     Returns:
         構築済みの学習コンテキスト.
     """
+    setup_cudnn_benchmark(config)
+
     device = config["device"]
     image_size = config.get("image_size", {"height": 640, "width": 640})
     epochs = config["epochs"]
@@ -213,6 +217,8 @@ def run_training_loop(
     history = TrainingHistory()
     map_result: dict[str, Any] = {}
 
+    tb_writer = _setup_tensorboard(config, ctx.workspace, logger)
+
     early_stopping = build_early_stopping(config)
     if early_stopping is not None:
         logger.info(
@@ -225,17 +231,17 @@ def run_training_loop(
         avg_loss, lr = train_one_epoch(ctx)
         avg_val_loss, map_result = validate(ctx, logger)
 
-        mAP = map_result["map"].item()
-        mAP_50 = map_result["map_50"].item()
-        mAP_75 = map_result["map_75"].item()
+        cur_map = map_result["map"].item()
+        cur_map_50 = map_result["map_50"].item()
+        cur_map_75 = map_result["map_75"].item()
 
         logger.info(
             f"Epoch {epoch + 1}/{ctx.epochs} - "
             f"Train Loss: {avg_loss:.4f}, "
             f"Val Loss: {avg_val_loss:.4f}, "
-            f"mAP: {mAP:.4f}, "
-            f"mAP@50: {mAP_50:.4f}, "
-            f"mAP@75: {mAP_75:.4f}, "
+            f"mAP: {cur_map:.4f}, "
+            f"mAP@50: {cur_map_50:.4f}, "
+            f"mAP@75: {cur_map_75:.4f}, "
             f"LR: {lr:.2e}"
         )
 
@@ -243,11 +249,22 @@ def run_training_loop(
             epoch=epoch + 1,
             train_loss=avg_loss,
             val_loss=avg_val_loss,
-            mAP=mAP,
-            mAP_50=mAP_50,
-            mAP_75=mAP_75,
+            map=cur_map,
+            map_50=cur_map_50,
+            map_75=cur_map_75,
             lr=lr,
         )
+
+        if tb_writer is not None:
+            tb_writer.record_epoch(
+                epoch=epoch + 1,
+                train_loss=avg_loss,
+                val_loss=avg_val_loss,
+                map_value=cur_map,
+                map_50=cur_map_50,
+                map_75=cur_map_75,
+                lr=lr,
+            )
 
         if ctx.scheduler is not None:
             if isinstance(ctx.scheduler, ReduceLROnPlateau):
@@ -257,7 +274,7 @@ def run_training_loop(
 
         if early_stopping is not None:
             metric = config["early_stopping_metric"]
-            value = mAP if metric == "mAP" else avg_val_loss
+            value = cur_map if metric == "mAP" else avg_val_loss
             should_stop = early_stopping.step(value, epoch + 1)
 
             if early_stopping.counter == 0:
@@ -272,9 +289,12 @@ def run_training_loop(
                 )
                 break
         else:
-            if mAP > best_map:
-                best_map = mAP
-                _save_best(ctx, "mAP", mAP, logger)
+            if cur_map > best_map:
+                best_map = cur_map
+                _save_best(ctx, "mAP", cur_map, logger)
+
+    if tb_writer is not None:
+        tb_writer.close()
 
     save_results(config, ctx, history, map_result, logger)
 
@@ -382,6 +402,31 @@ def save_results(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _setup_tensorboard(
+    config: DetectionConfigDict,
+    workspace: Path,
+    logger: logging.Logger,
+) -> TensorBoardWriter | None:
+    """設定に応じて TensorBoard ライターを初期化.
+
+    Args:
+        config: 設定辞書.
+        workspace: ワークスペースディレクトリ.
+        logger: ロガー.
+
+    Returns:
+        TensorBoardWriter インスタンス, 無効時は None.
+    """
+    if not config.get("enable_tensorboard", False):
+        return None
+
+    workspace_name = workspace.name
+    tb_log_dir = workspace / "tensorboard" / workspace_name
+    writer = TensorBoardWriter(log_dir=tb_log_dir, logger=logger)
+    logger.info(f"TensorBoard: tensorboard --logdir {tb_log_dir.parent}")
+    return writer
 
 
 def _save_best(

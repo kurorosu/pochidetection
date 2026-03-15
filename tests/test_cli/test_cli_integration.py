@@ -148,11 +148,12 @@ class TestExportArgParse:
 class TestNoCommand:
     """サブコマンド未指定時のパーステスト."""
 
-    def test_command_is_none(self) -> None:
-        """サブコマンドなしで command が None であることを確認する."""
+    def test_no_command_raises_system_exit(self) -> None:
+        """サブコマンドなしでパースすると SystemExit が発生することを確認する."""
         parser = _create_parser()
-        args = parser.parse_args([])
-        assert args.command is None
+        with pytest.raises(SystemExit) as exc_info:
+            parser.parse_args([])
+        assert exc_info.value.code == 2
 
 
 # ------------------------------------------------------------------ #
