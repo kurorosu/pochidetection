@@ -32,6 +32,7 @@ from pochidetection.visualization import (
     PRCurvePlotter,
     TrainingReportPlotter,
 )
+from pochidetection.visualization.tensorboard import TensorBoardWriter
 
 
 class TrainingContext(NamedTuple):
@@ -216,6 +217,8 @@ def run_training_loop(
     history = TrainingHistory()
     map_result: dict[str, Any] = {}
 
+    tb_writer = _setup_tensorboard(config, ctx.workspace, logger)
+
     early_stopping = build_early_stopping(config)
     if early_stopping is not None:
         logger.info(
@@ -252,6 +255,17 @@ def run_training_loop(
             lr=lr,
         )
 
+        if tb_writer is not None:
+            tb_writer.record_epoch(
+                epoch=epoch + 1,
+                train_loss=avg_loss,
+                val_loss=avg_val_loss,
+                map_value=cur_map,
+                map_50=cur_map_50,
+                map_75=cur_map_75,
+                lr=lr,
+            )
+
         if ctx.scheduler is not None:
             if isinstance(ctx.scheduler, ReduceLROnPlateau):
                 ctx.scheduler.step(avg_val_loss)
@@ -278,6 +292,9 @@ def run_training_loop(
             if cur_map > best_map:
                 best_map = cur_map
                 _save_best(ctx, "mAP", cur_map, logger)
+
+    if tb_writer is not None:
+        tb_writer.close()
 
     save_results(config, ctx, history, map_result, logger)
 
@@ -385,6 +402,31 @@ def save_results(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _setup_tensorboard(
+    config: DetectionConfigDict,
+    workspace: Path,
+    logger: logging.Logger,
+) -> TensorBoardWriter | None:
+    """設定に応じて TensorBoard ライターを初期化.
+
+    Args:
+        config: 設定辞書.
+        workspace: ワークスペースディレクトリ.
+        logger: ロガー.
+
+    Returns:
+        TensorBoardWriter インスタンス, 無効時は None.
+    """
+    if not config.get("enable_tensorboard", False):
+        return None
+
+    workspace_name = workspace.name
+    tb_log_dir = workspace / "tensorboard" / workspace_name
+    writer = TensorBoardWriter(log_dir=tb_log_dir, logger=logger)
+    logger.info(f"TensorBoard: tensorboard --logdir {tb_log_dir.parent}")
+    return writer
 
 
 def _save_best(
