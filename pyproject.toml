@@ -19,6 +19,7 @@ dependencies = [
     "pydantic",
     "onnx",
     "onnxruntime-gpu",
+    "tensorboard>=2.14.0",
 ]
 
 [project.scripts]
