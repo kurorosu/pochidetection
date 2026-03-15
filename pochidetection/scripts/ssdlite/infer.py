@@ -73,7 +73,7 @@ def _create_pytorch_backend(
         SSDLitePyTorchBackend インスタンス.
     """
     num_classes = config["num_classes"]
-    nms_iou_threshold = config.get("nms_iou_threshold", 0.55)
+    nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
 
     model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
     model.load(model_path)
@@ -103,7 +103,7 @@ def _setup_pipeline(
     num_classes = config["num_classes"]
     image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
     image_size = (image_size_cfg["height"], image_size_cfg["width"])
-    nms_iou_threshold = config.get("nms_iou_threshold", 0.55)
+    nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
 
     setup_cudnn_benchmark(config)
 
