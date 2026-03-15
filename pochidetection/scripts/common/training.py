@@ -18,6 +18,7 @@ from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core import DetectionCollator
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
+from pochidetection.scripts.common.inference import setup_cudnn_benchmark
 from pochidetection.utils import (
     EarlyStopping,
     TrainingHistory,
@@ -75,6 +76,8 @@ def setup_training(
     Returns:
         構築済みの学習コンテキスト.
     """
+    setup_cudnn_benchmark(config)
+
     device = config["device"]
     image_size = config.get("image_size", {"height": 640, "width": 640})
     epochs = config["epochs"]

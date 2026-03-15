@@ -24,7 +24,7 @@ early_stopping_min_delta = 0.001  # 改善と見なす最小変化量
 
 # デバイス設定
 device = "cuda"
-cudnn_benchmark = False  # 入力サイズ固定時に推論高速化
+cudnn_benchmark = False  # 入力サイズ固定時に学習・推論を高速化
 use_fp16 = False  # FP16 推論 (CUDA のみ)
 
 # Threshold
