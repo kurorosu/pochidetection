@@ -6,9 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- `ConfigLoader.load()`, `load_coco_ground_truth()`, `MapEvaluator.evaluate()` に Examples セクションを追加. (N/A.)
+- `ConfigLoader.load()`, `load_coco_ground_truth()`, `MapEvaluator.evaluate()` に Examples セクションを追加. ([#341](https://github.com/kurorosu/pochidetection/pull/341).)
 
 ### Changed
+- 学習時に config の `cudnn_benchmark` 設定を反映するよう `setup_training()` に `setup_cudnn_benchmark()` 呼び出しを追加. (N/A.)
 - サブコマンド未指定時に argparse の `required=True` でエラーメッセージと非ゼロ終了コードを返すよう変更. フォールバックのヘルプ表示ロジックを削除. ([#339](https://github.com/kurorosu/pochidetection/pull/339).)
 - mAP 関連のプロパティ名・フィールド名・CSV カラム名を snake_case に統一 (`mAP` → `map`, `mAP_50` → `map_50`, `mAP_75` → `map_75`). ([#340](https://github.com/kurorosu/pochidetection/pull/340).)
 
