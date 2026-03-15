@@ -134,7 +134,8 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         image_id = image_info["id"]
 
         image_path = self._root / image_info["file_name"]
-        image = Image.open(image_path).convert("RGB")
+        with Image.open(image_path) as img:
+            image = img.convert("RGB")
         orig_w, orig_h = image.size
 
         annotations = self._annotations.get(image_id, [])

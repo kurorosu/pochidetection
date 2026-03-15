@@ -15,7 +15,7 @@
 - 無し.
 
 ### Fixed
-- 無し.
+- `Image.open()` のファイルハンドル未クローズを修正. `with` 文で明示的にクローズするよう変更 (`inference.py`, `base_coco_dataset.py`, `calibrator.py`). (N/A.)
 
 ## v0.10.2 (2026-03-14)
 
