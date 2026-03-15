@@ -9,7 +9,7 @@ from pochidetection.interfaces import (
     IDetectionModel,
 )
 from pochidetection.logging import LoggerManager, LogLevel
-from pochidetection.models import RTDetrModel, SSDLiteModel
+from pochidetection.models import RTDetrModel, SSD300Model, SSDLiteModel
 from pochidetection.utils import ConfigLoader, WorkspaceManager
 
 __all__ = [
@@ -21,6 +21,7 @@ __all__ = [
     "LogLevel",
     "LoggerManager",
     "RTDetrModel",
+    "SSD300Model",
     "SSDLiteModel",
     "SsdCocoDataset",
     "WorkspaceManager",

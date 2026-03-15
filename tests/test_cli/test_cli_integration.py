@@ -185,6 +185,13 @@ class TestResolveTrainDispatch:
         fn = _resolve_train({"architecture": "SSDLite"})
         assert fn is ssdlite_train
 
+    def test_ssd300(self) -> None:
+        """architecture='SSD300' で SSD300 の train が返ることを確認する."""
+        from pochidetection.scripts.ssd300.train import train as ssd300_train
+
+        fn = _resolve_train({"architecture": "SSD300"})
+        assert fn is ssd300_train
+
 
 class TestResolveInferDispatch:
     """_resolve_infer のアーキテクチャ別ディスパッチテスト."""
