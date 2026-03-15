@@ -68,6 +68,16 @@ class TestVisualizerDraw:
 
         assert result is not image
 
+    def test_draw_inplace_returns_same_image(self) -> None:
+        """inplace=True の場合, 元画像と同一オブジェクトを返すことを確認."""
+        visualizer = Visualizer()
+        image = Image.new("RGB", (200, 200), "gray")
+        detections = [Detection(box=[10, 10, 100, 100], score=0.9, label=0)]
+
+        result = visualizer.draw(image, detections, inplace=True)
+
+        assert result is image
+
     def test_draw_empty_detections(self) -> None:
         """検出なしの場合に元画像と同じ内容を返すことを確認."""
         visualizer = Visualizer()
