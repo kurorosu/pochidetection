@@ -56,18 +56,20 @@ class Visualizer:
         self,
         image: Image.Image,
         detections: list[Detection],
+        *,
+        inplace: bool = False,
     ) -> Image.Image:
         """検出結果を画像に描画.
 
         Args:
             image: 入力画像 (PIL Image).
             detections: 検出結果のリスト.
+            inplace: True の場合, 元画像に直接描画しコピーを省略する.
 
         Returns:
             描画済み画像.
         """
-        # 元画像をコピー
-        result = image.copy()
+        result = image if inplace else image.copy()
         draw = ImageDraw.Draw(result)
         width, height = result.size
 
