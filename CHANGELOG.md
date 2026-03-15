@@ -7,7 +7,7 @@
 
 ### Added
 - `ConfigLoader.load()`, `load_coco_ground_truth()`, `MapEvaluator.evaluate()` に Examples セクションを追加. ([#341](https://github.com/kurorosu/pochidetection/pull/341).)
-- TensorBoard 統合による学習メトリクスのリアルタイムモニタリング機能を追加. `enable_tensorboard = True` で Loss, mAP, 学習率をエポック単位で記録. (N/A.)
+- TensorBoard 統合による学習メトリクスのリアルタイムモニタリング機能を追加. `enable_tensorboard = True` で Loss, mAP, 学習率をエポック単位で記録. ([#347](https://github.com/kurorosu/pochidetection/pull/347).)
 
 ### Changed
 - 学習時に config の `cudnn_benchmark` 設定を反映するよう `setup_training()` に `setup_cudnn_benchmark()` 呼び出しを追加. ([#342](https://github.com/kurorosu/pochidetection/pull/342).)
@@ -18,7 +18,7 @@
 - 無し.
 
 ### Fixed
-- 無し.
+- SSDLite 推論時の `nms_iou_threshold` デフォルト値を `0.55` から `0.5` に修正し, スキーマ・学習側と統一. (N/A.)
 
 ## v0.10.3 (2026-03-15)
 
