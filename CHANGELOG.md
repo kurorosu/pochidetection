@@ -15,8 +15,9 @@
 - mAP 関連のプロパティ名・フィールド名・CSV カラム名を snake_case に統一 (`mAP` → `map`, `mAP_50` → `map_50`, `mAP_75` → `map_75`). ([#340](https://github.com/kurorosu/pochidetection/pull/340).)
 
 ### Removed
-- `tests/conftest.py` の未使用 `training_history` fixture を削除. (N/A.)
-- `tests/test_tensorrt/conftest.py` の未使用 `int8_engine_path` fixture を削除. (N/A.)
+- `tests/conftest.py` の未使用 `training_history` fixture を削除. ([#349](https://github.com/kurorosu/pochidetection/pull/349).)
+- `tests/test_tensorrt/conftest.py` の未使用 `int8_engine_path` fixture を削除. ([#349](https://github.com/kurorosu/pochidetection/pull/349).)
+- `DetectionConfig` / `DetectionConfigDict` から未使用フィールド `loss`, `metrics`, `dataset` を削除. (N/A.)
 
 ### Fixed
 - SSDLite 推論時の `nms_iou_threshold` デフォルト値を `0.55` から `0.5` に修正し, スキーマ・学習側と統一. ([#348](https://github.com/kurorosu/pochidetection/pull/348).)
