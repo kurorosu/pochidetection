@@ -217,6 +217,13 @@ class TestResolveInferDispatch:
         fn = _resolve_infer({"architecture": "SSDLite"})
         assert fn is ssdlite_infer
 
+    def test_ssd300(self) -> None:
+        """architecture='SSD300' で SSD300 の infer が返ることを確認する."""
+        from pochidetection.scripts.ssd300.infer import infer as ssd300_infer
+
+        fn = _resolve_infer({"architecture": "SSD300"})
+        assert fn is ssd300_infer
+
 
 # ------------------------------------------------------------------ #
 # コマンド間パス引き継ぎ

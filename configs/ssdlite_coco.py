@@ -12,11 +12,11 @@ architecture = "SSDLite"
 image_size = {"height": 320, "width": 320}
 
 # データ設定
-batch_size = 32
+batch_size = 8
 
 # 学習設定
 learning_rate = 1e-3
-lr_scheduler_params = {"eta_min": 1e-5}  # Scheduler 固有パラメータ
+lr_scheduler_params = {"eta_min": 1e-3}  # Scheduler 固有パラメータ
 
 # NMS 設定
-nms_iou_threshold = 0.55  # NMS IoU 閾値 (torchvision の nms_thresh に渡される)
+nms_iou_threshold = 0.5  # NMS IoU 閾値 (torchvision の nms_thresh に渡される)
