@@ -47,8 +47,11 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         """
         self._root = Path(root)
         self._annotation_file = self._find_annotation_file(annotation_file)
-        self._images, self._annotations, self._categories = self._load_annotations()
+        images, annotations_by_id, self._categories = self._load_annotations()
         self._category_id_to_idx = build_category_id_to_idx(self._categories)
+        self._images = images
+        # __getitem__() 毎回のフィルタリングを避けるため, 初期化時に一括実行する.
+        self._annotations = self._filter_annotations(annotations_by_id)
 
     def _find_annotation_file(self, annotation_file: str | None) -> Path:
         """アノテーションファイルを探す.
@@ -118,6 +121,33 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
 
         return images, annotations_by_image_id, categories
 
+    def _filter_annotations(
+        self,
+        annotations_by_id: dict[int, list[dict[str, Any]]],
+    ) -> dict[int, list[dict[str, Any]]]:
+        """無効なアノテーションを除外する.
+
+        カテゴリ ID が未知, または bbox のサイズがゼロ以下のものを除外する.
+
+        Args:
+            annotations_by_id: image_id でグループ化されたアノテーション.
+
+        Returns:
+            フィルタ済みアノテーション (image_id でグループ化).
+        """
+        filtered: dict[int, list[dict[str, Any]]] = {}
+        for image_id, anns in annotations_by_id.items():
+            valid = [
+                ann
+                for ann in anns
+                if ann["category_id"] in self._category_id_to_idx
+                and ann["bbox"][2] > 0
+                and ann["bbox"][3] > 0
+            ]
+            if valid:
+                filtered[image_id] = valid
+        return filtered
+
     def __len__(self) -> int:
         """データセット内のサンプル数を返す.
 
@@ -147,18 +177,7 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
 
         annotations = self._annotations.get(image_id, [])
 
-        # 有効なアノテーションをフィルタ
-        valid_annotations = []
-        for ann in annotations:
-            cat_id = ann["category_id"]
-            if cat_id not in self._category_id_to_idx:
-                continue
-            x, y, w, h = ann["bbox"]
-            if w <= 0 or h <= 0:
-                continue
-            valid_annotations.append(ann)
-
-        return self._transform_sample(image, valid_annotations, orig_w, orig_h)
+        return self._transform_sample(image, annotations, orig_w, orig_h)
 
     @abstractmethod
     def _transform_sample(
