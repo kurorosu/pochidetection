@@ -111,37 +111,41 @@ def _match_detections(
 
     iou_matrix = box_iou(pred_boxes, gt_boxes)
 
+    # ラベル不一致の GT を IoU 行列からマスクし, ループ内の条件分岐を排除する.
+    gt_labels = torch.tensor(
+        [category_id_to_idx.get(ann["category_id"], -1) for ann in gt_annotations],
+        dtype=torch.int64,
+    )
+    det_labels = torch.tensor([d.label for d in detections], dtype=torch.int64)
+    # (num_det, num_gt): ラベルが一致するペアのみ True
+    label_mask = det_labels.unsqueeze(1) == gt_labels.unsqueeze(0)
+    # 不一致ペアの IoU を -1 にして候補から除外
+    masked_iou = iou_matrix.clone()
+    masked_iou[~label_mask] = -1.0
+
     results: list[tuple[str, float, int | None]] = []
     matched_gt: set[int] = set()
 
-    # 信頼度の高い検出から順にマッチング
+    # 信頼度の高い検出から順にグリーディマッチング
     sorted_indices = sorted(
         range(num_det), key=lambda i: detections[i].score, reverse=True
     )
 
     for det_idx in sorted_indices:
-        det = detections[det_idx]
-        best_iou = 0.0
-        best_gt_idx: int | None = None
+        row = masked_iou[det_idx]
+        # マッチ済み GT をマスク
+        for gt_idx in matched_gt:
+            row[gt_idx] = -1.0
+        best_gt_idx_t = int(row.argmax().item())
+        best_iou = row[best_gt_idx_t].item()
 
-        for gt_idx in range(num_gt):
-            if gt_idx in matched_gt:
-                continue
-            gt_label = category_id_to_idx.get(gt_annotations[gt_idx]["category_id"])
-            if gt_label is None:
-                continue
-            if det.label != gt_label:
-                continue
-            iou_val = iou_matrix[det_idx, gt_idx].item()
-            if iou_val > best_iou:
-                best_iou = iou_val
-                best_gt_idx = gt_idx
-
-        if best_gt_idx is not None and best_iou >= iou_threshold:
-            results.append(("TP", best_iou, best_gt_idx))
-            matched_gt.add(best_gt_idx)
+        if best_iou >= iou_threshold:
+            results.append(("TP", best_iou, best_gt_idx_t))
+            matched_gt.add(best_gt_idx_t)
         else:
-            results.append(("FP", best_iou if best_gt_idx is not None else 0.0, None))
+            # best_iou が -1 の場合はラベル一致 GT なし → IoU 0.0
+            fp_iou = best_iou if best_iou >= 0.0 else 0.0
+            results.append(("FP", fp_iou, None))
 
     # 元の順序に戻す
     ordered_results: list[tuple[str, float, int | None]] = [("", 0.0, None)] * num_det

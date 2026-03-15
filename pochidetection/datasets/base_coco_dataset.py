@@ -47,8 +47,11 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         """
         self._root = Path(root)
         self._annotation_file = self._find_annotation_file(annotation_file)
-        self._images, self._annotations, self._categories = self._load_annotations()
+        images, annotations_by_id, self._categories = self._load_annotations()
         self._category_id_to_idx = build_category_id_to_idx(self._categories)
+        self._images = images
+        # __getitem__() 毎回のフィルタリングを避けるため, 初期化時に一括実行する.
+        self._annotations = self._filter_annotations(annotations_by_id)
 
     def _find_annotation_file(self, annotation_file: str | None) -> Path:
         """アノテーションファイルを探す.
@@ -95,21 +98,55 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         with open(self._annotation_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        images = data.get("images", [])
-        annotations = data.get("annotations", [])
+        # 大規模 JSON (数百 MB) でのメモリ常駐を防ぐため,
+        # 必要フィールド抽出後に元データを即座に解放する.
+        images: list[dict[str, Any]] = data.get("images", [])
+        raw_annotations: list[dict[str, Any]] = data.get("annotations", [])
+        raw_categories: list[dict[str, Any]] = data.get("categories", [])
+        del data
+
         # 背景クラスを除外し, カテゴリ ID の昇順でソート.
         # JSON 内の出現順に依存しない一意のマッピングを保証する.
-        categories = filter_categories(data.get("categories", []))
+        categories = filter_categories(raw_categories)
+        del raw_categories
 
         # image_id でアノテーションをグループ化
         annotations_by_image_id: dict[int, list[dict[str, Any]]] = {}
-        for ann in annotations:
+        for ann in raw_annotations:
             image_id = ann["image_id"]
             if image_id not in annotations_by_image_id:
                 annotations_by_image_id[image_id] = []
             annotations_by_image_id[image_id].append(ann)
+        del raw_annotations
 
         return images, annotations_by_image_id, categories
+
+    def _filter_annotations(
+        self,
+        annotations_by_id: dict[int, list[dict[str, Any]]],
+    ) -> dict[int, list[dict[str, Any]]]:
+        """無効なアノテーションを除外する.
+
+        カテゴリ ID が未知, または bbox のサイズがゼロ以下のものを除外する.
+
+        Args:
+            annotations_by_id: image_id でグループ化されたアノテーション.
+
+        Returns:
+            フィルタ済みアノテーション (image_id でグループ化).
+        """
+        filtered: dict[int, list[dict[str, Any]]] = {}
+        for image_id, anns in annotations_by_id.items():
+            valid = [
+                ann
+                for ann in anns
+                if ann["category_id"] in self._category_id_to_idx
+                and ann["bbox"][2] > 0
+                and ann["bbox"][3] > 0
+            ]
+            if valid:
+                filtered[image_id] = valid
+        return filtered
 
     def __len__(self) -> int:
         """データセット内のサンプル数を返す.
@@ -134,23 +171,13 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         image_id = image_info["id"]
 
         image_path = self._root / image_info["file_name"]
-        image = Image.open(image_path).convert("RGB")
+        with Image.open(image_path) as img:
+            image = img.convert("RGB")
         orig_w, orig_h = image.size
 
         annotations = self._annotations.get(image_id, [])
 
-        # 有効なアノテーションをフィルタ
-        valid_annotations = []
-        for ann in annotations:
-            cat_id = ann["category_id"]
-            if cat_id not in self._category_id_to_idx:
-                continue
-            x, y, w, h = ann["bbox"]
-            if w <= 0 or h <= 0:
-                continue
-            valid_annotations.append(ann)
-
-        return self._transform_sample(image, valid_annotations, orig_w, orig_h)
+        return self._transform_sample(image, annotations, orig_w, orig_h)
 
     @abstractmethod
     def _transform_sample(

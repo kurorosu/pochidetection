@@ -133,7 +133,8 @@ class INT8Calibrator(trt.IInt8EntropyCalibrator2 if _TRT_AVAILABLE else object):
 
         for i in range(actual_batch):
             image_path = self._image_paths[self._current_index + i]
-            image = Image.open(image_path).convert("RGB")
+            with Image.open(image_path) as img:
+                image = img.convert("RGB")
             tensor = self._transform(image)
             self._device_buffer[i].copy_(tensor)
 

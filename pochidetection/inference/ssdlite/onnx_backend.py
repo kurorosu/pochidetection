@@ -8,7 +8,7 @@ import numpy as np
 import onnxruntime as ort
 import torch
 
-from pochidetection.inference.providers import resolve_providers
+from pochidetection.inference.providers import configure_ort_logger, resolve_providers
 from pochidetection.inference.ssdlite.postprocessing import (
     generate_anchors,
     postprocess,
@@ -74,14 +74,16 @@ class SSDLiteOnnxBackend(IInferenceBackend[dict[str, torch.Tensor]]):
         if providers is None:
             providers = resolve_providers(device)
 
-        ort.set_default_logger_severity(3)
+        configure_ort_logger()
         self._session = ort.InferenceSession(str(model_path), providers=providers)
         self._input_names = tuple(inp.name for inp in self._session.get_inputs())
         self._output_names = tuple(out.name for out in self._session.get_outputs())
         self._input_dtype = self._session.get_inputs()[0].type
 
-        active_providers = self._session.get_providers()
-        logger.info(f"ONNX Runtime providers: {active_providers}")
+        self._active_providers: list[str] = cast(
+            list[str], self._session.get_providers()
+        )
+        logger.info(f"ONNX Runtime providers: {self._active_providers}")
 
         self._anchors = generate_anchors(num_classes, image_size)
         logger.info(
@@ -145,7 +147,7 @@ class SSDLiteOnnxBackend(IInferenceBackend[dict[str, torch.Tensor]]):
     @property
     def active_providers(self) -> list[str]:
         """実際に使用されている Execution Providers を取得."""
-        return cast(list[str], self._session.get_providers())
+        return self._active_providers
 
     @property
     def session(self) -> ort.InferenceSession:

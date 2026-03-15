@@ -390,10 +390,11 @@ def run_inference(
     all_predictions: dict[str, list[Detection]] = {}
 
     for image_file in image_files:
-        image = Image.open(image_file).convert("RGB")
+        with Image.open(image_file) as img:
+            image = img.convert("RGB")
         detections = ctx.pipeline.run(image)
         all_predictions[image_file.name] = detections
-        result_image = ctx.visualizer.draw(image, detections)
+        result_image = ctx.visualizer.draw(image, detections, inplace=True)
         output_path = ctx.saver.save(result_image, image_file.name)
 
         inf_timer = ctx.phased_timer.get_timer("inference")
