@@ -1,13 +1,13 @@
-"""SSDLite 学習スクリプトの BN 退避・復元ヘルパーのテスト."""
+"""SSD 系モデル共通の BN 退避・復元ヘルパーのテスト."""
 
 import torch
 import torch.nn as nn
 
-from pochidetection.scripts.ssdlite.train import _restore_bn_states, _save_bn_states
+from pochidetection.scripts.ssd.validation import restore_bn_states, save_bn_states
 
 
 class TestSaveBnStates:
-    """_save_bn_states のテスト."""
+    """save_bn_states のテスト."""
 
     def test_saves_running_mean_and_var(self) -> None:
         """running_mean, running_var, num_batches_tracked が保存される."""
@@ -16,7 +16,7 @@ class TestSaveBnStates:
         model.train()
         model(torch.randn(2, 3, 4, 4))
 
-        states = _save_bn_states(model)
+        states = save_bn_states(model)
 
         assert "0.running_mean" in states
         assert "0.running_var" in states
@@ -28,7 +28,7 @@ class TestSaveBnStates:
         model.train()
         model(torch.randn(2, 3, 4, 4))
 
-        states = _save_bn_states(model)
+        states = save_bn_states(model)
         original_mean = states["0.running_mean"].clone()
 
         # モデルの running_mean を変更
@@ -40,12 +40,12 @@ class TestSaveBnStates:
     def test_no_bn_returns_empty(self) -> None:
         """BatchNorm がないモデルでは空辞書を返す."""
         model = nn.Sequential(nn.Linear(3, 3))
-        states = _save_bn_states(model)
+        states = save_bn_states(model)
         assert states == {}
 
 
 class TestRestoreBnStates:
-    """_restore_bn_states のテスト."""
+    """restore_bn_states のテスト."""
 
     def test_restores_after_forward(self) -> None:
         """forward による変更後も退避した値が復元される."""
@@ -54,7 +54,7 @@ class TestRestoreBnStates:
         model(torch.randn(2, 3, 4, 4))
 
         # 退避
-        states = _save_bn_states(model)
+        states = save_bn_states(model)
         saved_mean = states["0.running_mean"].clone()
         saved_var = states["0.running_var"].clone()
 
@@ -63,7 +63,7 @@ class TestRestoreBnStates:
         model(torch.randn(2, 3, 4, 4))
 
         # 復元
-        _restore_bn_states(model, states)
+        restore_bn_states(model, states)
 
         assert torch.equal(model[0].running_mean, saved_mean)  # type: ignore[arg-type]
         assert torch.equal(model[0].running_var, saved_var)  # type: ignore[arg-type]
@@ -75,7 +75,7 @@ class TestRestoreBnStates:
         model(torch.randn(2, 3, 4, 4))
 
         original_mean = model[0].running_mean.clone()  # type: ignore[union-attr]
-        _restore_bn_states(model, {})
+        restore_bn_states(model, {})
 
         # 変更されない
         assert torch.equal(model[0].running_mean, original_mean)  # type: ignore[arg-type]
@@ -102,7 +102,7 @@ class TestBnStatesRoundTrip:
         trained_var = model[1].running_var.clone()  # type: ignore[union-attr]
 
         # validation フェーズ: 退避 → train() forward → 復元
-        bn_states = _save_bn_states(model)
+        bn_states = save_bn_states(model)
 
         model.eval()
         with torch.no_grad():
@@ -111,7 +111,7 @@ class TestBnStatesRoundTrip:
             model(torch.randn(4, 3, 8, 8) * 10 + 5)
             model.eval()
 
-        _restore_bn_states(model, bn_states)
+        restore_bn_states(model, bn_states)
 
         # BN 統計が学習時の値に戻っている
         assert torch.equal(model[1].running_mean, trained_mean)  # type: ignore[arg-type]
