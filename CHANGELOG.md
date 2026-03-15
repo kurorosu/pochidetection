@@ -9,13 +9,27 @@
 - 無し.
 
 ### Changed
+- 無し.
+
+### Removed
+- 無し.
+
+### Fixed
+- 無し.
+
+## v0.10.3 (2026-03-15)
+
+### Added
+- 無し.
+
+### Changed
 - COCO JSON 読み込みのメモリ効率を改善. 必要フィールド抽出後に `data`, `raw_annotations`, `raw_categories` を即座に `del` で解放. ([#331](https://github.com/kurorosu/pochidetection/pull/331).)
 - アノテーションフィルタリングを `__getitem__()` から初期化時に移動. 毎回のフィルタリングを排除し `__getitem__()` を簡素化. ([#332](https://github.com/kurorosu/pochidetection/pull/332).)
 - ONNX Provider チェックの不要な繰り返しを排除. `get_providers()` の結果を初期化時にキャッシュ (`rtdetr/onnx_backend.py`, `ssdlite/onnx_backend.py`). ([#333](https://github.com/kurorosu/pochidetection/pull/333).)
 - 検出-GT マッチングの O(n^2) ラベル比較をテンソルマスクに置換. ラベル一致マスクを事前計算し, ループ内の条件分岐を排除. ([#334](https://github.com/kurorosu/pochidetection/pull/334).)
 - `Visualizer.draw()` に `inplace` パラメータを追加. 推論ループでは `inplace=True` で不要な画像コピーを回避. ([#335](https://github.com/kurorosu/pochidetection/pull/335).)
 - TensorRT バックエンドの `.clone()` を `_resolve_output()` 内に移動. 呼び出し側の冗長な `.clone()` を排除し, バッファ保護の責務を集約. ([#336](https://github.com/kurorosu/pochidetection/pull/336).)
-- ONNX Runtime ロガーのグローバル設定を `configure_ort_logger()` に集約. プロセス内で1回のみ実行するガード付き. (N/A.)
+- ONNX Runtime ロガーのグローバル設定を `configure_ort_logger()` に集約. プロセス内で1回のみ実行するガード付き. ([#337](https://github.com/kurorosu/pochidetection/pull/337).)
 
 ### Removed
 - 無し.
@@ -23,22 +37,6 @@
 ### Fixed
 - `Image.open()` のファイルハンドル未クローズを修正. `with` 文で明示的にクローズするよう変更 (`inference.py`, `base_coco_dataset.py`, `calibrator.py`). ([#329](https://github.com/kurorosu/pochidetection/pull/329).)
 - ONNX 検証セッション (`InferenceSession`) の未クローズを修正. `try/finally` で明示的に解放するよう変更 (`validation.py`). ([#330](https://github.com/kurorosu/pochidetection/pull/330).)
-
-## v0.10.2 (2026-03-14)
-
-### Added
-- CLI 統合テストを追加. 引数パース (train/infer/export), アーキテクチャ別ディスパッチ (`_resolve_train`/`_resolve_infer`), コマンド間パス引き継ぎ (`resolve_config_path`), `run_infer` バリデーションの計 22 テストケース. ([#324](https://github.com/kurorosu/pochidetection/pull/324).)
-- `write_reports()` の統合テストを追加. 正常検出, 空検出, GT アノテーション不在, config 保存の計 7 テストケース. ([#325](https://github.com/kurorosu/pochidetection/pull/325).)
-- `INT8Calibrator` のキャリブレーションフローテストを追加. 複数バッチシーケンス, バッチサイズ未満の画像枚数, キャッシュの別インスタンス再利用の計 3 テストケース. ([#326](https://github.com/kurorosu/pochidetection/pull/326).)
-
-### Changed
-- `rtdetr_model` fixture を eval モードで初期化するよう変更. テスト間の状態干渉を防止. ([#327](https://github.com/kurorosu/pochidetection/pull/327).)
-
-### Removed
-- 無し.
-
-### Fixed
-- TensorRT INT8 キャリブレーション関連の DeprecationWarning を pytest filterwarnings で抑制. ([#327](https://github.com/kurorosu/pochidetection/pull/327).)
 
 ## Archived Changelogs
 
