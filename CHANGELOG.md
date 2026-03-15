@@ -9,14 +9,14 @@
 - 無し.
 
 ### Changed
-- 無し.
+- COCO JSON 読み込みのメモリ効率を改善. 必要フィールド抽出後に `data`, `raw_annotations`, `raw_categories` を即座に `del` で解放. (N/A.)
 
 ### Removed
 - 無し.
 
 ### Fixed
 - `Image.open()` のファイルハンドル未クローズを修正. `with` 文で明示的にクローズするよう変更 (`inference.py`, `base_coco_dataset.py`, `calibrator.py`). ([#329](https://github.com/kurorosu/pochidetection/pull/329).)
-- ONNX 検証セッション (`InferenceSession`) の未クローズを修正. `try/finally` で明示的に解放するよう変更 (`validation.py`). (N/A.)
+- ONNX 検証セッション (`InferenceSession`) の未クローズを修正. `try/finally` で明示的に解放するよう変更 (`validation.py`). ([#330](https://github.com/kurorosu/pochidetection/pull/330).)
 
 ## v0.10.2 (2026-03-14)
 

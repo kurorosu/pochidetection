@@ -95,19 +95,26 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         with open(self._annotation_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        images = data.get("images", [])
-        annotations = data.get("annotations", [])
+        # 大規模 JSON (数百 MB) でのメモリ常駐を防ぐため,
+        # 必要フィールド抽出後に元データを即座に解放する.
+        images: list[dict[str, Any]] = data.get("images", [])
+        raw_annotations: list[dict[str, Any]] = data.get("annotations", [])
+        raw_categories: list[dict[str, Any]] = data.get("categories", [])
+        del data
+
         # 背景クラスを除外し, カテゴリ ID の昇順でソート.
         # JSON 内の出現順に依存しない一意のマッピングを保証する.
-        categories = filter_categories(data.get("categories", []))
+        categories = filter_categories(raw_categories)
+        del raw_categories
 
         # image_id でアノテーションをグループ化
         annotations_by_image_id: dict[int, list[dict[str, Any]]] = {}
-        for ann in annotations:
+        for ann in raw_annotations:
             image_id = ann["image_id"]
             if image_id not in annotations_by_image_id:
                 annotations_by_image_id[image_id] = []
             annotations_by_image_id[image_id].append(ann)
+        del raw_annotations
 
         return images, annotations_by_image_id, categories
 
