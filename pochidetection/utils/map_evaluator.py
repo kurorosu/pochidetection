@@ -53,6 +53,13 @@ class MapEvaluator:
 
         Returns:
             mAP@0.5 と mAP@0.5:0.95 を含む DetectionMetrics.
+
+        Examples:
+            >>> evaluator = MapEvaluator(Path("data/val/annotations.json"))
+            >>> predictions = {"image_001.jpg": [Detection(box=[10, 20, 100, 200], score=0.9, label=0)]}
+            >>> metrics = evaluator.evaluate(predictions)
+            >>> metrics.map_50
+            1.0
         """
         metric = MeanAveragePrecision(iou_type="bbox")
 

@@ -46,6 +46,13 @@ class ConfigLoader:
         Raises:
             FileNotFoundError: 設定ファイルが見つからない場合.
             ValidationError: 設定値がスキーマと一致しない場合.
+
+        Examples:
+            >>> config = ConfigLoader.load("configs/rtdetr_coco.py")
+            >>> config["num_classes"]
+            4
+            >>> config["model_name"]
+            'PekingU/rtdetr_r50vd_coco_o365'
         """
         raw_config = cls._load_file(config_path)
         try:
