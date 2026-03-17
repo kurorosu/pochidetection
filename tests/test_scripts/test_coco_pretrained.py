@@ -5,9 +5,10 @@ from pathlib import Path
 from pochidetection.scripts.common.coco_classes import (
     COCO_CLASS_NAMES,
     COCO_NUM_CLASSES,
-    build_pretrained_config,
+    PRETRAINED_CONFIG_PATH,
 )
 from pochidetection.scripts.common.inference import PRETRAINED, resolve_model_path
+from pochidetection.utils import ConfigLoader
 
 
 class TestCocoClassNames:
@@ -30,32 +31,28 @@ class TestCocoClassNames:
         assert COCO_CLASS_NAMES[-1] == "toothbrush"
 
 
-class TestBuildPretrainedConfig:
-    """build_pretrained_config のテスト."""
+class TestPretrainedConfig:
+    """プリトレイン用 config ファイルのテスト."""
 
     def test_architecture_is_rtdetr(self) -> None:
         """アーキテクチャが RTDetr 固定である."""
-        config = build_pretrained_config()
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
         assert config["architecture"] == "RTDetr"
 
     def test_num_classes_is_80(self) -> None:
         """num_classes が 80 である."""
-        config = build_pretrained_config()
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
         assert config["num_classes"] == 80
 
     def test_class_names_matches_coco(self) -> None:
         """class_names が COCO_CLASS_NAMES と一致する."""
-        config = build_pretrained_config()
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
         assert config["class_names"] == COCO_CLASS_NAMES
 
-    def test_no_training_fields(self) -> None:
-        """学習・データセット関連フィールドが含まれない."""
-        config = build_pretrained_config()
-        assert "data_root" not in config
-        assert "train_split" not in config
-        assert "val_split" not in config
-        assert "epochs" not in config
-        assert "annotation_path" not in config
+    def test_has_local_files_only(self) -> None:
+        """local_files_only フィールドが存在する."""
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
+        assert "local_files_only" in config
 
 
 class TestResolveModelPathPretrained:

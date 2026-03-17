@@ -375,12 +375,13 @@ def infer(
         return
 
     if model_path == PRETRAINED:
-        from pochidetection.scripts.common.coco_classes import build_pretrained_config
+        from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
         from pochidetection.scripts.rtdetr.infer import (
             _setup_pipeline as rtdetr_setup_pipeline,
         )
+        from pochidetection.utils import ConfigLoader
 
-        config = build_pretrained_config()
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
         setup_pipeline = rtdetr_setup_pipeline
         logger.info("Loading RT-DETR COCO pretrained model")
     else:

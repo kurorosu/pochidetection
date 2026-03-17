@@ -87,7 +87,7 @@ def _setup_pipeline(
         config,
         create_trt=lambda p: RTDetrTensorRTBackend(p),
         create_onnx=lambda p, d: RTDetrOnnxBackend(p, device=d),
-        create_pytorch=_create_pytorch_backend,
+        create_pytorch=lambda p, d, fp16: _create_pytorch_backend(p, d, fp16, config),
         trt_available=_TRT_AVAILABLE,
     )
 
@@ -149,9 +149,13 @@ def _load_processor(
     Raises:
         RuntimeError: processor が解決できない場合.
     """
+    local_files_only = config.get("local_files_only", False)
+
     if model_path == PRETRAINED:
         pretrained_name = config.get("model_name", "PekingU/rtdetr_r50vd")
-        return RTDetrImageProcessor.from_pretrained(pretrained_name)
+        return RTDetrImageProcessor.from_pretrained(
+            pretrained_name, local_files_only=local_files_only
+        )
 
     if not is_onnx_model(model_path) and not is_tensorrt_model(model_path):
         return RTDetrImageProcessor.from_pretrained(model_path)
@@ -175,7 +179,10 @@ def _load_processor(
 
 
 def _create_pytorch_backend(
-    model_path: Path, device: str, use_fp16: bool
+    model_path: Path,
+    device: str,
+    use_fp16: bool,
+    config: DetectionConfigDict,
 ) -> RTDetrPyTorchBackend:
     """RT-DETR 用 PyTorch バックエンドを生成する.
 
@@ -183,13 +190,16 @@ def _create_pytorch_backend(
         model_path: モデルのパス.
         device: 推論デバイス.
         use_fp16: FP16 推論を使用するか.
+        config: 設定辞書.
 
     Returns:
         RTDetrPyTorchBackend インスタンス.
     """
+    local_files_only = config.get("local_files_only", False)
+
     if model_path == PRETRAINED:
-        model_name = "PekingU/rtdetr_r50vd"
-        model = RTDetrModel(model_name=model_name)
+        model_name = config.get("model_name", "PekingU/rtdetr_r50vd")
+        model = RTDetrModel(model_name=model_name, local_files_only=local_files_only)
     else:
         model = RTDetrModel(str(model_path))
     model.to(device)
