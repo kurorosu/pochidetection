@@ -8,10 +8,12 @@
 ### Added
 - SSD300 VGG16 の学習実装を追加. `architecture = "SSD300"` で SSD300 学習が可能に. ([#352](https://github.com/kurorosu/pochidetection/pull/352).)
 - SSD300 PyTorch 推論バックエンドを追加. `architecture = "SSD300"` で SSD300 推論が可能に. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
+- 動画ファイル推論を追加. `pochi infer -d video.mp4` で .mp4/.avi/.mov の動画を入力可能に. `--interval N` で N フレーム間隔の推論にも対応. (N/A.)
+  - モデル未指定時は RT-DETR COCO プリトレインモデルで推論. `local_files_only` 設定によるオフライン対応付き.
 
 ### Changed
 - SSDLite/SSD300 共通の `SsdPyTorchBackend` と `SsdPipeline` を抽出し, 推論バックエンド・パイプラインを共通化. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
-- SSDLite/SSD300 の検証ロジック・BN ヘルパー (`_validate`, `_save_bn_states`, `_restore_bn_states`) を `scripts/ssd/validation.py` に共通化. (N/A.)
+- SSDLite/SSD300 の検証ロジック・BN ヘルパー (`_validate`, `_save_bn_states`, `_restore_bn_states`) を `scripts/ssd/validation.py` に共通化. ([#355](https://github.com/kurorosu/pochidetection/pull/355).)
 
 ### Removed
 - `SSDLitePyTorchBackend` を `SsdPyTorchBackend` に統合し削除. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
