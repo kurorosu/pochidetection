@@ -34,6 +34,12 @@ def _create_parser() -> argparse.ArgumentParser:
     uv run pochi infer -d video.mp4 --interval 3                     # 3フレーム間隔
     uv run pochi infer -d video.mp4                                  # COCO プリトレイン
 
+  リアルタイム推論 (Webcam / RTSP):
+    uv run pochi infer -d 0                                          # Webcam
+    uv run pochi infer -d 0 --record output.mp4                      # Webcam + 録画
+    uv run pochi infer -d rtsp://192.168.1.10/stream                 # RTSP
+    uv run pochi infer -d rtsp://... --record out.mp4                # RTSP + 録画
+
   エクスポート (入力パスで ONNX / TensorRT を自動判定):
     uv run pochi export -m work_dirs/20260124_001/best                         # フォルダ → ONNX
     uv run pochi export -m work_dirs/20260124_001/best --fp16                  # SSDLite FP16 ONNX
@@ -64,15 +70,15 @@ def _create_parser() -> argparse.ArgumentParser:
 
     # 推論コマンド
     infer_parser = subparsers.add_parser(
-        "infer", help="画像フォルダまたは動画ファイルの推論"
+        "infer", help="画像フォルダ, 動画ファイル, Webcam, RTSP の推論"
     )
     infer_parser.add_argument(
         "-d",
         "--dir",
         type=str,
         default=None,
-        help="推論対象の画像フォルダまたは動画ファイルパス "
-        "(未指定時は config の infer_image_dir を使用)",
+        help="推論対象 (画像フォルダ / 動画ファイル / Webcam デバイスID / RTSP URL). "
+        "未指定時は config の infer_image_dir を使用",
     )
     infer_parser.add_argument(
         "-m",
@@ -92,7 +98,14 @@ def _create_parser() -> argparse.ArgumentParser:
         "--interval",
         type=int,
         default=1,
-        help="N フレーム間隔で推論 (動画のみ, default: 1 = 全フレーム)",
+        help="N フレーム間隔で推論 (動画/ストリームのみ, default: 1 = 全フレーム)",
+    )
+    infer_parser.add_argument(
+        "--record",
+        type=str,
+        default=None,
+        metavar="OUTPUT.mp4",
+        help="ストリーム推論時に表示と同時に録画する出力ファイルパス",
     )
 
     # エクスポートコマンド (フォルダ → ONNX, .onnx → TensorRT を自動判定)
