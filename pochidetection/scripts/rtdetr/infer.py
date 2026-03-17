@@ -21,6 +21,7 @@ except ImportError:
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.common.inference import (
+    PRETRAINED,
     PipelineContext,
     build_pipeline_context,
     create_backend,
@@ -148,6 +149,10 @@ def _load_processor(
     Raises:
         RuntimeError: processor が解決できない場合.
     """
+    if model_path == PRETRAINED:
+        pretrained_name = config.get("model_name", "PekingU/rtdetr_r50vd")
+        return RTDetrImageProcessor.from_pretrained(pretrained_name)
+
     if not is_onnx_model(model_path) and not is_tensorrt_model(model_path):
         return RTDetrImageProcessor.from_pretrained(model_path)
 
@@ -157,10 +162,10 @@ def _load_processor(
         logger.info(f"Loading processor from {processor_dir}")
         return RTDetrImageProcessor.from_pretrained(processor_dir)
 
-    model_name = config.get("model_name")
-    if model_name:
-        logger.info(f"Loading processor from model_name: {model_name}")
-        return RTDetrImageProcessor.from_pretrained(model_name)
+    fallback_name: str | None = config.get("model_name")
+    if fallback_name:
+        logger.info(f"Loading processor from model_name: {fallback_name}")
+        return RTDetrImageProcessor.from_pretrained(fallback_name)
 
     raise RuntimeError(
         f"RTDetrImageProcessor を解決できません. "
@@ -182,7 +187,11 @@ def _create_pytorch_backend(
     Returns:
         RTDetrPyTorchBackend インスタンス.
     """
-    model = RTDetrModel(str(model_path))
+    if model_path == PRETRAINED:
+        model_name = "PekingU/rtdetr_r50vd"
+        model = RTDetrModel(model_name=model_name)
+    else:
+        model = RTDetrModel(str(model_path))
     model.to(device)
     model.eval()
 
