@@ -11,8 +11,10 @@
 
 ## 特徴
 
-- **マルチアーキテクチャ対応**: RT-DETR (Transformer) と SSDLite (CNN) を設定ファイルで切り替え可能
+- **マルチアーキテクチャ対応**: RT-DETR (Transformer), SSDLite (CNN), SSD300 (CNN) を設定ファイルで切り替え可能
 - **COCO フォーマット対応**: 標準的なアノテーション形式でデータセットを管理
+- **画像・動画推論**: 画像ディレクトリと動画ファイル (.mp4, .avi, .mov) の両方に対応
+- **COCO プリトレイン**: モデル未指定時は RT-DETR COCO プリトレインモデルで即座に推論可能
 - **学習の可視化**: Loss 曲線, mAP 曲線, PR 曲線を HTML で自動出力
 - **Early Stopping**: mAP または val_loss を監視し, 改善がなければ学習を自動停止
 - **CLI ツール**: コマンドひとつで学習・推論・エクスポートを実行
@@ -110,17 +112,22 @@ uv run pochi train -c configs/ssdlite_coco.py
 
 ### 6. 推論の実行
 
+#### 画像推論
+
+`-m` でモデルディレクトリを指定すると, ワークスペース内の `config.py` が自動解決されます.
+`-d` を省略した場合は config の `infer_image_dir` が使用されます.
+
 ```bash
-# 画像ディレクトリを指定して推論 (RT-DETR)
-uv run pochi infer -d images/
+# モデル指定 (config はワークスペースから自動解決)
+uv run pochi infer -m work_dirs/20260124_001/best
 
-# 信頼度閾値を指定
-uv run pochi infer -d images/ -t 0.3
-
-# 学習済みモデルを指定
+# 画像ディレクトリも明示指定
 uv run pochi infer -d images/ -m work_dirs/20260124_001/best
 
-# SSDLite で推論
+# ONNX モデルで推論
+uv run pochi infer -m work_dirs/20260124_001/best/model_fp32.onnx
+
+# config を明示指定 (自動解決より優先)
 uv run pochi infer -d images/ -c configs/ssdlite_coco.py
 ```
 
@@ -128,6 +135,24 @@ uv run pochi infer -d images/ -c configs/ssdlite_coco.py
 
 - バウンディングボックス付きの結果画像 (`{filename}_result.{ext}`)
 - 推論速度の統計 (平均 ms/image, 合計時間)
+
+#### 動画推論
+
+```bash
+# 動画ファイルを指定して推論
+uv run pochi infer -d video.mp4 -m work_dirs/20260124_001/best
+
+# 3フレーム間隔で推論 (処理時間を短縮)
+uv run pochi infer -d video.mp4 -m work_dirs/20260124_001/best --interval 3
+
+# COCO プリトレインモデルで推論 (モデル未指定時)
+uv run pochi infer -d video.mp4
+```
+
+- 対応形式: `.mp4`, `.avi`, `.mov`
+- 出力: 入力と同じディレクトリに `{filename}_result.mp4` として保存
+- `--interval N`: N フレーム間隔で推論 (スキップフレームはそのまま出力)
+- モデル未指定時は RT-DETR COCO プリトレインモデルで推論
 
 ### 7. ONNX エクスポート
 
@@ -196,6 +221,7 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 |--------|--------|------|
 | RT-DETR (R50) | `architecture = "RTDetr"` | HuggingFace Pretrained Transformer モデル (640x640) |
 | SSDLite MobileNetV3 | `architecture = "SSDLite"` | torchvision 軽量 CNN モデル (320x320) |
+| SSD300 VGG16 | `architecture = "SSD300"` | torchvision CNN モデル (300x300) |
 
 ### 評価指標
 
@@ -212,6 +238,8 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 - **cuDNN Benchmark**: `cudnn_benchmark = True` で GPU 推論を最適化
 - **自動ワークスペース管理**: `work_dirs/yyyymmdd_xxx/` で学習結果を自動管理
 - **インタラクティブ可視化**: Plotly による HTML グラフで学習過程を分析
+- **動画推論**: OpenCV による動画ファイルのフレーム単位推論. `--interval` でフレーム間隔指定可能
+- **COCO プリトレイン推論**: モデル未指定時に RT-DETR COCO プリトレインモデルで即座に推論
 - **ONNX エクスポート**: RT-DETR / SSDLite 両対応. SSDLite は FP16 エクスポートにも対応
 - **ONNX 推論**: ONNX Runtime による推論バックエンド (CUDA / CPU 自動選択)
 - **TensorRT エクスポート**: ONNX モデルから TensorRT エンジンへの変換 (FP32/FP16/INT8, Dynamic Batching 対応)
@@ -221,6 +249,7 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 ## 注意点
 
 - 対応画像形式: `.jpg`, `.jpeg`, `.png`, `.bmp`, `.gif`, `.webp`
+- 対応動画形式: `.mp4`, `.avi`, `.mov`
 - 推論では最初の画像がウォームアップとして計測から除外されます
 - COCO アノテーションの座標は自動的に正規化 `[cx, cy, w, h]` 形式に変換されます
 - バックグラウンドクラス (category_id=0) は自動的に除外されます
