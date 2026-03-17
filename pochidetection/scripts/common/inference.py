@@ -45,6 +45,9 @@ logger = LoggerManager().get_logger(__name__)
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 
+PRETRAINED = Path("__pretrained__")
+"""プリトレインモデル使用を示すセンチネル値."""
+
 
 class InferenceContext(Protocol):
     """推論コンテキストのプロトコル."""
@@ -114,8 +117,10 @@ def resolve_model_path(
     workspaces = workspace_manager.get_available_workspaces()
 
     if not workspaces:
-        logger.error("No trained models found. Please run training first.")
-        return None
+        logger.info(
+            "No trained models found. Using COCO pretrained model for inference."
+        )
+        return PRETRAINED
 
     latest_workspace = Path(str(workspaces[-1]["path"]))
     model_path = latest_workspace / "best"
@@ -320,8 +325,12 @@ def build_pipeline_context(
     label_mapper = LabelMapper(class_names) if class_names else None
     visualizer = Visualizer(label_mapper=label_mapper)
 
-    is_single_file = is_onnx_model(model_path) or is_tensorrt_model(model_path)
-    saver_base = model_path.parent if is_single_file else model_path
+    if model_path == PRETRAINED:
+        saver_base = Path(config.get("work_dir", "work_dirs")) / "pretrained"
+    elif is_onnx_model(model_path) or is_tensorrt_model(model_path):
+        saver_base = model_path.parent
+    else:
+        saver_base = model_path
     saver = InferenceSaver(saver_base)
 
     return PipelineContext(
@@ -365,7 +374,18 @@ def infer(
     if image_files is None:
         return
 
-    logger.info(f"Loading model from {model_path}")
+    if model_path == PRETRAINED:
+        from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
+        from pochidetection.scripts.rtdetr.infer import (
+            _setup_pipeline as rtdetr_setup_pipeline,
+        )
+        from pochidetection.utils import ConfigLoader
+
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
+        setup_pipeline = rtdetr_setup_pipeline
+        logger.info("Loading RT-DETR COCO pretrained model")
+    else:
+        logger.info(f"Loading model from {model_path}")
 
     ctx = setup_pipeline(config, model_path)
     logger.info(f"Results will be saved to {ctx.saver.output_dir}")

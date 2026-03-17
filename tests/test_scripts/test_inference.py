@@ -30,15 +30,17 @@ class TestResolveModelPath:
 
         assert result is None
 
-    def test_returns_none_when_no_workspaces(self, tmp_path: Path) -> None:
-        """model_dir=None でワークスペースが無い場合 None を返すことを確認."""
+    def test_returns_pretrained_when_no_workspaces(self, tmp_path: Path) -> None:
+        """model_dir=None でワークスペースが無い場合 PRETRAINED を返すことを確認."""
+        from pochidetection.scripts.common.inference import PRETRAINED
+
         work_dir = tmp_path / "work_dirs"
         work_dir.mkdir()
         config: DetectionConfigDict = {"work_dir": str(work_dir)}
 
         result = resolve_model_path(config, None)
 
-        assert result is None
+        assert result == PRETRAINED
 
     def test_returns_best_from_latest_workspace(self, tmp_path: Path) -> None:
         """model_dir=None で最新ワークスペースの best を返すことを確認."""

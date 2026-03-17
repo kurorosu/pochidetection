@@ -36,6 +36,7 @@ class DetectionConfigDict(TypedDict, total=False):
     architecture: str
     model_name: str
     pretrained: bool
+    local_files_only: bool
     image_size: ImageSizeDict
 
     data_root: str
@@ -84,6 +85,7 @@ class DetectionConfig(BaseModel):
     architecture: Literal["RTDetr", "SSD300", "SSDLite"] = "RTDetr"
     model_name: str = Field(default="PekingU/rtdetr_r50vd", min_length=1)
     pretrained: bool = True
+    local_files_only: bool = False
     image_size: ImageSizeConfig = Field(default_factory=ImageSizeConfig)
 
     data_root: str = Field(min_length=1)
@@ -159,6 +161,9 @@ class DetectionConfig(BaseModel):
 
         if not self.pretrained:
             ignored.append("pretrained")
+
+        if self.local_files_only:
+            ignored.append("local_files_only")
 
         for name in ignored:
             warnings.warn(
