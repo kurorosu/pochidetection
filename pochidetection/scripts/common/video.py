@@ -109,7 +109,7 @@ def process_frames(
     pipeline: IDetectionPipeline,
     visualizer: Visualizer,
     *,
-    frame_skip: int = 0,
+    interval: int = 1,
     logger: logging.Logger,
 ) -> None:
     """フレーム単位で推論・描画・書き出しを行う.
@@ -122,7 +122,7 @@ def process_frames(
         sink: フレーム出力先.
         pipeline: 推論パイプライン.
         visualizer: 検出結果の描画.
-        frame_skip: スキップするフレーム数 (0 = 全フレーム処理).
+        interval: N フレーム間隔で推論 (1 = 全フレーム処理).
         logger: ロガー.
     """
     total = getattr(source, "total_frames", 0)
@@ -131,8 +131,7 @@ def process_frames(
     start_time = time.monotonic()
 
     for frame in source:
-        # frame_skip: 0 なら全フレーム, N なら N フレームごとに 1 フレーム処理
-        if frame_skip > 0 and frame_idx % (frame_skip + 1) != 0:
+        if interval > 1 and frame_idx % interval != 0:
             sink.write(frame)  # スキップフレームはそのまま書き出し
             frame_idx += 1
             continue

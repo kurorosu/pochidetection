@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from pochidetection.cli.commands.infer import _resolve_infer, run_infer
+from pochidetection.cli.commands.infer import _resolve_infer, is_video_file, run_infer
 from pochidetection.cli.commands.train import _resolve_train
 from pochidetection.cli.parser import _create_parser
 
@@ -320,3 +320,52 @@ class TestRunInferValidation:
 
         with pytest.raises(SystemExit):
             run_infer(args)
+
+
+# ------------------------------------------------------------------ #
+# 動画ファイル判別
+# ------------------------------------------------------------------ #
+
+
+class TestIsVideoFile:
+    """is_video_file のテスト."""
+
+    def test_mp4(self) -> None:
+        """mp4 が動画と判定される."""
+        assert is_video_file("video.mp4") is True
+
+    def test_avi(self) -> None:
+        """avi が動画と判定される."""
+        assert is_video_file("video.avi") is True
+
+    def test_mov(self) -> None:
+        """mov が動画と判定される."""
+        assert is_video_file("video.mov") is True
+
+    def test_uppercase(self) -> None:
+        """大文字拡張子も動画と判定される."""
+        assert is_video_file("video.MP4") is True
+
+    def test_image_dir(self) -> None:
+        """ディレクトリパスは動画でない."""
+        assert is_video_file("images/") is False
+
+    def test_image_file(self) -> None:
+        """画像ファイルは動画でない."""
+        assert is_video_file("image.jpg") is False
+
+
+class TestIntervalArgParse:
+    """--interval 引数のパーステスト."""
+
+    def test_default_interval(self) -> None:
+        """interval 未指定時にデフォルト値 1 が設定される."""
+        parser = _create_parser()
+        args = parser.parse_args(["infer", "-d", "images/"])
+        assert args.interval == 1
+
+    def test_custom_interval(self) -> None:
+        """interval 指定時にその値が使われる."""
+        parser = _create_parser()
+        args = parser.parse_args(["infer", "-d", "video.mp4", "--interval", "3"])
+        assert args.interval == 3

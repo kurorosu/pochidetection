@@ -29,6 +29,11 @@ def _create_parser() -> argparse.ArgumentParser:
     uv run pochi infer -m work_dirs/20260310_002/best/model_fp32.onnx
     uv run pochi infer -m work_dirs/20260310_002/best/model_fp32.engine
 
+  動画推論:
+    uv run pochi infer -d video.mp4 -m work_dirs/20260124_001/best
+    uv run pochi infer -d video.mp4 --interval 3                     # 3フレーム間隔
+    uv run pochi infer -d video.mp4                                  # COCO プリトレイン
+
   エクスポート (入力パスで ONNX / TensorRT を自動判定):
     uv run pochi export -m work_dirs/20260124_001/best                         # フォルダ → ONNX
     uv run pochi export -m work_dirs/20260124_001/best --fp16                  # SSDLite FP16 ONNX
@@ -58,13 +63,16 @@ def _create_parser() -> argparse.ArgumentParser:
     )
 
     # 推論コマンド
-    infer_parser = subparsers.add_parser("infer", help="フォルダ内画像の一括推論")
+    infer_parser = subparsers.add_parser(
+        "infer", help="画像フォルダまたは動画ファイルの推論"
+    )
     infer_parser.add_argument(
         "-d",
         "--dir",
         type=str,
         default=None,
-        help="推論対象の画像フォルダパス (未指定時は config の infer_image_dir を使用)",
+        help="推論対象の画像フォルダまたは動画ファイルパス "
+        "(未指定時は config の infer_image_dir を使用)",
     )
     infer_parser.add_argument(
         "-m",
@@ -79,6 +87,12 @@ def _create_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help=f"設定ファイルのパス (default: {DEFAULT_CONFIG})",
+    )
+    infer_parser.add_argument(
+        "--interval",
+        type=int,
+        default=1,
+        help="N フレーム間隔で推論 (動画のみ, default: 1 = 全フレーム)",
     )
 
     # エクスポートコマンド (フォルダ → ONNX, .onnx → TensorRT を自動判定)
