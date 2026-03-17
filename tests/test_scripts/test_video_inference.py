@@ -1,4 +1,4 @@
-"""VideoReader / VideoWriter / StreamReader のテスト."""
+"""VideoReader / VideoWriter / StreamReader / DisplaySink / CompositeSink のテスト."""
 
 from pathlib import Path
 
@@ -6,7 +6,13 @@ import cv2
 import numpy as np
 import pytest
 
-from pochidetection.scripts.common.video import StreamReader, VideoReader, VideoWriter
+from pochidetection.scripts.common.video import (
+    CompositeSink,
+    DisplaySink,
+    StreamReader,
+    VideoReader,
+    VideoWriter,
+)
 
 
 def _create_test_video(path: Path, num_frames: int = 10) -> None:
@@ -147,6 +153,71 @@ class TestStreamReader:
         reader = StreamReader(str(video_path))
         assert not hasattr(reader, "total_frames")
         reader.release()
+
+
+class TestDisplaySink:
+    """DisplaySink のテスト."""
+
+    def test_is_frame_sink(self) -> None:
+        """IFrameSink を継承している."""
+        from pochidetection.interfaces.frame_sink import IFrameSink
+
+        sink = DisplaySink()
+        assert isinstance(sink, IFrameSink)
+
+    def test_default_window_name(self) -> None:
+        """デフォルトウィンドウ名が pochidetection."""
+        sink = DisplaySink()
+        assert sink._window_name == "pochidetection"  # noqa: SLF001
+
+    def test_custom_window_name(self) -> None:
+        """カスタムウィンドウ名を設定できる."""
+        sink = DisplaySink(window_name="custom")
+        assert sink._window_name == "custom"  # noqa: SLF001
+
+
+class TestCompositeSink:
+    """CompositeSink のテスト."""
+
+    def test_is_frame_sink(self) -> None:
+        """IFrameSink を継承している."""
+        from pochidetection.interfaces.frame_sink import IFrameSink
+
+        sink = CompositeSink(sinks=[])
+        assert isinstance(sink, IFrameSink)
+
+    def test_write_delegates_to_all_sinks(self, tmp_path: Path) -> None:
+        """全シンクにフレームが書き出される."""
+        path1 = tmp_path / "out1.mp4"
+        path2 = tmp_path / "out2.mp4"
+        writer1 = VideoWriter(path1, fps=30.0, frame_size=(64, 48))
+        writer2 = VideoWriter(path2, fps=30.0, frame_size=(64, 48))
+        composite = CompositeSink(sinks=[writer1, writer2])
+
+        frame = np.zeros((48, 64, 3), dtype=np.uint8)
+        for _ in range(3):
+            composite.write(frame)
+        composite.release()
+
+        # 両方のファイルに 3 フレーム書き出されている
+        for path in (path1, path2):
+            cap = cv2.VideoCapture(str(path))
+            assert int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) == 3
+            cap.release()
+
+    def test_release_delegates_to_all_sinks(self, tmp_path: Path) -> None:
+        """release() が全シンクに伝播する."""
+        path1 = tmp_path / "out1.mp4"
+        path2 = tmp_path / "out2.mp4"
+        writer1 = VideoWriter(path1, fps=30.0, frame_size=(64, 48))
+        writer2 = VideoWriter(path2, fps=30.0, frame_size=(64, 48))
+        composite = CompositeSink(sinks=[writer1, writer2])
+
+        composite.release()
+
+        # release 後にファイルが存在する (正常に閉じられた)
+        assert path1.exists()
+        assert path2.exists()
 
 
 class TestVideoWriter:

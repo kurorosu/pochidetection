@@ -126,6 +126,71 @@ class StreamReader(IFrameSource):
         self._cap.release()
 
 
+class DisplaySink(IFrameSink):
+    """cv2.imshow によるリアルタイム表示シンク.
+
+    Attributes:
+        _window_name: ウィンドウ名.
+    """
+
+    def __init__(self, window_name: str = "pochidetection") -> None:
+        """初期化.
+
+        Args:
+            window_name: ウィンドウ名.
+        """
+        self._window_name = window_name
+
+    def write(self, frame: np.ndarray) -> None:
+        """フレームを表示し, q キーで StopIteration を raise.
+
+        Args:
+            frame: BGR 形式の画像フレーム.
+
+        Raises:
+            StopIteration: q キーが押された場合.
+        """
+        cv2.imshow(self._window_name, frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            raise StopIteration
+
+    def release(self) -> None:
+        """ウィンドウを破棄する."""
+        cv2.destroyAllWindows()
+
+
+class CompositeSink(IFrameSink):
+    """複数の IFrameSink に同時書き出しする複合シンク.
+
+    --record + DisplaySink を両立する.
+
+    Attributes:
+        _sinks: 出力先シンクのリスト.
+    """
+
+    def __init__(self, sinks: list[IFrameSink]) -> None:
+        """初期化.
+
+        Args:
+            sinks: 出力先シンクのリスト.
+        """
+        self._sinks = sinks
+
+    def write(self, frame: np.ndarray) -> None:
+        """全シンクにフレームを書き出す.
+
+        Args:
+            frame: BGR 形式の画像フレーム.
+        """
+        for sink in self._sinks:
+            sink.write(frame)
+
+    def release(self) -> None:
+        """全シンクを解放する."""
+        for sink in self._sinks:
+            sink.release()
+
+
 class VideoWriter(IFrameSink):
     """動画ファイルにフレームを書き出す IFrameSink 実装.
 
@@ -164,6 +229,7 @@ def process_frames(
     visualizer: Visualizer,
     *,
     interval: int = 1,
+    overlay_fps: bool = False,
     logger: logging.Logger,
 ) -> None:
     """フレーム単位で推論・描画・書き出しを行う.
@@ -177,6 +243,7 @@ def process_frames(
         pipeline: 推論パイプライン.
         visualizer: 検出結果の描画.
         interval: N フレーム間隔で推論 (1 = 全フレーム処理).
+        overlay_fps: True の場合, フレーム左上に実測 FPS を描画.
         logger: ロガー.
     """
     total = getattr(source, "total_frames", 0)
@@ -185,6 +252,8 @@ def process_frames(
     start_time = time.monotonic()
 
     for frame in source:
+        frame_start = time.monotonic()
+
         if interval > 1 and frame_idx % interval != 0:
             sink.write(frame)  # スキップフレームはそのまま書き出し
             frame_idx += 1
@@ -200,6 +269,21 @@ def process_frames(
 
         # PIL → BGR → 書き出し
         result_bgr = cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR)
+
+        # FPS オーバーレイ
+        if overlay_fps:
+            frame_time = time.monotonic() - frame_start
+            current_fps = 1.0 / frame_time if frame_time > 0 else 0.0
+            cv2.putText(
+                result_bgr,
+                f"FPS: {current_fps:.1f}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                (0, 255, 0),
+                2,
+            )
+
         sink.write(result_bgr)
 
         processed += 1
