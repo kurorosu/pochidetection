@@ -1,6 +1,7 @@
-"""動画推論の共通ロジック.
+"""動画・ストリーム推論の共通ロジック.
 
-VideoReader (IFrameSource), VideoWriter (IFrameSink), process_frames を提供する.
+VideoReader, VideoWriter, StreamReader, DisplaySink, CompositeSink,
+process_frames を提供する.
 """
 
 import logging
@@ -58,6 +59,59 @@ class VideoReader(IFrameSource):
     def total_frames(self) -> int:
         """総フレーム数を取得."""
         return int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    def __iter__(self) -> Iterator[np.ndarray]:
+        """フレームを順次返すイテレータ."""
+        while True:
+            ret, frame = self._cap.read()
+            if not ret:
+                break
+            yield frame
+
+    def release(self) -> None:
+        """リソースを解放する."""
+        self._cap.release()
+
+
+class StreamReader(IFrameSource):
+    """Webcam / RTSP ストリームからフレームを読み取る IFrameSource 実装.
+
+    Attributes:
+        _cap: OpenCV の VideoCapture インスタンス.
+    """
+
+    _DEFAULT_FPS: float = 30.0
+
+    def __init__(self, source: int | str) -> None:
+        """初期化.
+
+        Args:
+            source: デバイス ID (int) または RTSP URL (str).
+
+        Raises:
+            RuntimeError: ストリームを開けない場合.
+        """
+        self._cap = cv2.VideoCapture(source)
+        if not self._cap.isOpened():
+            raise RuntimeError(f"Failed to open stream: {source}")
+
+    @property
+    def fps(self) -> float:
+        """フレームレートを取得.
+
+        Webcam / RTSP で CAP_PROP_FPS が不正な値を返す場合は 30.0 にフォールバック.
+        """
+        raw = self._cap.get(cv2.CAP_PROP_FPS)
+        if raw <= 0:
+            return self._DEFAULT_FPS
+        return float(raw)
+
+    @property
+    def frame_size(self) -> tuple[int, int]:
+        """フレームサイズを (width, height) で取得."""
+        w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        return (w, h)
 
     def __iter__(self) -> Iterator[np.ndarray]:
         """フレームを順次返すイテレータ."""

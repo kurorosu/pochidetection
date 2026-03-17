@@ -1,11 +1,12 @@
-"""VideoReader / VideoWriter / process_frames のテスト."""
+"""VideoReader / VideoWriter / StreamReader のテスト."""
 
 from pathlib import Path
 
 import cv2
 import numpy as np
+import pytest
 
-from pochidetection.scripts.common.video import VideoReader, VideoWriter
+from pochidetection.scripts.common.video import StreamReader, VideoReader, VideoWriter
 
 
 def _create_test_video(path: Path, num_frames: int = 10) -> None:
@@ -67,10 +68,85 @@ class TestVideoReader:
 
     def test_file_not_found(self) -> None:
         """存在しないファイルで FileNotFoundError."""
-        import pytest
-
         with pytest.raises(FileNotFoundError):
             VideoReader(Path("/nonexistent/video.mp4"))
+
+
+class TestStreamReader:
+    """StreamReader のテスト."""
+
+    def test_is_frame_source(self, tmp_path: Path) -> None:
+        """IFrameSource を継承している."""
+        from pochidetection.interfaces.frame_source import IFrameSource
+
+        video_path = tmp_path / "test.mp4"
+        _create_test_video(video_path)
+        reader = StreamReader(str(video_path))
+        assert isinstance(reader, IFrameSource)
+        reader.release()
+
+    def test_fps_with_video_file(self, tmp_path: Path) -> None:
+        """動画ファイルから FPS を取得できる."""
+        video_path = tmp_path / "test.mp4"
+        _create_test_video(video_path)
+        reader = StreamReader(str(video_path))
+        assert reader.fps == 30.0
+        reader.release()
+
+    def test_fps_fallback_default(self, tmp_path: Path) -> None:
+        """CAP_PROP_FPS が 0 以下の場合に 30.0 にフォールバックする."""
+        video_path = tmp_path / "test.mp4"
+        _create_test_video(video_path)
+        reader = StreamReader(str(video_path))
+
+        # FPS を 0 に偽装: _cap を差し替え
+        original_cap = reader._cap  # noqa: SLF001
+        original_get = original_cap.get
+
+        class FakeCapture:
+            """FPS を 0 に偽装するラッパー."""
+
+            def get(self, prop_id: int) -> float:
+                if prop_id == cv2.CAP_PROP_FPS:
+                    return 0.0
+                return float(original_get(prop_id))
+
+        reader._cap = FakeCapture()  # type: ignore[assignment]  # noqa: SLF001
+        assert reader.fps == 30.0
+
+        # 元に戻してリリース
+        reader._cap = original_cap  # noqa: SLF001
+        reader.release()
+
+    def test_frame_size(self, tmp_path: Path) -> None:
+        """フレームサイズが取得できる."""
+        video_path = tmp_path / "test.mp4"
+        _create_test_video(video_path)
+        reader = StreamReader(str(video_path))
+        assert reader.frame_size == (64, 48)
+        reader.release()
+
+    def test_iterate_frames(self, tmp_path: Path) -> None:
+        """フレームをイテレートできる."""
+        video_path = tmp_path / "test.mp4"
+        _create_test_video(video_path, num_frames=3)
+        reader = StreamReader(str(video_path))
+        frames = list(reader)
+        assert len(frames) == 3
+        reader.release()
+
+    def test_invalid_source_raises_error(self) -> None:
+        """無効なソースで RuntimeError."""
+        with pytest.raises(RuntimeError):
+            StreamReader("rtsp://invalid.example.com/nonexistent")
+
+    def test_no_total_frames(self, tmp_path: Path) -> None:
+        """total_frames 属性を持たない."""
+        video_path = tmp_path / "test.mp4"
+        _create_test_video(video_path)
+        reader = StreamReader(str(video_path))
+        assert not hasattr(reader, "total_frames")
+        reader.release()
 
 
 class TestVideoWriter:
