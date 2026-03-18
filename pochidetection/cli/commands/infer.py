@@ -110,9 +110,12 @@ def _run_stream_infer(
 
     logger = LoggerManager().get_logger(__name__)
 
-    model_path = resolve_model_path(config, model_dir)
-    if model_path is None:
-        return
+    if model_dir is not None:
+        model_path = resolve_model_path(config, model_dir)
+        if model_path is None:
+            return
+    else:
+        model_path = PRETRAINED
 
     # プリトレイン時は config とパイプラインを差し替え
     if model_path == PRETRAINED:
@@ -199,9 +202,12 @@ def _run_video_infer(
 
     logger = LoggerManager().get_logger(__name__)
 
-    model_path = resolve_model_path(config, model_dir)
-    if model_path is None:
-        return
+    if model_dir is not None:
+        model_path = resolve_model_path(config, model_dir)
+        if model_path is None:
+            return
+    else:
+        model_path = PRETRAINED
 
     video_file = Path(video_path)
     if not video_file.exists():
