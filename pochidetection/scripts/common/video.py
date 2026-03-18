@@ -254,55 +254,53 @@ def process_frames(
     frame_idx = 0
     start_time = time.monotonic()
 
-    for frame in source:
-        frame_start = time.monotonic()
+    try:
+        for frame in source:
+            frame_start = time.monotonic()
 
-        if interval > 1 and frame_idx % interval != 0:
-            sink.write(frame)  # スキップフレームはそのまま書き出し
+            if interval > 1 and frame_idx % interval != 0:
+                sink.write(frame)  # スキップフレームはそのまま書き出し
+                frame_idx += 1
+                continue
+
+            # BGR → RGB → PIL
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pil_image = Image.fromarray(rgb)
+
+            # 推論 + 描画
+            detections = pipeline.run(pil_image)
+            result_image = visualizer.draw(pil_image, detections, inplace=True)
+
+            # PIL → BGR → 書き出し
+            result_bgr = cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR)
+
+            # FPS オーバーレイ
+            if overlay_fps:
+                frame_time = time.monotonic() - frame_start
+                current_fps = 1.0 / frame_time if frame_time > 0 else 0.0
+                cv2.putText(
+                    result_bgr,
+                    f"FPS: {current_fps:.1f}",
+                    (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1.0,
+                    (0, 255, 0),
+                    2,
+                )
+
+            sink.write(result_bgr)
+
+            processed += 1
             frame_idx += 1
-            continue
 
-        # BGR → RGB → PIL
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(rgb)
-
-        # 推論 + 描画
-        detections = pipeline.run(pil_image)
-        result_image = visualizer.draw(pil_image, detections, inplace=True)
-
-        # PIL → BGR → 書き出し
-        result_bgr = cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR)
-
-        # FPS オーバーレイ
-        if overlay_fps:
-            frame_time = time.monotonic() - frame_start
-            current_fps = 1.0 / frame_time if frame_time > 0 else 0.0
-            cv2.putText(
-                result_bgr,
-                f"FPS: {current_fps:.1f}",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.0,
-                (0, 255, 0),
-                2,
-            )
-
-        sink.write(result_bgr)
-
-        processed += 1
-        frame_idx += 1
-
-        # 進捗ログ (100 フレームごと, または total が既知の場合)
-        if processed % 100 == 0:
-            if total > 0:
+            # 進捗ログ (動画ファイルのみ, 100 フレームごと)
+            if total > 0 and processed % 100 == 0:
                 pct = frame_idx / total * 100
                 logger.info(f"Processing: {frame_idx}/{total} frames ({pct:.1f}%)")
-            else:
-                logger.info(f"Processing: {frame_idx} frames")
-
-    elapsed = time.monotonic() - start_time
-    avg_fps = processed / elapsed if elapsed > 0 else 0.0
-    logger.info(
-        f"Video inference completed: {processed} frames processed "
-        f"({frame_idx} total), {elapsed:.1f}s, {avg_fps:.1f} avg FPS"
-    )
+    finally:
+        elapsed = time.monotonic() - start_time
+        avg_fps = processed / elapsed if elapsed > 0 else 0.0
+        logger.info(
+            f"Video inference completed: {processed} frames processed "
+            f"({frame_idx} total), {elapsed:.1f}s, {avg_fps:.1f} avg FPS"
+        )

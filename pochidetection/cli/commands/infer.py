@@ -110,9 +110,12 @@ def _run_stream_infer(
 
     logger = LoggerManager().get_logger(__name__)
 
-    model_path = resolve_model_path(config, model_dir)
-    if model_path is None:
-        return
+    if model_dir is not None:
+        model_path = resolve_model_path(config, model_dir)
+        if model_path is None:
+            return
+    else:
+        model_path = PRETRAINED
 
     # プリトレイン時は config とパイプラインを差し替え
     if model_path == PRETRAINED:
@@ -134,40 +137,38 @@ def _run_stream_infer(
 
     ctx = setup_pipeline_fn(config, model_path)
 
-    reader = StreamReader(source)
-    display = DisplaySink()
+    with StreamReader(source) as reader:
+        display = DisplaySink()
 
-    sink: IFrameSink
-    if record_path is not None:
-        writer = VideoWriter(
-            Path(record_path), fps=reader.fps, frame_size=reader.frame_size
+        sink: IFrameSink
+        if record_path is not None:
+            writer = VideoWriter(
+                Path(record_path), fps=reader.fps, frame_size=reader.frame_size
+            )
+            sink = CompositeSink(sinks=[display, writer])
+        else:
+            sink = display
+
+        logger.info(
+            f"Stream: {source} "
+            f"({reader.frame_size[0]}x{reader.frame_size[1]}, {reader.fps:.1f}fps)"
         )
-        sink = CompositeSink(sinks=[display, writer])
-    else:
-        sink = display
+        if record_path is not None:
+            logger.info(f"Recording to {record_path}")
 
-    logger.info(
-        f"Stream: {source} "
-        f"({reader.frame_size[0]}x{reader.frame_size[1]}, {reader.fps:.1f}fps)"
-    )
-    if record_path is not None:
-        logger.info(f"Recording to {record_path}")
-
-    try:
-        process_frames(
-            source=reader,
-            sink=sink,
-            pipeline=ctx.pipeline,
-            visualizer=ctx.visualizer,
-            interval=interval,
-            overlay_fps=True,
-            logger=logger,
-        )
-    except (StopIteration, KeyboardInterrupt):
-        logger.info("Stream stopped")
-    finally:
-        reader.release()
-        sink.release()
+        with sink:
+            try:
+                process_frames(
+                    source=reader,
+                    sink=sink,
+                    pipeline=ctx.pipeline,
+                    visualizer=ctx.visualizer,
+                    interval=interval,
+                    overlay_fps=True,
+                    logger=logger,
+                )
+            except (StopIteration, KeyboardInterrupt):
+                logger.info("Stream stopped")
 
 
 def _run_video_infer(
@@ -199,9 +200,12 @@ def _run_video_infer(
 
     logger = LoggerManager().get_logger(__name__)
 
-    model_path = resolve_model_path(config, model_dir)
-    if model_path is None:
-        return
+    if model_dir is not None:
+        model_path = resolve_model_path(config, model_dir)
+        if model_path is None:
+            return
+    else:
+        model_path = PRETRAINED
 
     video_file = Path(video_path)
     if not video_file.exists():
@@ -232,28 +236,29 @@ def _run_video_infer(
     # 出力パス: 入力と同じディレクトリに _result 付きで出力
     output_path = video_file.parent / f"{video_file.stem}_result.mp4"
 
-    reader = VideoReader(video_file)
-    writer = VideoWriter(output_path, fps=reader.fps, frame_size=reader.frame_size)
+    with VideoReader(video_file) as reader:
+        with VideoWriter(
+            output_path, fps=reader.fps, frame_size=reader.frame_size
+        ) as writer:
+            logger.info(
+                f"Video: {video_file.name} "
+                f"({reader.frame_size[0]}x{reader.frame_size[1]}, "
+                f"{reader.fps:.1f}fps, {reader.total_frames} frames)"
+            )
+            if interval > 1:
+                logger.info(
+                    f"Frame interval: {interval} (process every {interval} frames)"
+                )
 
-    logger.info(
-        f"Video: {video_file.name} "
-        f"({reader.frame_size[0]}x{reader.frame_size[1]}, "
-        f"{reader.fps:.1f}fps, {reader.total_frames} frames)"
-    )
-    if interval > 1:
-        logger.info(f"Frame interval: {interval} (process every {interval} frames)")
+            process_frames(
+                source=reader,
+                sink=writer,
+                pipeline=ctx.pipeline,
+                visualizer=ctx.visualizer,
+                interval=interval,
+                logger=logger,
+            )
 
-    process_frames(
-        source=reader,
-        sink=writer,
-        pipeline=ctx.pipeline,
-        visualizer=ctx.visualizer,
-        interval=interval,
-        logger=logger,
-    )
-
-    reader.release()
-    writer.release()
     logger.info(f"Output saved to {output_path}")
 
 
