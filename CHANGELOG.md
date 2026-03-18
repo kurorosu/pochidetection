@@ -9,8 +9,22 @@
 - 無し
 
 ### Changed
-- `IFrameSource`, `IFrameSink` にコンテキストマネージャプロトコル (`__enter__`/`__exit__`) を追加. `with` 文でリソースを安全に解放可能に. (N/A.)
-- 動画/ストリーム推論 (`_run_video_infer`, `_run_stream_infer`) のリソース管理を手動 `release()` から `with` 文に変更. (N/A.)
+- 無し
+
+### Removed
+- 無し
+
+### Fixed
+- 無し
+
+## v0.12.1 (2026-03-18)
+
+### Added
+- 無し
+
+### Changed
+- `IFrameSource`, `IFrameSink` にコンテキストマネージャプロトコル (`__enter__`/`__exit__`) を追加. `with` 文でリソースを安全に解放可能に. ([#377](https://github.com/kurorosu/pochidetection/pull/377))
+- 動画/ストリーム推論 (`_run_video_infer`, `_run_stream_infer`) のリソース管理を手動 `release()` から `with` 文に変更. ([#377](https://github.com/kurorosu/pochidetection/pull/377))
 
 ### Removed
 - 無し
@@ -19,31 +33,11 @@
 - 動画/Webcam/RTSP 推論で `-m` 未指定時に `work_dirs` のモデルを使おうとしてクラッシュするバグを修正. プリトレインモデルへ正しくフォールバックするように変更. ([#360](https://github.com/kurorosu/pochidetection/pull/360))
 - Webcam/RTSP 推論で `q` キーまたは `Ctrl+C` で中断した際に完了サマリー (処理フレーム数, 経過時間, 平均 FPS) が出力されない問題を修正. ([#375](https://github.com/kurorosu/pochidetection/pull/375))
 - Webcam/RTSP 推論中に 100 フレームごとの進捗ログが不要に出力される問題を修正. 動画ファイル推論のみに限定. ([#376](https://github.com/kurorosu/pochidetection/pull/376))
-- `BaseCocoDataset.__getitem__()` で COCO JSON の画像情報に `id` または `file_name` フィールドが欠落している場合, 素の `KeyError` ではなくインデックスと画像情報を含む明確なエラーメッセージを出力するように改善. (N/A.)
-
-## v0.12.0 (2026-03-18)
-
-### Added
-- SSD300 VGG16 の学習実装を追加. `architecture = "SSD300"` で SSD300 学習が可能に. ([#352](https://github.com/kurorosu/pochidetection/pull/352))
-- SSD300 PyTorch 推論バックエンドを追加. `architecture = "SSD300"` で SSD300 推論が可能に. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
-- 動画ファイル推論を追加. `pochi infer -d video.mp4` で .mp4/.avi/.mov の動画を入力可能に. `--interval N` で N フレーム間隔の推論にも対応. ([#356](https://github.com/kurorosu/pochidetection/pull/356))
-  - モデル未指定時は RT-DETR COCO プリトレインモデルで推論. `local_files_only` 設定によるオフライン対応付き.
-- リアルタイム推論を追加. `pochi infer -d 0` で Webcam, `-d rtsp://...` で RTSP ストリームに対応. `--record output.mp4` で表示と同時に録画可能. ([#357](https://github.com/kurorosu/pochidetection/pull/357))
-  - FPS オーバーレイ表示, `q` キーで終了, `Ctrl+C` でも安全に停止.
-
-### Changed
-- SSDLite/SSD300 共通の `SsdPyTorchBackend` と `SsdPipeline` を抽出し, 推論バックエンド・パイプラインを共通化. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
-- SSDLite/SSD300 の検証ロジック・BN ヘルパー (`_validate`, `_save_bn_states`, `_restore_bn_states`) を `scripts/ssd/validation.py` に共通化. ([#355](https://github.com/kurorosu/pochidetection/pull/355))
-
-### Removed
-- `SSDLitePyTorchBackend` を `SsdPyTorchBackend` に統合し削除. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
-- `SSDLitePipeline` を `SsdPipeline` に統合し削除. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
-
-### Fixed
-- 無し
+- `BaseCocoDataset.__getitem__()` で COCO JSON の画像情報に `id` または `file_name` フィールドが欠落している場合, 素の `KeyError` ではなくインデックスと画像情報を含む明確なエラーメッセージを出力するように改善. ([#377](https://github.com/kurorosu/pochidetection/pull/377))
 
 ## Archived Changelogs
 
+- [0.12.x](changelogs/0.12.x.md)
 - [0.11.x](changelogs/0.11.x.md)
 - [0.10.x](changelogs/0.10.x.md)
 - [0.9.x](changelogs/0.9.x.md)
