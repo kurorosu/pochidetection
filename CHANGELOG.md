@@ -6,45 +6,41 @@
 ## Unreleased
 
 ### Added
-- SSD300 VGG16 の学習実装を追加. `architecture = "SSD300"` で SSD300 学習が可能に. ([#352](https://github.com/kurorosu/pochidetection/pull/352).)
-- SSD300 PyTorch 推論バックエンドを追加. `architecture = "SSD300"` で SSD300 推論が可能に. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
-- 動画ファイル推論を追加. `pochi infer -d video.mp4` で .mp4/.avi/.mov の動画を入力可能に. `--interval N` で N フレーム間隔の推論にも対応. ([#356](https://github.com/kurorosu/pochidetection/pull/356).)
-  - モデル未指定時は RT-DETR COCO プリトレインモデルで推論. `local_files_only` 設定によるオフライン対応付き.
-- リアルタイム推論を追加. `pochi infer -d 0` で Webcam, `-d rtsp://...` で RTSP ストリームに対応. `--record output.mp4` で表示と同時に録画可能. (N/A.)
-  - FPS オーバーレイ表示, `q` キーで終了, `Ctrl+C` でも安全に停止.
+- 無し
 
 ### Changed
-- SSDLite/SSD300 共通の `SsdPyTorchBackend` と `SsdPipeline` を抽出し, 推論バックエンド・パイプラインを共通化. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
-- SSDLite/SSD300 の検証ロジック・BN ヘルパー (`_validate`, `_save_bn_states`, `_restore_bn_states`) を `scripts/ssd/validation.py` に共通化. ([#355](https://github.com/kurorosu/pochidetection/pull/355).)
+- 無し
 
 ### Removed
-- `SSDLitePyTorchBackend` を `SsdPyTorchBackend` に統合し削除. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
-- `SSDLitePipeline` を `SsdPipeline` に統合し削除. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
+- 無し
 
 ### Fixed
 - 無し
 
-## v0.11.0 (2026-03-15)
+## v0.12.0 (2026-03-18)
 
 ### Added
-- `ConfigLoader.load()`, `load_coco_ground_truth()`, `MapEvaluator.evaluate()` に Examples セクションを追加. ([#341](https://github.com/kurorosu/pochidetection/pull/341).)
-- TensorBoard 統合による学習メトリクスのリアルタイムモニタリング機能を追加. `enable_tensorboard = True` で Loss, mAP, 学習率をエポック単位で記録. ([#347](https://github.com/kurorosu/pochidetection/pull/347).)
+- SSD300 VGG16 の学習実装を追加. `architecture = "SSD300"` で SSD300 学習が可能に. ([#352](https://github.com/kurorosu/pochidetection/pull/352))
+- SSD300 PyTorch 推論バックエンドを追加. `architecture = "SSD300"` で SSD300 推論が可能に. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
+- 動画ファイル推論を追加. `pochi infer -d video.mp4` で .mp4/.avi/.mov の動画を入力可能に. `--interval N` で N フレーム間隔の推論にも対応. ([#356](https://github.com/kurorosu/pochidetection/pull/356))
+  - モデル未指定時は RT-DETR COCO プリトレインモデルで推論. `local_files_only` 設定によるオフライン対応付き.
+- リアルタイム推論を追加. `pochi infer -d 0` で Webcam, `-d rtsp://...` で RTSP ストリームに対応. `--record output.mp4` で表示と同時に録画可能. ([#357](https://github.com/kurorosu/pochidetection/pull/357))
+  - FPS オーバーレイ表示, `q` キーで終了, `Ctrl+C` でも安全に停止.
 
 ### Changed
-- 学習時に config の `cudnn_benchmark` 設定を反映するよう `setup_training()` に `setup_cudnn_benchmark()` 呼び出しを追加. ([#342](https://github.com/kurorosu/pochidetection/pull/342).)
-- サブコマンド未指定時に argparse の `required=True` でエラーメッセージと非ゼロ終了コードを返すよう変更. フォールバックのヘルプ表示ロジックを削除. ([#339](https://github.com/kurorosu/pochidetection/pull/339).)
-- mAP 関連のプロパティ名・フィールド名・CSV カラム名を snake_case に統一 (`mAP` → `map`, `mAP_50` → `map_50`, `mAP_75` → `map_75`). ([#340](https://github.com/kurorosu/pochidetection/pull/340).)
+- SSDLite/SSD300 共通の `SsdPyTorchBackend` と `SsdPipeline` を抽出し, 推論バックエンド・パイプラインを共通化. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
+- SSDLite/SSD300 の検証ロジック・BN ヘルパー (`_validate`, `_save_bn_states`, `_restore_bn_states`) を `scripts/ssd/validation.py` に共通化. ([#355](https://github.com/kurorosu/pochidetection/pull/355))
 
 ### Removed
-- `tests/conftest.py` の未使用 `training_history` fixture を削除. ([#349](https://github.com/kurorosu/pochidetection/pull/349).)
-- `tests/test_tensorrt/conftest.py` の未使用 `int8_engine_path` fixture を削除. ([#349](https://github.com/kurorosu/pochidetection/pull/349).)
-- `DetectionConfig` / `DetectionConfigDict` から未使用フィールド `loss`, `metrics`, `dataset` を削除. ([#350](https://github.com/kurorosu/pochidetection/pull/350).)
+- `SSDLitePyTorchBackend` を `SsdPyTorchBackend` に統合し削除. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
+- `SSDLitePipeline` を `SsdPipeline` に統合し削除. ([#353](https://github.com/kurorosu/pochidetection/pull/353))
 
 ### Fixed
-- SSDLite 推論時の `nms_iou_threshold` デフォルト値を `0.55` から `0.5` に修正し, スキーマ・学習側と統一. ([#348](https://github.com/kurorosu/pochidetection/pull/348).)
+- 無し
 
 ## Archived Changelogs
 
+- [0.11.x](changelogs/0.11.x.md)
 - [0.10.x](changelogs/0.10.x.md)
 - [0.9.x](changelogs/0.9.x.md)
 - [0.8.x](changelogs/0.8.x.md)
