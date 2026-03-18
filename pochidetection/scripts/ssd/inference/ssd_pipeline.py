@@ -1,4 +1,4 @@
-"""SSDLite E2E 推論パイプライン."""
+"""SSD 共通 E2E 推論パイプライン."""
 
 import torch
 from PIL import Image
@@ -11,9 +11,10 @@ from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 
 
-class SSDLitePipeline(IDetectionPipeline):
-    """SSDLite E2E 推論パイプライン.
+class SsdPipeline(IDetectionPipeline):
+    """SSD 共通 E2E 推論パイプライン.
 
+    SSDLite と SSD300 の両方で使用できる.
     前処理・推論・後処理を明示的に分離し,
     PhasedTimer によるフェーズ別プロファイリングを提供する.
 
@@ -44,7 +45,7 @@ class SSDLitePipeline(IDetectionPipeline):
         """初期化.
 
         Args:
-            backend: 推論バックエンド (PyTorch または ONNX).
+            backend: 推論バックエンド (PyTorch, ONNX, または TensorRT).
             transform: torchvision 前処理パイプライン.
             image_size: リサイズ先の (height, width).
             device: 実行デバイス.

@@ -36,6 +36,7 @@ class DetectionConfigDict(TypedDict, total=False):
     architecture: str
     model_name: str
     pretrained: bool
+    local_files_only: bool
     image_size: ImageSizeDict
 
     data_root: str
@@ -81,9 +82,10 @@ class DetectionConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    architecture: Literal["RTDetr", "SSDLite"] = "RTDetr"
+    architecture: Literal["RTDetr", "SSD300", "SSDLite"] = "RTDetr"
     model_name: str = Field(default="PekingU/rtdetr_r50vd", min_length=1)
     pretrained: bool = True
+    local_files_only: bool = False
     image_size: ImageSizeConfig = Field(default_factory=ImageSizeConfig)
 
     data_root: str = Field(min_length=1)
@@ -122,6 +124,7 @@ class DetectionConfig(BaseModel):
         """Architecture を case-insensitive に正規化."""
         mapping = {
             "rtdetr": "RTDetr",
+            "ssd300": "SSD300",
             "ssdlite": "SSDLite",
         }
         normalized = mapping.get(v.lower())
@@ -147,9 +150,9 @@ class DetectionConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def warn_ssdlite_ignored_fields(self) -> "DetectionConfig":
-        """Warn about config fields ignored by SSDLite."""
-        if self.architecture != "SSDLite":
+    def warn_ssd_ignored_fields(self) -> "DetectionConfig":
+        """Warn about config fields ignored by SSD variants."""
+        if self.architecture not in ("SSDLite", "SSD300"):
             return self
 
         ignored: list[str] = []
@@ -159,9 +162,12 @@ class DetectionConfig(BaseModel):
         if not self.pretrained:
             ignored.append("pretrained")
 
+        if self.local_files_only:
+            ignored.append("local_files_only")
+
         for name in ignored:
             warnings.warn(
-                f"SSDLite では '{name}' は無視されます.",
+                f"{self.architecture} では '{name}' は無視されます.",
                 UserWarning,
                 stacklevel=2,
             )

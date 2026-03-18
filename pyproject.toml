@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pochidetection"
-version = "0.11.0"
+version = "0.12.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -17,6 +17,7 @@ dependencies = [
     "colorlog",
     "plotly",
     "pydantic",
+    "opencv-python",
     "onnx",
     "onnxruntime-gpu",
     "tensorboard>=2.14.0",

@@ -2,14 +2,14 @@
 
 from pochidetection.inference.rtdetr.onnx_backend import RTDetrOnnxBackend
 from pochidetection.inference.rtdetr.pytorch_backend import RTDetrPyTorchBackend
+from pochidetection.inference.ssd.pytorch_backend import SsdPyTorchBackend
 from pochidetection.inference.ssdlite.onnx_backend import SSDLiteOnnxBackend
-from pochidetection.inference.ssdlite.pytorch_backend import SSDLitePyTorchBackend
 
 __all__ = [
     "RTDetrOnnxBackend",
     "RTDetrPyTorchBackend",
     "SSDLiteOnnxBackend",
-    "SSDLitePyTorchBackend",
+    "SsdPyTorchBackend",
 ]
 
 try:

@@ -1,6 +1,6 @@
-"""SSDLite MobileNetV3 学習スクリプト.
+"""SSD300 VGG16 学習スクリプト.
 
-torchvision の SSDLite を COCO 形式データセットでファインチューニングする.
+torchvision の SSD300 を COCO 形式データセットでファインチューニングする.
 """
 
 import logging
@@ -10,7 +10,7 @@ from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.datasets import SsdCocoDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
-from pochidetection.models import SSDLiteModel
+from pochidetection.models import SSD300Model
 from pochidetection.scripts.common.training import (
     TrainingContext,
     run_training_loop,
@@ -37,17 +37,17 @@ def train(config: DetectionConfigDict, config_path: str) -> None:
 
 
 def _create_model(config: DetectionConfigDict) -> IDetectionModel:
-    """モデル固有の SSDLite インスタンスを構築する.
+    """モデル固有の SSD300 インスタンスを構築する.
 
     Args:
         config: 設定辞書.
 
     Returns:
-        構築済みの SSDLiteModel.
+        構築済みの SSD300Model.
     """
     num_classes = config["num_classes"]
     nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
-    return SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
+    return SSD300Model(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
 
 
 def _setup_training(
@@ -65,7 +65,7 @@ def _setup_training(
     Returns:
         構築済みの学習コンテキスト.
     """
-    logger.info("Architecture: SSDLite MobileNetV3")
+    logger.info("Architecture: SSD300 VGG16")
 
     image_size = config["image_size"]
     dataset_factory = partial(SsdCocoDataset, image_size=image_size)

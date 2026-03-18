@@ -7,6 +7,7 @@
 
 # モデル設定
 model_name = "PekingU/rtdetr_r18vd"
+local_files_only = False  # True にするとキャッシュ済みモデルのみ使用 (オフライン対応)
 
 # 画像サイズ設定
 image_size = {"height": 640, "width": 640}

@@ -28,6 +28,7 @@ class RTDetrModel(IDetectionModel):
         num_classes: int | None = None,
         pretrained: bool = True,
         image_size: ImageSizeDict | None = None,
+        local_files_only: bool = False,
     ) -> None:
         """RTDetrModelを初期化.
 
@@ -37,11 +38,15 @@ class RTDetrModel(IDetectionModel):
             pretrained: 事前学習済み重みを使用するかどうか.
             image_size: 画像サイズ {"height": int, "width": int}.
                 Noneの場合はモデルのデフォルト設定を使用.
+            local_files_only: True の場合, キャッシュ済みファイルのみ使用し
+                ネットワークアクセスを行わない.
         """
         super().__init__()
 
         if pretrained:
-            kwargs: dict[str, Any] = {}
+            kwargs: dict[str, Any] = {
+                "local_files_only": local_files_only,
+            }
             if num_classes is not None:
                 kwargs["num_labels"] = num_classes
                 kwargs["ignore_mismatched_sizes"] = True
@@ -49,14 +54,18 @@ class RTDetrModel(IDetectionModel):
         else:
             from transformers import RTDetrConfig
 
-            config = RTDetrConfig.from_pretrained(model_name)
+            config = RTDetrConfig.from_pretrained(
+                model_name, local_files_only=local_files_only
+            )
             if num_classes is not None:
                 config.num_labels = num_classes
             self._model = RTDetrForObjectDetection(config)
 
         self._num_classes = num_classes or self._model.config.num_labels
 
-        proc_kwargs: dict[str, Any] = {}
+        proc_kwargs: dict[str, Any] = {
+            "local_files_only": local_files_only,
+        }
         if image_size is not None:
             proc_kwargs["size"] = image_size
         self._processor = RTDetrImageProcessor.from_pretrained(

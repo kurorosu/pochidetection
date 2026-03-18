@@ -25,6 +25,11 @@ def _resolve_train(
 
         return ssdlite_train
 
+    if arch == "SSD300":
+        from pochidetection.scripts.ssd300.train import train as ssd300_train
+
+        return ssd300_train
+
     from pochidetection.scripts.rtdetr.train import train as rtdetr_train
 
     return rtdetr_train

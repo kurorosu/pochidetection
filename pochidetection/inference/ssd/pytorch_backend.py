@@ -1,20 +1,22 @@
-"""SSDLite PyTorch 推論バックエンド."""
+"""SSD 共通 PyTorch 推論バックエンド."""
 
 import torch
 
 from pochidetection.inference.sync import synchronize_cuda
 from pochidetection.interfaces import IInferenceBackend
-from pochidetection.models import SSDLiteModel
+from pochidetection.interfaces.model import IDetectionModel
 
 
-class SSDLitePyTorchBackend(IInferenceBackend[dict[str, torch.Tensor]]):
-    """SSDLiteModel を使用した PyTorch 推論バックエンド.
+class SsdPyTorchBackend(IInferenceBackend[dict[str, torch.Tensor]]):
+    """IDetectionModel を使用した SSD 共通 PyTorch 推論バックエンド.
+
+    SSDLite と SSD300 の両方で使用できる.
 
     Attributes:
-        _model: SSDLiteModel インスタンス.
+        _model: IDetectionModel インスタンス.
     """
 
-    def __init__(self, model: SSDLiteModel) -> None:
+    def __init__(self, model: IDetectionModel) -> None:
         """初期化.
 
         Args:
