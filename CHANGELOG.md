@@ -9,7 +9,7 @@
 - 無し
 
 ### Changed
-- 無し
+- `ModelOutputDict` をアーキテクチャ別のサブ型 (`TransformerModelOutputDict`, `SSDModelOutputDict`) に分離し, 各モデルの `forward()` 戻り値を型安全に. (N/A.)
 
 ### Removed
 - 無し

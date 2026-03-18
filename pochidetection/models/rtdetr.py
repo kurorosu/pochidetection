@@ -7,7 +7,10 @@ import torch
 from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
 
 from pochidetection.configs.schemas import ImageSizeDict
-from pochidetection.interfaces.model import IDetectionModel, ModelOutputDict
+from pochidetection.interfaces.model import (
+    IDetectionModel,
+    TransformerModelOutputDict,
+)
 
 
 class RTDetrModel(IDetectionModel):
@@ -76,7 +79,7 @@ class RTDetrModel(IDetectionModel):
         self,
         pixel_values: torch.Tensor,
         labels: list[dict[str, torch.Tensor]] | None = None,
-    ) -> ModelOutputDict:
+    ) -> TransformerModelOutputDict:
         """順伝播.
 
         Args:
@@ -93,7 +96,7 @@ class RTDetrModel(IDetectionModel):
         """
         outputs = self._model(pixel_values=pixel_values, labels=labels)
 
-        result: ModelOutputDict = {
+        result: TransformerModelOutputDict = {
             "pred_logits": outputs.logits,
             "pred_boxes": outputs.pred_boxes,
         }

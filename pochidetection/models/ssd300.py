@@ -7,7 +7,7 @@ from torchvision.models import VGG16_Weights
 from torchvision.models.detection import ssd300_vgg16
 from torchvision.models.detection.ssd import SSD
 
-from pochidetection.interfaces.model import IDetectionModel, ModelOutputDict
+from pochidetection.interfaces.model import IDetectionModel, SSDModelOutputDict
 
 
 class SSD300Model(IDetectionModel):
@@ -60,7 +60,7 @@ class SSD300Model(IDetectionModel):
         self,
         pixel_values: torch.Tensor,
         labels: list[dict[str, torch.Tensor]] | None = None,
-    ) -> ModelOutputDict:
+    ) -> SSDModelOutputDict:
         """順伝播.
 
         Args:
