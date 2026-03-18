@@ -11,7 +11,9 @@ from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 
 
-class SsdPipeline(IDetectionPipeline):
+class SsdPipeline(
+    IDetectionPipeline[tuple[torch.Tensor, int, int], dict[str, torch.Tensor]]
+):
     """SSD 共通 E2E 推論パイプライン.
 
     SSDLite と SSD300 の両方で使用できる.
