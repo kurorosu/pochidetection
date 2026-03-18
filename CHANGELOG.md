@@ -16,7 +16,8 @@
 
 ### Fixed
 - 動画/Webcam/RTSP 推論で `-m` 未指定時に `work_dirs` のモデルを使おうとしてクラッシュするバグを修正. プリトレインモデルへ正しくフォールバックするように変更. ([#360](https://github.com/kurorosu/pochidetection/pull/360))
-- Webcam/RTSP 推論で `q` キーまたは `Ctrl+C` で中断した際に完了サマリー (処理フレーム数, 経過時間, 平均 FPS) が出力されない問題を修正. (N/A.)
+- Webcam/RTSP 推論で `q` キーまたは `Ctrl+C` で中断した際に完了サマリー (処理フレーム数, 経過時間, 平均 FPS) が出力されない問題を修正. ([#375](https://github.com/kurorosu/pochidetection/pull/375))
+- Webcam/RTSP 推論中に 100 フレームごとの進捗ログが不要に出力される問題を修正. 動画ファイル推論のみに限定. (N/A.)
 
 ## v0.12.0 (2026-03-18)
 

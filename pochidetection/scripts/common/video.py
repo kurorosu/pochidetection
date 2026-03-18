@@ -293,13 +293,10 @@ def process_frames(
             processed += 1
             frame_idx += 1
 
-            # 進捗ログ (100 フレームごと, または total が既知の場合)
-            if processed % 100 == 0:
-                if total > 0:
-                    pct = frame_idx / total * 100
-                    logger.info(f"Processing: {frame_idx}/{total} frames ({pct:.1f}%)")
-                else:
-                    logger.info(f"Processing: {frame_idx} frames")
+            # 進捗ログ (動画ファイルのみ, 100 フレームごと)
+            if total > 0 and processed % 100 == 0:
+                pct = frame_idx / total * 100
+                logger.info(f"Processing: {frame_idx}/{total} frames ({pct:.1f}%)")
     finally:
         elapsed = time.monotonic() - start_time
         avg_fps = processed / elapsed if elapsed > 0 else 0.0
