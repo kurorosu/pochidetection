@@ -3,20 +3,29 @@
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Generic, TypeVar
 
 from PIL import Image
 
 from pochidetection.core.detection import Detection
 from pochidetection.utils import PhasedTimer
 
+TPreprocessed = TypeVar("TPreprocessed")
+TInferred = TypeVar("TInferred")
 
-class IDetectionPipeline(ABC):
+
+class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
     """推論パイプラインの共通インターフェース.
 
     前処理・推論・後処理の 3 フェーズで構成される E2E 推論パイプラインの
-    共通契約を定義する. 各フェーズの具体的なシグネチャは実装に依存するため,
-    本インターフェースでは E2E 実行メソッド ``run`` と
-    フェーズ別タイマー ``phased_timer`` のみを規定する.
+    共通契約を定義する. 型パラメータによりフェーズ間のデータ型を明示する.
+
+    Type Parameters:
+        TPreprocessed: preprocess の出力型.
+        TInferred: infer の出力型.
+
+    サブクラスは ``run`` メソッドで preprocess → infer → postprocess を
+    順に実行し, ``_measure`` ヘルパーでフェーズ別計測を行う.
 
     phased_timer の検証・保持・計測ヘルパーを提供し,
     サブクラスでの重複を防止する.
