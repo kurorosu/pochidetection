@@ -9,7 +9,8 @@
 - 無し
 
 ### Changed
-- 無し
+- `IFrameSource`, `IFrameSink` にコンテキストマネージャプロトコル (`__enter__`/`__exit__`) を追加. `with` 文でリソースを安全に解放可能に. (N/A.)
+- 動画/ストリーム推論 (`_run_video_infer`, `_run_stream_infer`) のリソース管理を手動 `release()` から `with` 文に変更. (N/A.)
 
 ### Removed
 - 無し
@@ -17,7 +18,8 @@
 ### Fixed
 - 動画/Webcam/RTSP 推論で `-m` 未指定時に `work_dirs` のモデルを使おうとしてクラッシュするバグを修正. プリトレインモデルへ正しくフォールバックするように変更. ([#360](https://github.com/kurorosu/pochidetection/pull/360))
 - Webcam/RTSP 推論で `q` キーまたは `Ctrl+C` で中断した際に完了サマリー (処理フレーム数, 経過時間, 平均 FPS) が出力されない問題を修正. ([#375](https://github.com/kurorosu/pochidetection/pull/375))
-- Webcam/RTSP 推論中に 100 フレームごとの進捗ログが不要に出力される問題を修正. 動画ファイル推論のみに限定. (N/A.)
+- Webcam/RTSP 推論中に 100 フレームごとの進捗ログが不要に出力される問題を修正. 動画ファイル推論のみに限定. ([#376](https://github.com/kurorosu/pochidetection/pull/376))
+- `BaseCocoDataset.__getitem__()` で COCO JSON の画像情報に `id` または `file_name` フィールドが欠落している場合, 素の `KeyError` ではなくインデックスと画像情報を含む明確なエラーメッセージを出力するように改善. (N/A.)
 
 ## v0.12.0 (2026-03-18)
 

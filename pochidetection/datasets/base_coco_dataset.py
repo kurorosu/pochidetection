@@ -168,9 +168,15 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
             - labels: ターゲット辞書 (形式はサブクラスに依存)
         """
         image_info = self._images[idx]
-        image_id = image_info["id"]
+        try:
+            image_id = image_info["id"]
+            file_name = image_info["file_name"]
+        except KeyError as e:
+            raise KeyError(
+                f"画像情報に必須フィールド {e} がありません (index={idx}): {image_info}"
+            ) from e
 
-        image_path = self._root / image_info["file_name"]
+        image_path = self._root / file_name
         with Image.open(image_path) as img:
             image = img.convert("RGB")
         orig_w, orig_h = image.size
