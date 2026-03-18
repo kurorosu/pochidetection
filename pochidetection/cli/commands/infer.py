@@ -25,6 +25,30 @@ def is_video_file(path: str) -> bool:
     return Path(path).suffix.lower() in VIDEO_EXTENSIONS
 
 
+def is_webcam_source(path: str) -> bool:
+    """整数値なら Webcam デバイス ID と判定する.
+
+    Args:
+        path: 入力パス文字列.
+
+    Returns:
+        Webcam デバイス ID の場合 True.
+    """
+    return path.isdigit()
+
+
+def is_rtsp_source(path: str) -> bool:
+    """rtsp:// または http:// で始まるなら RTSP と判定する.
+
+    Args:
+        path: 入力パス文字列.
+
+    Returns:
+        RTSP / HTTP ストリームの場合 True.
+    """
+    return path.startswith(("rtsp://", "http://"))
+
+
 def _resolve_infer(
     config: DetectionConfigDict,
 ) -> Callable[[DetectionConfigDict, str, str | None, str | None], None]:
@@ -50,6 +74,100 @@ def _resolve_infer(
     from pochidetection.scripts.rtdetr.infer import infer as rtdetr_infer
 
     return rtdetr_infer
+
+
+def _run_stream_infer(
+    config: DetectionConfigDict,
+    source: int | str,
+    model_dir: str | None,
+    config_path: str | None,
+    interval: int,
+    record_path: str | None,
+) -> None:
+    """Webcam / RTSP ストリームのリアルタイム推論を実行する.
+
+    Args:
+        config: 設定辞書.
+        source: デバイス ID (int) または RTSP URL (str).
+        model_dir: モデルディレクトリ.
+        config_path: 設定ファイルのパス.
+        interval: N フレーム間隔で推論.
+        record_path: 録画出力パス (None の場合は表示のみ).
+    """
+    from pochidetection.interfaces.frame_sink import IFrameSink
+    from pochidetection.logging import LoggerManager
+    from pochidetection.scripts.common.inference import (
+        PRETRAINED,
+        resolve_model_path,
+    )
+    from pochidetection.scripts.common.video import (
+        CompositeSink,
+        DisplaySink,
+        StreamReader,
+        VideoWriter,
+        process_frames,
+    )
+
+    logger = LoggerManager().get_logger(__name__)
+
+    model_path = resolve_model_path(config, model_dir)
+    if model_path is None:
+        return
+
+    # プリトレイン時は config とパイプラインを差し替え
+    if model_path == PRETRAINED:
+        from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
+        from pochidetection.scripts.rtdetr.infer import (
+            _setup_pipeline as rtdetr_setup_pipeline,
+        )
+
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
+        setup_pipeline_fn = rtdetr_setup_pipeline
+        logger.info("Loading RT-DETR COCO pretrained model")
+    else:
+        infer_fn = _resolve_infer(config)
+        import importlib
+
+        module = importlib.import_module(infer_fn.__module__)
+        setup_pipeline_fn = module._setup_pipeline  # type: ignore[attr-defined]
+        logger.info(f"Loading model from {model_path}")
+
+    ctx = setup_pipeline_fn(config, model_path)
+
+    reader = StreamReader(source)
+    display = DisplaySink()
+
+    sink: IFrameSink
+    if record_path is not None:
+        writer = VideoWriter(
+            Path(record_path), fps=reader.fps, frame_size=reader.frame_size
+        )
+        sink = CompositeSink(sinks=[display, writer])
+    else:
+        sink = display
+
+    logger.info(
+        f"Stream: {source} "
+        f"({reader.frame_size[0]}x{reader.frame_size[1]}, {reader.fps:.1f}fps)"
+    )
+    if record_path is not None:
+        logger.info(f"Recording to {record_path}")
+
+    try:
+        process_frames(
+            source=reader,
+            sink=sink,
+            pipeline=ctx.pipeline,
+            visualizer=ctx.visualizer,
+            interval=interval,
+            overlay_fps=True,
+            logger=logger,
+        )
+    except (StopIteration, KeyboardInterrupt):
+        logger.info("Stream stopped")
+    finally:
+        reader.release()
+        sink.release()
 
 
 def _run_video_infer(
@@ -156,7 +274,25 @@ def run_infer(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    if is_video_file(input_path):
+    if is_webcam_source(input_path):
+        _run_stream_infer(
+            config,
+            int(input_path),
+            args.model_dir,
+            config_path,
+            args.interval,
+            args.record,
+        )
+    elif is_rtsp_source(input_path):
+        _run_stream_infer(
+            config,
+            input_path,
+            args.model_dir,
+            config_path,
+            args.interval,
+            args.record,
+        )
+    elif is_video_file(input_path):
         _run_video_infer(config, input_path, args.model_dir, config_path, args.interval)
     else:
         infer_fn = _resolve_infer(config)

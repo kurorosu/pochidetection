@@ -8,8 +8,10 @@
 ### Added
 - SSD300 VGG16 の学習実装を追加. `architecture = "SSD300"` で SSD300 学習が可能に. ([#352](https://github.com/kurorosu/pochidetection/pull/352).)
 - SSD300 PyTorch 推論バックエンドを追加. `architecture = "SSD300"` で SSD300 推論が可能に. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)
-- 動画ファイル推論を追加. `pochi infer -d video.mp4` で .mp4/.avi/.mov の動画を入力可能に. `--interval N` で N フレーム間隔の推論にも対応. (N/A.)
+- 動画ファイル推論を追加. `pochi infer -d video.mp4` で .mp4/.avi/.mov の動画を入力可能に. `--interval N` で N フレーム間隔の推論にも対応. ([#356](https://github.com/kurorosu/pochidetection/pull/356).)
   - モデル未指定時は RT-DETR COCO プリトレインモデルで推論. `local_files_only` 設定によるオフライン対応付き.
+- リアルタイム推論を追加. `pochi infer -d 0` で Webcam, `-d rtsp://...` で RTSP ストリームに対応. `--record output.mp4` で表示と同時に録画可能. (N/A.)
+  - FPS オーバーレイ表示, `q` キーで終了, `Ctrl+C` でも安全に停止.
 
 ### Changed
 - SSDLite/SSD300 共通の `SsdPyTorchBackend` と `SsdPipeline` を抽出し, 推論バックエンド・パイプラインを共通化. ([#353](https://github.com/kurorosu/pochidetection/pull/353).)

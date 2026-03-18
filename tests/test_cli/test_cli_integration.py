@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from pochidetection.cli.commands.infer import _resolve_infer, is_video_file, run_infer
+from pochidetection.cli.commands.infer import (
+    _resolve_infer,
+    is_rtsp_source,
+    is_video_file,
+    is_webcam_source,
+    run_infer,
+)
 from pochidetection.cli.commands.train import _resolve_train
 from pochidetection.cli.parser import _create_parser
 
@@ -369,3 +375,77 @@ class TestIntervalArgParse:
         parser = _create_parser()
         args = parser.parse_args(["infer", "-d", "video.mp4", "--interval", "3"])
         assert args.interval == 3
+
+
+# ------------------------------------------------------------------ #
+# Webcam / RTSP 判別
+# ------------------------------------------------------------------ #
+
+
+class TestIsWebcamSource:
+    """is_webcam_source のテスト."""
+
+    def test_device_id_zero(self) -> None:
+        """'0' は Webcam デバイス ID."""
+        assert is_webcam_source("0") is True
+
+    def test_device_id_number(self) -> None:
+        """'2' は Webcam デバイス ID."""
+        assert is_webcam_source("2") is True
+
+    def test_rtsp_url(self) -> None:
+        """RTSP URL は Webcam でない."""
+        assert is_webcam_source("rtsp://192.168.1.10/stream") is False
+
+    def test_video_file(self) -> None:
+        """動画ファイルは Webcam でない."""
+        assert is_webcam_source("video.mp4") is False
+
+    def test_image_dir(self) -> None:
+        """ディレクトリパスは Webcam でない."""
+        assert is_webcam_source("images/") is False
+
+
+class TestIsRtspSource:
+    """is_rtsp_source のテスト."""
+
+    def test_rtsp_url(self) -> None:
+        """rtsp:// で始まる URL は RTSP."""
+        assert is_rtsp_source("rtsp://192.168.1.10/stream") is True
+
+    def test_http_url(self) -> None:
+        """http:// で始まる URL は RTSP (HTTP ストリーム)."""
+        assert is_rtsp_source("http://192.168.1.10/stream") is True
+
+    def test_device_id(self) -> None:
+        """デバイス ID は RTSP でない."""
+        assert is_rtsp_source("0") is False
+
+    def test_video_file(self) -> None:
+        """動画ファイルは RTSP でない."""
+        assert is_rtsp_source("video.mp4") is False
+
+    def test_image_dir(self) -> None:
+        """ディレクトリパスは RTSP でない."""
+        assert is_rtsp_source("images/") is False
+
+
+# ------------------------------------------------------------------ #
+# --record 引数パース
+# ------------------------------------------------------------------ #
+
+
+class TestRecordArgParse:
+    """--record 引数のパーステスト."""
+
+    def test_default_record(self) -> None:
+        """record 未指定時に None."""
+        parser = _create_parser()
+        args = parser.parse_args(["infer", "-d", "0"])
+        assert args.record is None
+
+    def test_custom_record(self) -> None:
+        """record 指定時にその値が使われる."""
+        parser = _create_parser()
+        args = parser.parse_args(["infer", "-d", "0", "--record", "output.mp4"])
+        assert args.record == "output.mp4"
