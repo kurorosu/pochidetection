@@ -141,9 +141,6 @@ class SSDLiteOnnxBackend(IInferenceBackend[dict[str, torch.Tensor]]):
             self._detections_per_img,
         )
 
-    def synchronize(self) -> None:
-        """同期処理. ONNX Runtime は同期実行のため何もしない."""
-
     @property
     def active_providers(self) -> list[str]:
         """実際に使用されている Execution Providers を取得."""

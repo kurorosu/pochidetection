@@ -30,11 +30,5 @@ class RTDetrPyTorchBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]])
             pred_logits と pred_boxes のタプル.
         """
         outputs = self._model.model(**inputs)
-        return outputs.logits, outputs.pred_boxes
-
-    def synchronize(self) -> None:
-        """CUDA同期.
-
-        GPUを使用している場合のみ torch.cuda.synchronize() を呼び出す.
-        """
         synchronize_cuda(self._model)
+        return outputs.logits, outputs.pred_boxes

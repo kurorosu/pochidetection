@@ -164,18 +164,3 @@ class TestSSDLiteTensorRTBackendInfer:
 
         with pytest.raises(ValueError, match="TensorRT入力が不足しています"):
             backend.infer(inputs)
-
-
-class TestSSDLiteTensorRTBackendSynchronize:
-    """SSDLiteTensorRTBackend.synchronize のテスト."""
-
-    def test_synchronize_completes_without_error(
-        self, ssdlite_engine_path: Path
-    ) -> None:
-        """synchronize が例外なく完了することを確認."""
-        backend = SSDLiteTensorRTBackend(
-            ssdlite_engine_path,
-            num_classes=SSDLITE_NUM_CLASSES,
-            image_size=SSDLITE_INPUT_SIZE,
-        )
-        backend.synchronize()

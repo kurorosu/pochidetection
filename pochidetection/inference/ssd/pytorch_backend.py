@@ -38,11 +38,5 @@ class SsdPyTorchBackend(IInferenceBackend[dict[str, torch.Tensor]]):
         with torch.no_grad():
             outputs = self._model(pixel_values)
         pred: dict[str, torch.Tensor] = outputs["predictions"][0]
-        return pred
-
-    def synchronize(self) -> None:
-        """CUDA同期.
-
-        GPUを使用している場合のみ torch.cuda.synchronize() を呼び出す.
-        """
         synchronize_cuda(self._model)
+        return pred

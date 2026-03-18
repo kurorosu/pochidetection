@@ -99,7 +99,6 @@ class SsdPipeline(
         pred: dict[str, torch.Tensor] = self._backend.infer(
             {"pixel_values": pixel_values}
         )
-        self._backend.synchronize()
         return pred
 
     def postprocess(

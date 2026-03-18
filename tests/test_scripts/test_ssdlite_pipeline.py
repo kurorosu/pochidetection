@@ -42,9 +42,6 @@ class DummyBackend(IInferenceBackend[dict[str, torch.Tensor]]):
         self.call_count += 1
         return self._predictions[0]
 
-    def synchronize(self) -> None:
-        """同期処理 (何もしない)."""
-
 
 def _make_transform(image_size: tuple[int, int] = (320, 320)) -> v2.Compose:
     """テスト用の transform を生成."""

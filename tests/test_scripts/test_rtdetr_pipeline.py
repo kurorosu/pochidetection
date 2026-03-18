@@ -30,7 +30,6 @@ class DummyBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
 
     def __init__(self) -> None:
         self.infer_called = False
-        self.synchronize_called = False
 
     def infer(
         self, inputs: dict[str, torch.Tensor]
@@ -38,10 +37,6 @@ class DummyBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
         """ダミー推論."""
         self.infer_called = True
         return torch.zeros((1, 100, 2)), torch.zeros((1, 100, 4))
-
-    def synchronize(self) -> None:
-        """ダミー同期."""
-        self.synchronize_called = True
 
 
 class DummyProcessor:
@@ -163,7 +158,6 @@ class TestRTDetrPipelineRun:
         assert detections[0].score == pytest.approx(0.9, rel=1e-3)
         assert detections[0].label == 1
         assert backend.infer_called
-        assert backend.synchronize_called
 
     def test_run_with_phased_timer_measures_all_phases(self) -> None:
         """PhasedTimer 付き run() で全フェーズが計測されることを確認."""
@@ -265,7 +259,7 @@ class TestRTDetrPipelineMethods:
         pred_logits, pred_boxes = pipeline.infer(inputs)
 
         assert backend.infer_called
-        assert backend.synchronize_called
+
         assert pred_logits.shape == (1, 100, 2)
         assert pred_boxes.shape == (1, 100, 4)
 

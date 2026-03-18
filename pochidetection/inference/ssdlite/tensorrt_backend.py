@@ -205,10 +205,6 @@ class SSDLiteTensorRTBackend(IInferenceBackend[dict[str, torch.Tensor]]):
             f"SSDLite は 'cls_logits' と 'bbox_regression' の出力が必要です."
         )
 
-    def synchronize(self) -> None:
-        """CUDA 同期. ストリームの完了を待機する."""
-        self._stream.synchronize()
-
     @property
     def engine(self) -> Any:
         """Tensorrt エンジンを取得."""

@@ -1,7 +1,5 @@
 """RTDetrPyTorchBackend のテスト."""
 
-from unittest.mock import MagicMock, patch
-
 import pytest
 import torch
 
@@ -53,26 +51,3 @@ class TestRTDetrPyTorchBackendInfer:
 
         assert logits.shape[1] == 50
         assert boxes.shape[1] == 50
-
-
-class TestRTDetrPyTorchBackendSynchronize:
-    """RTDetrPyTorchBackend.synchronize のテスト."""
-
-    def test_synchronize_on_cpu_does_nothing(
-        self, backend: RTDetrPyTorchBackend
-    ) -> None:
-        """CPU デバイスでは synchronize が例外なく完了することを確認."""
-        backend.synchronize()
-
-    @patch("pochidetection.inference.rtdetr.pytorch_backend.torch.cuda.is_available")
-    def test_synchronize_skips_when_cuda_unavailable(
-        self, mock_is_available: MagicMock, backend: RTDetrPyTorchBackend
-    ) -> None:
-        """CUDA が利用不可の場合, synchronize() を呼び出さないことを確認."""
-        mock_is_available.return_value = False
-
-        with patch(
-            "pochidetection.inference.rtdetr.pytorch_backend.torch.cuda.synchronize"
-        ) as mock_sync:
-            backend.synchronize()
-            mock_sync.assert_not_called()

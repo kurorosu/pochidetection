@@ -137,17 +137,6 @@ class TestRTDetrOnnxBackendInfer:
         assert isinstance(pred_boxes, torch.Tensor)
 
 
-class TestRTDetrOnnxBackendSynchronize:
-    """RTDetrOnnxBackend.synchronize のテスト."""
-
-    def test_synchronize_does_nothing(self, rtdetr_onnx_path: Path) -> None:
-        """synchronize が例外なく完了することを確認."""
-        backend = RTDetrOnnxBackend(
-            rtdetr_onnx_path, providers=["CPUExecutionProvider"]
-        )
-        backend.synchronize()
-
-
 class TestRTDetrOnnxBackendOutputEquivalence:
     """PyTorch と ONNX の出力同等性テスト."""
 
