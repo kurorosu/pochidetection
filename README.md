@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.11.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.12.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -13,7 +13,7 @@
 
 - **マルチアーキテクチャ対応**: RT-DETR (Transformer), SSDLite (CNN), SSD300 (CNN) を設定ファイルで切り替え可能
 - **COCO フォーマット対応**: 標準的なアノテーション形式でデータセットを管理
-- **画像・動画推論**: 画像ディレクトリと動画ファイル (.mp4, .avi, .mov) の両方に対応
+- **画像・動画・リアルタイム推論**: 画像, 動画ファイル, Webcam/RTSP ストリームに対応
 - **COCO プリトレイン**: モデル未指定時は RT-DETR COCO プリトレインモデルで即座に推論可能
 - **学習の可視化**: Loss 曲線, mAP 曲線, PR 曲線を HTML で自動出力
 - **Early Stopping**: mAP または val_loss を監視し, 改善がなければ学習を自動停止
@@ -154,6 +154,27 @@ uv run pochi infer -d video.mp4
 - `--interval N`: N フレーム間隔で推論 (スキップフレームはそのまま出力)
 - モデル未指定時は RT-DETR COCO プリトレインモデルで推論
 
+#### リアルタイム推論 (Webcam / RTSP)
+
+```bash
+# Webcam (デバイス ID 指定)
+uv run pochi infer -d 0
+
+# RTSP ストリーム
+uv run pochi infer -d rtsp://192.168.1.100:554/stream
+
+# 表示 + 録画 (--record で出力先を指定)
+uv run pochi infer -d 0 --record output.mp4
+
+# モデル指定 + 3フレーム間隔で推論
+uv run pochi infer -d 0 -m work_dirs/20260124_001/best --interval 3
+```
+
+- FPS オーバーレイが自動表示
+- `q` キーで終了, `Ctrl+C` でも安全に停止
+- `--record output.mp4`: 表示と同時に動画ファイルへ録画
+- モデル未指定時は RT-DETR COCO プリトレインモデルで推論
+
 ### 7. ONNX エクスポート
 
 ```bash
@@ -239,6 +260,7 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 - **自動ワークスペース管理**: `work_dirs/yyyymmdd_xxx/` で学習結果を自動管理
 - **インタラクティブ可視化**: Plotly による HTML グラフで学習過程を分析
 - **動画推論**: OpenCV による動画ファイルのフレーム単位推論. `--interval` でフレーム間隔指定可能
+- **リアルタイム推論**: Webcam (`-d 0`) / RTSP (`-d rtsp://...`) ストリーム対応. FPS オーバーレイ, `--record` で録画可能
 - **COCO プリトレイン推論**: モデル未指定時に RT-DETR COCO プリトレインモデルで即座に推論
 - **ONNX エクスポート**: RT-DETR / SSDLite 両対応. SSDLite は FP16 エクスポートにも対応
 - **ONNX 推論**: ONNX Runtime による推論バックエンド (CUDA / CPU 自動選択)

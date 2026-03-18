@@ -11,15 +11,29 @@ from pochidetection.scripts.common.summary import (
     build_detection_summary,
     write_detection_summary,
 )
+from pochidetection.scripts.common.video import (
+    CompositeSink,
+    DisplaySink,
+    StreamReader,
+    VideoReader,
+    VideoWriter,
+    process_frames,
+)
 from pochidetection.scripts.common.visualizer import Visualizer
 
 __all__ = [
+    "CompositeSink",
     "DetectionResultRow",
     "DetectionSummary",
+    "DisplaySink",
     "InferenceSaver",
+    "StreamReader",
+    "VideoReader",
+    "VideoWriter",
     "Visualizer",
     "build_detection_results",
     "build_detection_summary",
+    "process_frames",
     "write_detection_results_csv",
     "write_detection_summary",
 ]
