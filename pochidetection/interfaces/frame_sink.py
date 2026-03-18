@@ -22,4 +22,8 @@ class IFrameSink(ABC):
 
     @abstractmethod
     def release(self) -> None:
-        """リソースを解放する."""
+        """リソースを解放する.
+
+        ファイルハンドル・ウィンドウ等の外部リソースを閉じる.
+        コンテキスト終了時や処理完了後に呼び出すこと.
+        """

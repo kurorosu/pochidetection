@@ -181,6 +181,9 @@ class CompositeSink(IFrameSink):
 
         Args:
             frame: BGR 形式の画像フレーム.
+
+        Raises:
+            StopIteration: 子シンク (DisplaySink 等) が停止を要求した場合.
         """
         for sink in self._sinks:
             sink.write(frame)
