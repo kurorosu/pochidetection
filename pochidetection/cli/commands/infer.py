@@ -2,10 +2,14 @@
 
 import argparse
 import sys
-from collections.abc import Callable
 from pathlib import Path
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
+from pochidetection.cli.registry import (
+    SetupPipelineFn,
+    resolve_infer,
+    resolve_setup_pipeline,
+)
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
@@ -47,33 +51,6 @@ def is_rtsp_source(path: str) -> bool:
         RTSP / HTTP ストリームの場合 True.
     """
     return path.startswith(("rtsp://", "http://"))
-
-
-def _resolve_infer(
-    config: DetectionConfigDict,
-) -> Callable[[DetectionConfigDict, str, str | None, str | None], None]:
-    """Architecture に基づいて infer 関数を返す.
-
-    Args:
-        config: 設定辞書.
-
-    Returns:
-        infer 関数.
-    """
-    arch = config.get("architecture", "RTDetr")
-    if arch == "SSDLite":
-        from pochidetection.scripts.ssdlite.infer import infer as ssdlite_infer
-
-        return ssdlite_infer
-
-    if arch == "SSD300":
-        from pochidetection.scripts.ssd300.infer import infer as ssd300_infer
-
-        return ssd300_infer
-
-    from pochidetection.scripts.rtdetr.infer import infer as rtdetr_infer
-
-    return rtdetr_infer
 
 
 def _run_stream_infer(
@@ -125,14 +102,10 @@ def _run_stream_infer(
         )
 
         config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn = rtdetr_setup_pipeline
+        setup_pipeline_fn: SetupPipelineFn = rtdetr_setup_pipeline
         logger.info("Loading RT-DETR COCO pretrained model")
     else:
-        infer_fn = _resolve_infer(config)
-        import importlib
-
-        module = importlib.import_module(infer_fn.__module__)
-        setup_pipeline_fn = module._setup_pipeline  # type: ignore[attr-defined]
+        setup_pipeline_fn = resolve_setup_pipeline(config)
         logger.info(f"Loading model from {model_path}")
 
     ctx = setup_pipeline_fn(config, model_path)
@@ -220,15 +193,10 @@ def _run_video_infer(
         )
 
         config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn = rtdetr_setup_pipeline
+        setup_pipeline_fn: SetupPipelineFn = rtdetr_setup_pipeline
         logger.info("Loading RT-DETR COCO pretrained model")
     else:
-        infer_fn = _resolve_infer(config)
-        # 各アーキテクチャの _setup_pipeline を取得
-        import importlib
-
-        module = importlib.import_module(infer_fn.__module__)
-        setup_pipeline_fn = module._setup_pipeline  # type: ignore[attr-defined]
+        setup_pipeline_fn = resolve_setup_pipeline(config)
         logger.info(f"Loading model from {model_path}")
 
     ctx = setup_pipeline_fn(config, model_path)
@@ -300,5 +268,5 @@ def run_infer(args: argparse.Namespace) -> None:
     elif is_video_file(input_path):
         _run_video_infer(config, input_path, args.model_dir, config_path, args.interval)
     else:
-        infer_fn = _resolve_infer(config)
+        infer_fn = resolve_infer(config)
         infer_fn(config, input_path, args.model_dir, config_path)
