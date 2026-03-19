@@ -16,10 +16,6 @@ class DummyBackend(IInferenceBackend[tuple[np.ndarray, np.ndarray]]):
         boxes = np.zeros((1, 5, 4))
         return logits, boxes
 
-    def synchronize(self) -> None:
-        """ダミーの同期処理."""
-        pass
-
 
 class TestIInferenceBackend:
     """IInferenceBackendの実装テスト."""
@@ -33,9 +29,7 @@ class TestIInferenceBackend:
     def test_has_required_methods(self) -> None:
         """必須メソッドが定義されていることを確認."""
         assert hasattr(IInferenceBackend, "infer")
-        assert hasattr(IInferenceBackend, "synchronize")
         assert getattr(IInferenceBackend.infer, "__isabstractmethod__")
-        assert getattr(IInferenceBackend.synchronize, "__isabstractmethod__")
 
     def test_concrete_implementation(self) -> None:
         """具象クラスでメソッドが呼べることを確認."""
@@ -45,6 +39,3 @@ class TestIInferenceBackend:
         logits, boxes = backend.infer(inputs)
         assert logits.shape == (1, 5, 2)
         assert boxes.shape == (1, 5, 4)
-
-        # 例外が発生しないことの確認
-        backend.synchronize()

@@ -133,10 +133,6 @@ class RTDetrOnnxBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]):
             f"候補: {candidates}, 利用可能: {list(outputs.keys())}"
         )
 
-    def synchronize(self) -> None:
-        """同期処理. ONNX Runtime は同期実行のため何もしない."""
-        pass
-
     @property
     def active_providers(self) -> list[str]:
         """実際に使用されている Execution Providers を取得."""

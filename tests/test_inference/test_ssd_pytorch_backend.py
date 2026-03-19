@@ -1,7 +1,5 @@
 """SsdPyTorchBackend のテスト."""
 
-from unittest.mock import MagicMock, patch
-
 import torch
 
 from pochidetection.inference.ssd import SsdPyTorchBackend
@@ -49,26 +47,3 @@ class TestSsdPyTorchBackendInfer:
         assert isinstance(pred["boxes"], torch.Tensor)
         assert isinstance(pred["scores"], torch.Tensor)
         assert isinstance(pred["labels"], torch.Tensor)
-
-
-class TestSsdPyTorchBackendSynchronize:
-    """SsdPyTorchBackend.synchronize のテスト."""
-
-    def test_synchronize_on_cpu_does_nothing(self) -> None:
-        """CPU デバイスでは synchronize が例外なく完了することを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        model.eval()
-        backend = SsdPyTorchBackend(model)
-
-        backend.synchronize()
-
-    @patch("pochidetection.inference.ssd.pytorch_backend.synchronize_cuda")
-    def test_synchronize_delegates_to_sync_helper(self, mock_sync: MagicMock) -> None:
-        """synchronize() が synchronize_cuda に委譲することを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        model.eval()
-        backend = SsdPyTorchBackend(model)
-
-        backend.synchronize()
-
-        mock_sync.assert_called_once_with(model)

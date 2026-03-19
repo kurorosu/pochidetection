@@ -9,16 +9,32 @@ import torch.nn as nn
 
 
 class ModelOutputDict(TypedDict, total=False):
-    """IDetectionModel.forward() の戻り値型.
+    """IDetectionModel.forward() の戻り値の基底型.
 
-    学習時は ``loss`` を含み, 推論時はモデル固有のキーを含む.
-    total=False により全キーがオプショナルだが,
-    各モデル実装は対応するキーを必ず設定する.
+    学習時は ``loss`` を含む. 推論時の出力はアーキテクチャ固有の
+    サブ型 (TransformerModelOutputDict, SSDModelOutputDict) を使用する.
     """
 
     loss: torch.Tensor
+
+
+class TransformerModelOutputDict(ModelOutputDict, total=False):
+    """Transformer ベースモデル (RT-DETR 等) の出力型.
+
+    推論時は ``pred_logits`` と ``pred_boxes`` を含む.
+    """
+
     pred_logits: torch.Tensor
     pred_boxes: torch.Tensor
+
+
+class SSDModelOutputDict(ModelOutputDict, total=False):
+    """SSD ベースモデル (SSD300, SSDLite 等) の出力型.
+
+    推論時は ``predictions`` を含む.
+    各要素は boxes (M, 4), scores (M,), labels (M,) を持つ辞書.
+    """
+
     predictions: list[dict[str, torch.Tensor]]
 
 

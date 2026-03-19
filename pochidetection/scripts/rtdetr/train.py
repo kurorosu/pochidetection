@@ -16,7 +16,7 @@ from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.scripts.common.training import (
     TrainingContext,
-    run_training_loop,
+    TrainingLoop,
     setup_training,
 )
 
@@ -30,7 +30,7 @@ def train(config: DetectionConfigDict, config_path: str) -> None:
     """
     logger = LoggerManager().get_logger(__name__)
     ctx = _setup_training(config, config_path, logger)
-    run_training_loop(config, ctx, _validate)
+    TrainingLoop(config, ctx, _validate).run()
 
 
 # ---------------------------------------------------------------------------

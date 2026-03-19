@@ -186,13 +186,3 @@ class TestSSDLiteOnnxBackendEdgeCases:
         result = ssdlite_onnx_backend.infer({"pixel_values": dummy})
 
         assert result["boxes"].shape[0] <= 300  # detections_per_img
-
-
-class TestSSDLiteOnnxBackendSynchronize:
-    """synchronize のテスト."""
-
-    def test_synchronize_completes(
-        self, ssdlite_onnx_backend: SSDLiteOnnxBackend
-    ) -> None:
-        """synchronize() が例外なく完了することを確認する."""
-        ssdlite_onnx_backend.synchronize()

@@ -120,12 +120,3 @@ class TestRTDetrTensorRTBackendInfer:
 
         with pytest.raises(ValueError, match="TensorRT入力が不足しています"):
             backend.infer(inputs)
-
-
-class TestRTDetrTensorRTBackendSynchronize:
-    """RTDetrTensorRTBackend.synchronize のテスト."""
-
-    def test_synchronize_completes_without_error(self, engine_path: Path) -> None:
-        """synchronize が例外なく完了することを確認."""
-        backend = RTDetrTensorRTBackend(engine_path)
-        backend.synchronize()
