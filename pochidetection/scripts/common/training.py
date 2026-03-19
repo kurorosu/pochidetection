@@ -6,6 +6,7 @@ RT-DETR と SSDLite で共有されるエポックループ, Early Stopping,
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, NamedTuple, Protocol
 
@@ -199,104 +200,225 @@ class Validator(Protocol):
         ...
 
 
-def run_training_loop(
-    config: DetectionConfigDict,
-    ctx: TrainingContext,
-    validate: Validator,
-) -> None:
-    """共通学習ループ.
+@dataclass(frozen=True, slots=True)
+class EpochResult:
+    """1 エポックの学習・検証結果.
+
+    Attributes:
+        epoch: エポック番号 (1-indexed).
+        train_loss: 平均学習損失.
+        val_loss: 平均検証損失.
+        map: Mean Average Precision.
+        map_50: mAP at IoU=0.50.
+        map_75: mAP at IoU=0.75.
+        lr: 学習率.
+        map_result: mAP 計算の生結果辞書.
+    """
+
+    epoch: int
+    train_loss: float
+    val_loss: float
+    map: float
+    map_50: float
+    map_75: float
+    lr: float
+    map_result: dict[str, Any]
+
+
+class TrainingLoop:
+    """責務分離された学習ループ.
+
+    エポックループのオーケストレーションを担当し,
+    各責務をプライベートメソッドに委譲する.
 
     Args:
         config: 設定辞書.
         ctx: 学習コンテキスト.
         validate: 検証関数.
     """
-    logger = LoggerManager().get_logger(__name__)
 
-    best_map = 0.0
-    history = TrainingHistory()
-    map_result: dict[str, Any] = {}
+    def __init__(
+        self,
+        config: DetectionConfigDict,
+        ctx: TrainingContext,
+        validate: Validator,
+    ) -> None:
+        """初期化."""
+        self._config = config
+        self._ctx = ctx
+        self._validate = validate
+        self._logger = LoggerManager().get_logger(__name__)
+        self._history = TrainingHistory()
+        self._best_map = 0.0
 
-    tb_writer = _setup_tensorboard(config, ctx.workspace, logger)
+    def run(self) -> None:
+        """学習ループを実行."""
+        tb_writer = _setup_tensorboard(self._config, self._ctx.workspace, self._logger)
+        early_stopping = build_early_stopping(self._config)
+        if early_stopping is not None:
+            self._log_early_stopping_config(early_stopping)
 
-    early_stopping = build_early_stopping(config)
-    if early_stopping is not None:
-        logger.info(
-            f"Early Stopping: patience={early_stopping.patience}, "
-            f"metric={config['early_stopping_metric']}, "
-            f"min_delta={config['early_stopping_min_delta']}"
+        last_map_result: dict[str, Any] = {}
+
+        try:
+            for epoch in range(self._ctx.epochs):
+                result = self._run_one_epoch(epoch)
+                last_map_result = result.map_result
+
+                self._log_epoch(result)
+                self._record_history(result)
+                self._record_tensorboard(tb_writer, result)
+                self._step_scheduler(result)
+
+                if self._check_early_stopping(early_stopping, result):
+                    break
+        finally:
+            if tb_writer is not None:
+                tb_writer.close()
+
+        save_results(
+            self._config, self._ctx, self._history, last_map_result, self._logger
         )
 
-    for epoch in range(ctx.epochs):
-        avg_loss, lr = train_one_epoch(ctx)
-        avg_val_loss, map_result = validate(ctx, logger)
+    def _run_one_epoch(self, epoch: int) -> EpochResult:
+        """1 エポックの学習と検証を実行.
 
-        cur_map = map_result["map"].item()
-        cur_map_50 = map_result["map_50"].item()
-        cur_map_75 = map_result["map_75"].item()
+        Args:
+            epoch: エポックインデックス (0-indexed).
 
-        logger.info(
-            f"Epoch {epoch + 1}/{ctx.epochs} - "
-            f"Train Loss: {avg_loss:.4f}, "
-            f"Val Loss: {avg_val_loss:.4f}, "
-            f"mAP: {cur_map:.4f}, "
-            f"mAP@50: {cur_map_50:.4f}, "
-            f"mAP@75: {cur_map_75:.4f}, "
-            f"LR: {lr:.2e}"
-        )
+        Returns:
+            エポック結果.
+        """
+        avg_loss, lr = train_one_epoch(self._ctx)
+        avg_val_loss, map_result = self._validate(self._ctx, self._logger)
 
-        history.add(
+        return EpochResult(
             epoch=epoch + 1,
             train_loss=avg_loss,
             val_loss=avg_val_loss,
-            map=cur_map,
-            map_50=cur_map_50,
-            map_75=cur_map_75,
+            map=map_result["map"].item(),
+            map_50=map_result["map_50"].item(),
+            map_75=map_result["map_75"].item(),
             lr=lr,
+            map_result=map_result,
         )
 
-        if tb_writer is not None:
-            tb_writer.record_epoch(
-                epoch=epoch + 1,
-                train_loss=avg_loss,
-                val_loss=avg_val_loss,
-                map_value=cur_map,
-                map_50=cur_map_50,
-                map_75=cur_map_75,
-                lr=lr,
+    def _log_epoch(self, result: EpochResult) -> None:
+        """エポック結果をログ出力.
+
+        Args:
+            result: エポック結果.
+        """
+        self._logger.info(
+            f"Epoch {result.epoch}/{self._ctx.epochs} - "
+            f"Train Loss: {result.train_loss:.4f}, "
+            f"Val Loss: {result.val_loss:.4f}, "
+            f"mAP: {result.map:.4f}, "
+            f"mAP@50: {result.map_50:.4f}, "
+            f"mAP@75: {result.map_75:.4f}, "
+            f"LR: {result.lr:.2e}"
+        )
+
+    def _record_history(self, result: EpochResult) -> None:
+        """エポック結果を履歴に追加.
+
+        Args:
+            result: エポック結果.
+        """
+        self._history.add(
+            epoch=result.epoch,
+            train_loss=result.train_loss,
+            val_loss=result.val_loss,
+            map=result.map,
+            map_50=result.map_50,
+            map_75=result.map_75,
+            lr=result.lr,
+        )
+
+    def _record_tensorboard(
+        self,
+        tb_writer: TensorBoardWriter | None,
+        result: EpochResult,
+    ) -> None:
+        """Record metrics to TensorBoard.
+
+        Args:
+            tb_writer: TensorBoard ライター (None なら何もしない).
+            result: エポック結果.
+        """
+        if tb_writer is None:
+            return
+        tb_writer.record_epoch(
+            epoch=result.epoch,
+            train_loss=result.train_loss,
+            val_loss=result.val_loss,
+            map_value=result.map,
+            map_50=result.map_50,
+            map_75=result.map_75,
+            lr=result.lr,
+        )
+
+    def _step_scheduler(self, result: EpochResult) -> None:
+        """学習率スケジューラを更新.
+
+        Args:
+            result: エポック結果.
+        """
+        if self._ctx.scheduler is None:
+            return
+        if isinstance(self._ctx.scheduler, ReduceLROnPlateau):
+            self._ctx.scheduler.step(result.val_loss)
+        else:
+            self._ctx.scheduler.step()
+
+    def _check_early_stopping(
+        self,
+        early_stopping: EarlyStopping | None,
+        result: EpochResult,
+    ) -> bool:
+        """Early Stopping を判定し, ベストモデルを保存.
+
+        Args:
+            early_stopping: EarlyStopping インスタンス (None なら mAP ベースで保存).
+            result: エポック結果.
+
+        Returns:
+            True なら学習を停止すべき.
+        """
+        if early_stopping is None:
+            if result.map > self._best_map:
+                self._best_map = result.map
+                _save_best(self._ctx, "mAP", result.map, self._logger)
+            return False
+
+        metric = self._config["early_stopping_metric"]
+        value = result.map if metric == "mAP" else result.val_loss
+        should_stop = early_stopping.step(value, result.epoch)
+
+        if early_stopping.counter == 0:
+            _save_best(self._ctx, metric, value, self._logger)
+
+        if should_stop:
+            self._logger.info(
+                f"Early Stopping: {early_stopping.patience} エポック連続で "
+                f"{metric} が改善しなかったため学習を終了します "
+                f"(best epoch: {early_stopping.best_epoch}, "
+                f"best {metric}: {early_stopping.best_value:.4f})"
             )
 
-        if ctx.scheduler is not None:
-            if isinstance(ctx.scheduler, ReduceLROnPlateau):
-                ctx.scheduler.step(avg_val_loss)
-            else:
-                ctx.scheduler.step()
+        return should_stop
 
-        if early_stopping is not None:
-            metric = config["early_stopping_metric"]
-            value = cur_map if metric == "mAP" else avg_val_loss
-            should_stop = early_stopping.step(value, epoch + 1)
+    def _log_early_stopping_config(self, early_stopping: EarlyStopping) -> None:
+        """Early Stopping の設定をログ出力.
 
-            if early_stopping.counter == 0:
-                _save_best(ctx, metric, value, logger)
-
-            if should_stop:
-                logger.info(
-                    f"Early Stopping: {early_stopping.patience} エポック連続で "
-                    f"{metric} が改善しなかったため学習を終了します "
-                    f"(best epoch: {early_stopping.best_epoch}, "
-                    f"best {metric}: {early_stopping.best_value:.4f})"
-                )
-                break
-        else:
-            if cur_map > best_map:
-                best_map = cur_map
-                _save_best(ctx, "mAP", cur_map, logger)
-
-    if tb_writer is not None:
-        tb_writer.close()
-
-    save_results(config, ctx, history, map_result, logger)
+        Args:
+            early_stopping: EarlyStopping インスタンス.
+        """
+        self._logger.info(
+            f"Early Stopping: patience={early_stopping.patience}, "
+            f"metric={self._config['early_stopping_metric']}, "
+            f"min_delta={self._config['early_stopping_min_delta']}"
+        )
 
 
 def build_early_stopping(config: DetectionConfigDict) -> EarlyStopping | None:
