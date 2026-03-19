@@ -13,7 +13,7 @@ from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
 from pochidetection.scripts.common.training import (
     TrainingContext,
-    run_training_loop,
+    TrainingLoop,
     setup_training,
 )
 from pochidetection.scripts.ssd.validation import ssd_validate
@@ -28,7 +28,7 @@ def train(config: DetectionConfigDict, config_path: str) -> None:
     """
     logger = LoggerManager().get_logger(__name__)
     ctx = _setup_training(config, config_path, logger)
-    run_training_loop(config, ctx, ssd_validate)
+    TrainingLoop(config, ctx, ssd_validate).run()
 
 
 # ---------------------------------------------------------------------------
