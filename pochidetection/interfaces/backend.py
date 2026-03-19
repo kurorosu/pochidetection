@@ -32,13 +32,3 @@ class IInferenceBackend(ABC, Generic[TOutput]):
             モデル出力. 型はバックエンドの実装に依存する.
         """
         pass
-
-    @abstractmethod
-    def synchronize(self) -> None:
-        """デバイス依存の同期処理を実行する.
-
-        非同期実行 (例: CUDA) 時に正確な処理時間を計測するため,
-        呼び出し側から明示的に同期をとるためのインターフェース.
-        同期が不要 (または CPU 実装) な場合は pass でよい.
-        """
-        pass

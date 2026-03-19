@@ -99,7 +99,6 @@ class RTDetrPipeline(
         """
         with torch.no_grad():
             pred_logits, pred_boxes = self._backend.infer(inputs)
-            self._backend.synchronize()
         return pred_logits, pred_boxes
 
     def postprocess(

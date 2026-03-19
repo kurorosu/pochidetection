@@ -166,10 +166,6 @@ class RTDetrTensorRTBackend(IInferenceBackend[tuple[torch.Tensor, torch.Tensor]]
             f"RT-DETR は 'logits'/'pred_logits' と 'pred_boxes' の出力が必要です."
         )
 
-    def synchronize(self) -> None:
-        """CUDA 同期. ストリームの完了を待機する."""
-        self._stream.synchronize()
-
     @property
     def engine(self) -> Any:
         """Tensorrt エンジンを取得."""
