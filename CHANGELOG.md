@@ -11,10 +11,11 @@
 ### Changed
 - `ModelOutputDict` をアーキテクチャ別のサブ型 (`TransformerModelOutputDict`, `SSDModelOutputDict`) に分離し, 各モデルの `forward()` 戻り値を型安全に. ([#379](https://github.com/kurorosu/pochidetection/pull/379))
 - `IDetectionPipeline` に Generic 型パラメータ (`TPreprocessed`, `TInferred`) を導入し, パイプライン実装のフェーズ間データ型を明示. ([#380](https://github.com/kurorosu/pochidetection/pull/380))
-- `IInferenceBackend` から `synchronize()` を削除し, デバイス同期を各バックエンドの `infer()` に統合. ISP 違反を解消. (N/A.)
+- `IInferenceBackend` から `synchronize()` を削除し, デバイス同期を各バックエンドの `infer()` に統合. ISP 違反を解消. ([#381](https://github.com/kurorosu/pochidetection/pull/381))
+- CLI の `_resolve_train` / `_resolve_infer` の if/elif 分岐をレジストリパターン (`cli/registry.py`) に変更. 新アーキテクチャ追加時に既存コードの修正が不要に. (N/A.)
 
 ### Removed
-- `IInferenceBackend.synchronize()` 抽象メソッドを削除. CPU バックエンドに不要な空実装を強制していた ISP 違反を解消. (N/A.)
+- `IInferenceBackend.synchronize()` 抽象メソッドを削除. CPU バックエンドに不要な空実装を強制していた ISP 違反を解消. ([#381](https://github.com/kurorosu/pochidetection/pull/381))
 
 ### Fixed
 - 無し
