@@ -3,10 +3,10 @@
 このファイルは最新の changelog を保持します.
 最新でなくなった履歴は `changelogs/` 配下へ移動して管理します.
 
-## Unreleased
+## v0.12.2 (2026-03-19)
 
 ### Added
-- `inference/providers.py`, `inference/validation.py`, `inference/sync.py` のユニットテストを追加 (古典派テスト方針, 19 テスト). (N/A.)
+- `inference/providers.py`, `inference/validation.py`, `inference/sync.py` のユニットテストを追加 (古典派テスト方針, 19 テスト). ([#384](https://github.com/kurorosu/pochidetection/pull/384))
 
 ### Changed
 - `ModelOutputDict` をアーキテクチャ別のサブ型 (`TransformerModelOutputDict`, `SSDModelOutputDict`) に分離し, 各モデルの `forward()` 戻り値を型安全に. ([#379](https://github.com/kurorosu/pochidetection/pull/379))
@@ -20,24 +20,6 @@
 
 ### Fixed
 - 無し
-
-## v0.12.1 (2026-03-18)
-
-### Added
-- 無し
-
-### Changed
-- `IFrameSource`, `IFrameSink` にコンテキストマネージャプロトコル (`__enter__`/`__exit__`) を追加. `with` 文でリソースを安全に解放可能に. ([#377](https://github.com/kurorosu/pochidetection/pull/377))
-- 動画/ストリーム推論 (`_run_video_infer`, `_run_stream_infer`) のリソース管理を手動 `release()` から `with` 文に変更. ([#377](https://github.com/kurorosu/pochidetection/pull/377))
-
-### Removed
-- 無し
-
-### Fixed
-- 動画/Webcam/RTSP 推論で `-m` 未指定時に `work_dirs` のモデルを使おうとしてクラッシュするバグを修正. プリトレインモデルへ正しくフォールバックするように変更. ([#360](https://github.com/kurorosu/pochidetection/pull/360))
-- Webcam/RTSP 推論で `q` キーまたは `Ctrl+C` で中断した際に完了サマリー (処理フレーム数, 経過時間, 平均 FPS) が出力されない問題を修正. ([#375](https://github.com/kurorosu/pochidetection/pull/375))
-- Webcam/RTSP 推論中に 100 フレームごとの進捗ログが不要に出力される問題を修正. 動画ファイル推論のみに限定. ([#376](https://github.com/kurorosu/pochidetection/pull/376))
-- `BaseCocoDataset.__getitem__()` で COCO JSON の画像情報に `id` または `file_name` フィールドが欠落している場合, 素の `KeyError` ではなくインデックスと画像情報を含む明確なエラーメッセージを出力するように改善. ([#377](https://github.com/kurorosu/pochidetection/pull/377))
 
 ## Archived Changelogs
 
