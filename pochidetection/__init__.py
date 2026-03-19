@@ -1,6 +1,6 @@
 """Pochidetection - pochitrainの設計思想に基づいた物体検出フレームワーク."""
 
-__version__ = "0.12.1"
+__version__ = "0.12.2"
 
 from pochidetection.core import DetectionCollator
 from pochidetection.datasets import CocoDetectionDataset, SsdCocoDataset
