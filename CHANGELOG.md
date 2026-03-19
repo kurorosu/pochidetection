@@ -6,7 +6,7 @@
 ## Unreleased
 
 ### Added
-- 無し
+- `inference/providers.py`, `inference/validation.py`, `inference/sync.py` のユニットテストを追加 (古典派テスト方針, 19 テスト). (N/A.)
 
 ### Changed
 - `ModelOutputDict` をアーキテクチャ別のサブ型 (`TransformerModelOutputDict`, `SSDModelOutputDict`) に分離し, 各モデルの `forward()` 戻り値を型安全に. ([#379](https://github.com/kurorosu/pochidetection/pull/379))
