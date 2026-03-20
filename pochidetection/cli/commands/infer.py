@@ -111,7 +111,7 @@ def _run_stream_infer(
     ctx = setup_pipeline_fn(config, model_path)
 
     with StreamReader(source) as reader:
-        display = DisplaySink()
+        display = DisplaySink(cap=reader.cap)
 
         sink: IFrameSink
         if record_path is not None:

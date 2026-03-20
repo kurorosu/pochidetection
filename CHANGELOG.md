@@ -3,6 +3,20 @@
 このファイルは最新の changelog を保持します.
 最新でなくなった履歴は `changelogs/` 配下へ移動して管理します.
 
+## [Unreleased]
+
+### Added
+- Webcam 推論中に `s` キーで Windows カメラ設定ダイアログ (DirectShow) を表示する機能を追加. `DisplaySink` に `cap` パラメータを追加し, `StreamReader.cap` プロパティ経由で `VideoCapture` を参照. N/A.
+
+### Changed
+- 無し
+
+### Fixed
+- 無し
+
+### Removed
+- 無し
+
 ## v0.12.2 (2026-03-19)
 
 ### Added
