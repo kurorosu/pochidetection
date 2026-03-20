@@ -185,12 +185,22 @@ def _save_stream_metadata(
     if camera_props:
         metadata["camera_properties"] = camera_props
     if result is not None:
-        metadata["summary"] = {
+        summary: dict[str, object] = {
             "processed_frames": result.processed_frames,
             "total_frames": result.total_frames,
             "elapsed_seconds": round(result.elapsed_seconds, 2),
             "avg_e2e_fps": round(result.avg_fps, 2),
         }
+        if result.phase_summary is not None:
+            summary["phases"] = {
+                phase: {
+                    "average_ms": round(stats["average_ms"], 2),
+                    "total_ms": round(stats["total_ms"], 2),
+                    "count": stats["count"],
+                }
+                for phase, stats in result.phase_summary.items()
+            }
+        metadata["summary"] = summary
 
     if metadata:
         meta_path = output_dir / "stream_metadata.json"
