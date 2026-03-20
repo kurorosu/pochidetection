@@ -91,7 +91,10 @@ class StreamReader(IFrameSource):
         Raises:
             RuntimeError: ストリームを開けない場合.
         """
-        self._cap = cv2.VideoCapture(source)
+        if isinstance(source, int):
+            self._cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
+        else:
+            self._cap = cv2.VideoCapture(source)
         if not self._cap.isOpened():
             raise RuntimeError(f"Failed to open stream: {source}")
 
@@ -113,6 +116,11 @@ class StreamReader(IFrameSource):
         h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         return (w, h)
 
+    @property
+    def cap(self) -> cv2.VideoCapture:
+        """内部の VideoCapture インスタンスを取得."""
+        return self._cap
+
     def __iter__(self) -> Iterator[np.ndarray]:
         """フレームを順次返すイテレータ."""
         while True:
@@ -131,18 +139,27 @@ class DisplaySink(IFrameSink):
 
     Attributes:
         _window_name: ウィンドウ名.
+        _cap: カメラ設定ダイアログ用の VideoCapture 参照.
     """
 
-    def __init__(self, window_name: str = "pochidetection") -> None:
+    def __init__(
+        self,
+        window_name: str = "pochidetection",
+        cap: cv2.VideoCapture | None = None,
+    ) -> None:
         """初期化.
 
         Args:
             window_name: ウィンドウ名.
+            cap: カメラ設定ダイアログ表示用の VideoCapture (Windows 限定).
         """
         self._window_name = window_name
+        self._cap = cap
 
     def write(self, frame: np.ndarray) -> None:
         """フレームを表示し, q キーで StopIteration を raise.
+
+        s キーが押された場合, Windows のカメラ設定ダイアログを表示する.
 
         Args:
             frame: BGR 形式の画像フレーム.
@@ -151,8 +168,11 @@ class DisplaySink(IFrameSink):
             StopIteration: q キーが押された場合.
         """
         cv2.imshow(self._window_name, frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
             raise StopIteration
+        if key == ord("s") and self._cap is not None:
+            self._cap.set(cv2.CAP_PROP_SETTINGS, 0)
 
     def release(self) -> None:
         """ウィンドウを破棄する."""
