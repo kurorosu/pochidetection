@@ -1,5 +1,6 @@
 """E2E 推論パイプライン."""
 
+import numpy as np
 import torch
 import torchvision
 from PIL import Image
@@ -8,7 +9,7 @@ from transformers import RTDetrImageProcessor
 
 from pochidetection.core.detection import Detection, OutputWrapper
 from pochidetection.interfaces.backend import IInferenceBackend
-from pochidetection.interfaces.pipeline import IDetectionPipeline
+from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 
@@ -68,15 +69,19 @@ class RTDetrPipeline(
         self._nms_iou_threshold = nms_iou_threshold
         self._use_fp16 = is_fp16_available(use_fp16, device)
 
-    def preprocess(self, image: Image.Image) -> dict[str, torch.Tensor]:
+    def preprocess(self, image: ImageInput) -> dict[str, torch.Tensor]:
         """画像を前処理し, モデル入力テンソルを返す.
 
+        numpy 配列は Transform チェーンとの互換性のため内部で PIL に変換する.
+
         Args:
-            image: 入力画像 (PIL Image).
+            image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
             モデル入力テンソルの辞書.
         """
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
         pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
@@ -145,22 +150,27 @@ class RTDetrPipeline(
             )
         ]
 
-    def run(self, image: Image.Image) -> list[Detection]:
+    def run(self, image: ImageInput) -> list[Detection]:
         """E2E 実行. preprocess → infer → postprocess を順に実行する.
 
         PhasedTimer が設定されている場合, 各フェーズを個別に計測する.
 
         Args:
-            image: 入力画像 (PIL Image).
+            image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
             検出結果のリスト.
         """
+        if isinstance(image, np.ndarray):
+            image_size = (image.shape[1], image.shape[0])
+        else:
+            image_size = image.size
+
         with self._measure("preprocess"):
             inputs = self.preprocess(image)
         with self._measure("inference"):
             pred_logits, pred_boxes = self.infer(inputs)
         with self._measure("postprocess"):
-            detections = self.postprocess(pred_logits, pred_boxes, image.size)
+            detections = self.postprocess(pred_logits, pred_boxes, image_size)
 
         return detections

@@ -1,5 +1,7 @@
 """検出結果を画像に描画するクラス."""
 
+import cv2
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from pochidetection.core.detection import Detection
@@ -116,3 +118,80 @@ class Visualizer:
             draw.text((text_x, text_y), text, fill=text_color, font=font)
 
         return result
+
+    @staticmethod
+    def _hex_to_bgr(hex_color: str) -> tuple[int, int, int]:
+        """HEX カラーを BGR タプルに変換.
+
+        Args:
+            hex_color: HEX 形式の色 (例: "#FF0000").
+
+        Returns:
+            BGR タプル (例: (0, 0, 255)).
+        """
+        h = hex_color.lstrip("#")
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return (b, g, r)
+
+    def draw_cv2(
+        self,
+        image: np.ndarray,
+        detections: list[Detection],
+    ) -> np.ndarray:
+        """検出結果を OpenCV で直接描画.
+
+        PIL 変換を介さず numpy BGR 画像に直接描画するため,
+        リアルタイム推論でのオーバーヘッドを削減する.
+
+        Args:
+            image: 入力画像 (numpy BGR).
+            detections: 検出結果のリスト.
+
+        Returns:
+            描画済み画像 (入力画像を直接変更して返す).
+        """
+        h, w = image.shape[:2]
+        base_size = max(w, h)
+        line_width = max(2, int(base_size / self._LINE_WIDTH_DIVISOR))
+        font_scale = max(0.4, base_size / self._FONT_SIZE_DIVISOR / 30)
+        font_thickness = max(1, line_width // 2)
+
+        for detection in detections:
+            x1, y1, x2, y2 = (int(v) for v in detection.box)
+
+            color_hex = self._palette.get_color(detection.label)
+            color_bgr = self._hex_to_bgr(color_hex)
+            label_name = self._mapper.get_label(detection.label)
+
+            # ボックス描画
+            cv2.rectangle(image, (x1, y1), (x2, y2), color_bgr, line_width)
+
+            # ラベルテキスト
+            text = f"{label_name}: {detection.score:.2f}"
+            (tw, th), baseline = cv2.getTextSize(
+                text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness
+            )
+
+            # テキスト背景
+            padding = 4
+            bg_y1 = max(0, y1)
+            bg_y2 = bg_y1 + th + baseline + padding * 2
+            cv2.rectangle(
+                image, (x1, bg_y1), (x1 + tw + padding * 2, bg_y2), color_bgr, -1
+            )
+
+            # テキスト色 (W3C 輝度)
+            text_color_name = self._get_text_color(color_hex)
+            text_bgr = (0, 0, 0) if text_color_name == "black" else (255, 255, 255)
+
+            cv2.putText(
+                image,
+                text,
+                (x1 + padding, bg_y1 + padding + th),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                text_bgr,
+                font_thickness,
+            )
+
+        return image
