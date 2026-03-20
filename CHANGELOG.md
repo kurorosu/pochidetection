@@ -7,6 +7,9 @@
 
 ### Added
 - Webcam 推論中に `s` キーで Windows カメラ設定ダイアログ (DirectShow) を表示する機能を追加. `DisplaySink` に `cap` パラメータを追加し, `StreamReader.cap` プロパティ経由で `VideoCapture` を参照. N/A.
+- リアルタイム推論完了時に, 使用した config ファイルのコピー, カメラプロパティ, 実測 E2E FPS サマリーを推論フォルダ (`stream_metadata.json`) に保存する機能を追加. N/A.
+  - `process_frames()` の戻り値を `FrameProcessingResult` dataclass に変更.
+  - `cli/commands/infer.py` の遅延インポートを全てトップレベルに移動.
 
 ### Changed
 - 無し

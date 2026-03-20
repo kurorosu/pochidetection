@@ -12,7 +12,7 @@ from pochidetection.scripts.common.coco_classes import COCO_CLASS_NAMES
 
 # モデル設定
 architecture = "RTDetr"
-model_name = "PekingU/rtdetr_r50vd"
+model_name = "PekingU/rtdetr_r18vd"
 local_files_only = False  # True にするとキャッシュ済みモデルのみ使用 (オフライン対応)
 
 # クラス設定

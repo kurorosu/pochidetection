@@ -1,12 +1,13 @@
 """動画・ストリーム推論の共通ロジック.
 
 VideoReader, VideoWriter, StreamReader, DisplaySink, CompositeSink,
-process_frames を提供する.
+process_frames, FrameProcessingResult を提供する.
 """
 
 import logging
 import time
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
@@ -17,6 +18,23 @@ from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.scripts.common.visualizer import Visualizer
+
+
+@dataclass(frozen=True, slots=True)
+class FrameProcessingResult:
+    """フレーム処理のサマリー結果.
+
+    Attributes:
+        processed_frames: 推論処理したフレーム数.
+        total_frames: 総フレーム数 (スキップ含む).
+        elapsed_seconds: 経過時間 (秒).
+        avg_fps: 平均 FPS.
+    """
+
+    processed_frames: int
+    total_frames: int
+    elapsed_seconds: float
+    avg_fps: float
 
 
 class VideoReader(IFrameSource):
@@ -120,6 +138,30 @@ class StreamReader(IFrameSource):
     def cap(self) -> cv2.VideoCapture:
         """内部の VideoCapture インスタンスを取得."""
         return self._cap
+
+    def get_camera_properties(self) -> dict[str, float]:
+        """カメラプロパティを取得.
+
+        Returns:
+            プロパティ名と値の辞書.
+        """
+        props = {
+            "frame_width": cv2.CAP_PROP_FRAME_WIDTH,
+            "frame_height": cv2.CAP_PROP_FRAME_HEIGHT,
+            "fps": cv2.CAP_PROP_FPS,
+            "brightness": cv2.CAP_PROP_BRIGHTNESS,
+            "contrast": cv2.CAP_PROP_CONTRAST,
+            "saturation": cv2.CAP_PROP_SATURATION,
+            "hue": cv2.CAP_PROP_HUE,
+            "gain": cv2.CAP_PROP_GAIN,
+            "exposure": cv2.CAP_PROP_EXPOSURE,
+            "auto_exposure": cv2.CAP_PROP_AUTO_EXPOSURE,
+            "focus": cv2.CAP_PROP_FOCUS,
+            "autofocus": cv2.CAP_PROP_AUTOFOCUS,
+            "white_balance": cv2.CAP_PROP_WB_TEMPERATURE,
+            "auto_white_balance": cv2.CAP_PROP_AUTO_WB,
+        }
+        return {name: self._cap.get(prop_id) for name, prop_id in props.items()}
 
     def __iter__(self) -> Iterator[np.ndarray]:
         """フレームを順次返すイテレータ."""
@@ -254,7 +296,7 @@ def process_frames(
     interval: int = 1,
     overlay_fps: bool = False,
     logger: logging.Logger,
-) -> None:
+) -> FrameProcessingResult:
     """フレーム単位で推論・描画・書き出しを行う.
 
     ソースとシンクは抽象基底クラスで受け取るため,
@@ -268,6 +310,9 @@ def process_frames(
         interval: N フレーム間隔で推論 (1 = 全フレーム処理).
         overlay_fps: True の場合, フレーム左上に実測 FPS を描画.
         logger: ロガー.
+
+    Returns:
+        フレーム処理のサマリー結果.
     """
     total = getattr(source, "total_frames", 0)
     processed = 0
@@ -317,10 +362,19 @@ def process_frames(
             if total > 0 and processed % 100 == 0:
                 pct = frame_idx / total * 100
                 logger.info(f"Processing: {frame_idx}/{total} frames ({pct:.1f}%)")
+    except (StopIteration, KeyboardInterrupt):
+        pass
     finally:
         elapsed = time.monotonic() - start_time
         avg_fps = processed / elapsed if elapsed > 0 else 0.0
         logger.info(
             f"Video inference completed: {processed} frames processed "
-            f"({frame_idx} total), {elapsed:.1f}s, {avg_fps:.1f} avg FPS"
+            f"({frame_idx} total), {elapsed:.1f}s, {avg_fps:.1f} avg E2E FPS"
         )
+
+    return FrameProcessingResult(
+        processed_frames=processed,
+        total_frames=frame_idx,
+        elapsed_seconds=elapsed,
+        avg_fps=avg_fps,
+    )
