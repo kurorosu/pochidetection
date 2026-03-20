@@ -6,10 +6,11 @@
 ## [Unreleased]
 
 ### Added
-- Webcam 推論中に `s` キーで Windows カメラ設定ダイアログ (DirectShow) を表示する機能を追加. `DisplaySink` に `cap` パラメータを追加し, `StreamReader.cap` プロパティ経由で `VideoCapture` を参照. N/A.
-- リアルタイム推論完了時に, 使用した config ファイルのコピー, カメラプロパティ, 実測 E2E FPS サマリーを推論フォルダ (`stream_metadata.json`) に保存する機能を追加. N/A.
+- Webcam 推論中に `s` キーで Windows カメラ設定ダイアログ (DirectShow) を表示する機能を追加. `DisplaySink` に `cap` パラメータを追加し, `StreamReader.cap` プロパティ経由で `VideoCapture` を参照. ([#386](https://github.com/kurorosu/pochidetection/pull/386))
+- リアルタイム推論完了時に, 使用した config ファイルのコピー, カメラプロパティ, 実測 E2E FPS サマリーを推論フォルダ (`stream_metadata.json`) に保存する機能を追加. ([#387](https://github.com/kurorosu/pochidetection/pull/387))
   - `process_frames()` の戻り値を `FrameProcessingResult` dataclass に変更.
   - `cli/commands/infer.py` の遅延インポートを全てトップレベルに移動.
+- リアルタイム推論の FPS オーバーレイに全フェーズ別内訳 (capture/pre/infer/post/draw/display) を縦書き表示 (白縁取り + 黒文字). サマリーログと `stream_metadata.json` にもフェーズ別平均を出力. 既存の `PhasedTimer` を再利用. N/A.
 
 ### Changed
 - 無し
