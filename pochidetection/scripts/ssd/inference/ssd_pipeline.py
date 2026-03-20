@@ -1,12 +1,13 @@
 """SSD 共通 E2E 推論パイプライン."""
 
+import numpy as np
 import torch
 from PIL import Image
 from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces import IInferenceBackend
-from pochidetection.interfaces.pipeline import IDetectionPipeline
+from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 
@@ -67,17 +68,21 @@ class SsdPipeline(
         self._threshold = threshold
         self._use_fp16 = is_fp16_available(use_fp16, device)
 
-    def preprocess(self, image: Image.Image) -> tuple[torch.Tensor, int, int]:
+    def preprocess(self, image: ImageInput) -> tuple[torch.Tensor, int, int]:
         """画像を前処理し, モデル入力テンソルを返す.
 
         Args:
-            image: 入力画像 (PIL Image).
+            image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
             (pixel_values, orig_w, orig_h) のタプル.
             pixel_values は (1, C, H, W) 形状のテンソル.
         """
-        orig_w, orig_h = image.size
+        if isinstance(image, np.ndarray):
+            orig_h, orig_w = image.shape[:2]
+            image = Image.fromarray(image)
+        else:
+            orig_w, orig_h = image.size
         pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
@@ -143,13 +148,13 @@ class SsdPipeline(
             for box, score, label in zip(boxes, scores, labels)
         ]
 
-    def run(self, image: Image.Image) -> list[Detection]:
+    def run(self, image: ImageInput) -> list[Detection]:
         """E2E 実行. preprocess → infer → postprocess を順に実行する.
 
         PhasedTimer が設定されている場合, 各フェーズを個別に計測する.
 
         Args:
-            image: 入力画像 (PIL Image).
+            image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
             検出結果のリスト.

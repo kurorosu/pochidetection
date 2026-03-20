@@ -10,10 +10,14 @@
 - リアルタイム推論完了時に, 使用した config ファイルのコピー, カメラプロパティ, 実測 E2E FPS サマリーを推論フォルダ (`stream_metadata.json`) に保存する機能を追加. ([#387](https://github.com/kurorosu/pochidetection/pull/387))
   - `process_frames()` の戻り値を `FrameProcessingResult` dataclass に変更.
   - `cli/commands/infer.py` の遅延インポートを全てトップレベルに移動.
-- リアルタイム推論の FPS オーバーレイに全フェーズ別内訳 (capture/pre/infer/post/draw/display) を縦書き表示 (白縁取り + 黒文字). サマリーログと `stream_metadata.json` にもフェーズ別平均を出力. 既存の `PhasedTimer` を再利用. N/A.
+- リアルタイム推論の FPS オーバーレイに全フェーズ別内訳 (capture/pre/infer/post/draw/display) を縦書き表示 (白縁取り + 黒文字). サマリーログと `stream_metadata.json` にもフェーズ別平均を出力. 既存の `PhasedTimer` を再利用. ([#388](https://github.com/kurorosu/pochidetection/pull/388))
 
 ### Changed
-- 無し
+- リアルタイム推論のフレーム処理から PIL 変換を除去し, パフォーマンスを改善. ([#389](https://github.com/kurorosu/pochidetection/pull/389))
+  - `IDetectionPipeline.run()` が `Image.Image | np.ndarray` を受け付けるように拡張.
+  - `Visualizer.draw_cv2()` を追加し, OpenCV で BGR フレームに直接描画.
+  - `process_frames()` から `Image.fromarray()` / `np.array()` / RGB→BGR 変換を除去.
+  - FPS オーバーレイを E2E FPS (capture + 推論 + 描画 + display 全込み) に変更.
 
 ### Fixed
 - 無し

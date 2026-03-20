@@ -12,7 +12,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image
 
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
@@ -328,6 +327,7 @@ def process_frames(
     last_capture_ms = 0.0
     last_draw_ms = 0.0
     last_display_ms = 0.0
+    last_e2e_fps = 0.0
     display_end = time.monotonic()
 
     try:
@@ -345,26 +345,22 @@ def process_frames(
                 frame_idx += 1
                 continue
 
-            # BGR → RGB → PIL
+            # BGR → RGB (パイプライン入力用, PIL 変換なし)
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_image = Image.fromarray(rgb)
 
             # 推論 (pre/infer/post は PhasedTimer が計測)
-            detections = pipeline.run(pil_image)
+            detections = pipeline.run(rgb)
 
-            # draw 計測
+            # draw 計測 (OpenCV で元の BGR フレームに直接描画)
             draw_start = time.monotonic()
-            result_image = visualizer.draw(pil_image, detections, inplace=True)
-            result_bgr = cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR)
+            result_bgr = frame
+            visualizer.draw_cv2(result_bgr, detections)
             last_draw_ms = (time.monotonic() - draw_start) * 1000
             draw_total_ms += last_draw_ms
 
-            # FPS オーバーレイ (白縁取り + 黒文字, 縦書き)
+            # FPS オーバーレイ (前フレームの E2E FPS を表示)
             if overlay_fps:
-                frame_time = time.monotonic() - frame_start
-                current_fps = 1.0 / frame_time if frame_time > 0 else 0.0
-
-                lines = [f"FPS: {current_fps:.1f}"]
+                lines = [f"FPS: {last_e2e_fps:.1f}"]
                 lines.append(f"capture: {last_capture_ms:.1f}ms")
 
                 phased_timer = pipeline.phased_timer
@@ -384,9 +380,14 @@ def process_frames(
             # display 計測
             display_start = time.monotonic()
             sink.write(result_bgr)
-            display_end = time.monotonic()
-            last_display_ms = (display_end - display_start) * 1000
+            new_display_end = time.monotonic()
+            last_display_ms = (new_display_end - display_start) * 1000
             display_total_ms += last_display_ms
+
+            # E2E FPS 更新: 前フレームの display 終了 〜 現フレームの display 終了
+            e2e_time = new_display_end - display_end
+            last_e2e_fps = 1.0 / e2e_time if e2e_time > 0 else 0.0
+            display_end = new_display_end
 
             processed += 1
             frame_idx += 1
