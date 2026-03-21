@@ -1,18 +1,29 @@
 """VideoReader / VideoWriter / StreamReader / DisplaySink / CompositeSink のテスト."""
 
+import logging
 from pathlib import Path
+from typing import Iterator
 
 import cv2
 import numpy as np
 import pytest
 
+from pochidetection.core.detection import Detection
+from pochidetection.interfaces.frame_sink import IFrameSink
+from pochidetection.interfaces.frame_source import IFrameSource
+from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.scripts.common.video import (
     CompositeSink,
     DisplaySink,
+    FrameProcessingResult,
     StreamReader,
     VideoReader,
     VideoWriter,
+    _build_phase_summary,
+    _draw_overlay_text,
+    process_frames,
 )
+from pochidetection.scripts.common.visualizer import Visualizer
 
 
 def _create_test_video(path: Path, num_frames: int = 10) -> None:
@@ -268,3 +279,247 @@ class TestVideoReaderWriterRoundTrip:
         output_reader = VideoReader(output_path)
         assert output_reader.total_frames == 7
         output_reader.release()
+
+
+# --- process_frames / _build_phase_summary / _draw_overlay_text テスト ---
+
+
+class _ListSource(IFrameSource):
+    """テスト用のフレームソース. リストからフレームを返す."""
+
+    def __init__(self, frames: list[np.ndarray]) -> None:
+        self._frames = frames
+
+    @property
+    def fps(self) -> float:
+        return 30.0
+
+    @property
+    def frame_size(self) -> tuple[int, int]:
+        h, w = self._frames[0].shape[:2]
+        return (w, h)
+
+    def __iter__(self) -> Iterator[np.ndarray]:
+        yield from self._frames
+
+    def release(self) -> None:
+        pass
+
+
+class _RecordingSink(IFrameSink):
+    """テスト用のシンク. 書き出されたフレームを記録する."""
+
+    def __init__(self) -> None:
+        self.frames: list[np.ndarray] = []
+
+    def write(self, frame: np.ndarray) -> None:
+        self.frames.append(frame.copy())
+
+    def release(self) -> None:
+        pass
+
+
+class _DummyPipeline(IDetectionPipeline[np.ndarray, list[Detection]]):
+    """テスト用のパイプライン. 固定の検出結果を返す."""
+
+    def __init__(self, detections: list[Detection] | None = None) -> None:
+        self._validate_phased_timer(None)
+        self._detections = detections or []
+
+    def preprocess(self, image: np.ndarray) -> np.ndarray:
+        return image
+
+    def infer(self, inputs: np.ndarray) -> list[Detection]:
+        return self._detections
+
+    def postprocess(self, outputs: list[Detection]) -> list[Detection]:
+        return outputs
+
+    def run(self, image: np.ndarray | None = None) -> list[Detection]:
+        return self._detections
+
+
+class TestProcessFrames:
+    """process_frames 関数のテスト."""
+
+    def _make_frames(self, n: int = 3) -> list[np.ndarray]:
+        """テスト用 BGR フレームを生成."""
+        return [np.full((48, 64, 3), i * 50, dtype=np.uint8) for i in range(n)]
+
+    def test_basic_flow(self) -> None:
+        """基本フロー: 全フレームが処理される."""
+        frames = self._make_frames(5)
+        source = _ListSource(frames)
+        sink = _RecordingSink()
+        pipeline = _DummyPipeline()
+        visualizer = Visualizer()
+        logger = logging.getLogger("test")
+
+        result = process_frames(source, sink, pipeline, visualizer, logger=logger)
+
+        assert result.processed_frames == 5
+        assert result.total_frames == 5
+        assert result.elapsed_seconds > 0
+        assert len(sink.frames) == 5
+
+    def test_interval_skips_frames(self) -> None:
+        """interval=2 でフレームがスキップされる."""
+        frames = self._make_frames(6)
+        source = _ListSource(frames)
+        sink = _RecordingSink()
+        pipeline = _DummyPipeline()
+        visualizer = Visualizer()
+        logger = logging.getLogger("test")
+
+        result = process_frames(
+            source, sink, pipeline, visualizer, interval=2, logger=logger
+        )
+
+        # 6 フレーム中, index 0, 2, 4 が処理される
+        assert result.processed_frames == 3
+        assert result.total_frames == 6
+        # 全フレームが sink に書き出される (スキップフレームも)
+        assert len(sink.frames) == 6
+
+    def test_empty_source(self) -> None:
+        """0 フレームのソースで正常に返る."""
+        source = _ListSource([])
+        sink = _RecordingSink()
+        pipeline = _DummyPipeline()
+        visualizer = Visualizer()
+        logger = logging.getLogger("test")
+
+        result = process_frames(source, sink, pipeline, visualizer, logger=logger)
+
+        assert result.processed_frames == 0
+        assert result.total_frames == 0
+        assert result.avg_fps == 0.0
+
+    def test_result_has_phase_summary(self) -> None:
+        """FrameProcessingResult に phase_summary が含まれる."""
+        frames = self._make_frames(3)
+        source = _ListSource(frames)
+        sink = _RecordingSink()
+        pipeline = _DummyPipeline()
+        visualizer = Visualizer()
+        logger = logging.getLogger("test")
+
+        result = process_frames(source, sink, pipeline, visualizer, logger=logger)
+
+        # PhasedTimer なしでも capture/draw/display は含まれる
+        assert result.phase_summary is not None
+        assert "capture" in result.phase_summary
+        assert "draw" in result.phase_summary
+        assert "display" in result.phase_summary
+
+    def test_overlay_fps_does_not_crash(self) -> None:
+        """overlay_fps=True でクラッシュしない."""
+        frames = self._make_frames(3)
+        source = _ListSource(frames)
+        sink = _RecordingSink()
+        pipeline = _DummyPipeline()
+        visualizer = Visualizer()
+        logger = logging.getLogger("test")
+
+        result = process_frames(
+            source, sink, pipeline, visualizer, overlay_fps=True, logger=logger
+        )
+
+        assert result.processed_frames == 3
+
+
+class TestBuildPhaseSummary:
+    """_build_phase_summary 関数のテスト."""
+
+    def test_zero_processed_returns_none(self) -> None:
+        """処理フレーム 0 で None を返す."""
+        pipeline = _DummyPipeline()
+        result = _build_phase_summary(pipeline, 0, 0.0, 0.0, 0.0)
+        assert result is None
+
+    def test_summary_keys(self) -> None:
+        """capture, draw, display キーが含まれる."""
+        pipeline = _DummyPipeline()
+        result = _build_phase_summary(pipeline, 10, 100.0, 50.0, 30.0)
+
+        assert result is not None
+        assert "capture" in result
+        assert "draw" in result
+        assert "display" in result
+
+    def test_summary_averages(self) -> None:
+        """平均値が正しく計算される."""
+        pipeline = _DummyPipeline()
+        result = _build_phase_summary(pipeline, 10, 100.0, 50.0, 30.0)
+
+        assert result is not None
+        assert result["capture"]["average_ms"] == pytest.approx(10.0)
+        assert result["draw"]["average_ms"] == pytest.approx(5.0)
+        assert result["display"]["average_ms"] == pytest.approx(3.0)
+
+    def test_summary_counts(self) -> None:
+        """count が processed と一致する."""
+        pipeline = _DummyPipeline()
+        result = _build_phase_summary(pipeline, 5, 50.0, 25.0, 15.0)
+
+        assert result is not None
+        assert result["capture"]["count"] == 5
+        assert result["draw"]["count"] == 5
+        assert result["display"]["count"] == 5
+
+
+class TestDrawOverlayText:
+    """_draw_overlay_text 関数のテスト."""
+
+    def test_draws_text_on_frame(self) -> None:
+        """テキストがフレームに描画される."""
+        frame = np.zeros((100, 200, 3), dtype=np.uint8)
+        original = frame.copy()
+
+        _draw_overlay_text(frame, ["FPS: 30.0", "infer: 10ms"])
+
+        assert not np.array_equal(frame, original)
+
+    def test_empty_lines_no_change(self) -> None:
+        """空のリストで画像が変更されない."""
+        frame = np.zeros((100, 200, 3), dtype=np.uint8)
+        original = frame.copy()
+
+        _draw_overlay_text(frame, [])
+
+        np.testing.assert_array_equal(frame, original)
+
+
+class TestFrameProcessingResult:
+    """FrameProcessingResult dataclass のテスト."""
+
+    def test_creation(self) -> None:
+        """インスタンス生成と属性アクセス."""
+        result = FrameProcessingResult(
+            processed_frames=100,
+            total_frames=120,
+            elapsed_seconds=4.0,
+            avg_fps=25.0,
+            phase_summary={
+                "capture": {"total_ms": 100.0, "count": 100, "average_ms": 1.0}
+            },
+        )
+
+        assert result.processed_frames == 100
+        assert result.total_frames == 120
+        assert result.elapsed_seconds == 4.0
+        assert result.avg_fps == 25.0
+        assert result.phase_summary is not None
+
+    def test_frozen(self) -> None:
+        """frozen=True で属性変更不可."""
+        result = FrameProcessingResult(
+            processed_frames=10,
+            total_frames=10,
+            elapsed_seconds=1.0,
+            avg_fps=10.0,
+            phase_summary=None,
+        )
+
+        with pytest.raises(AttributeError):
+            result.processed_frames = 20  # type: ignore[misc]
