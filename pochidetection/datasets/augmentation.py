@@ -4,6 +4,7 @@ config の augmentation セクションから torchvision.transforms.v2 の
 Compose パイプラインを構築する.
 """
 
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -131,3 +132,51 @@ def apply_augmentation(
     coco_boxes[:, 3] = out_boxes[:, 3] - out_boxes[:, 1]
 
     return out_image, coco_boxes, out_labels
+
+
+def save_debug_image(
+    image: Image.Image,
+    boxes: torch.Tensor,
+    labels: torch.Tensor,
+    save_path: Path,
+) -> None:
+    """Augmentation 後の画像と bbox をデバッグ用に保存する.
+
+    画像に bbox を描画して保存する. 色はラベルごとに固定.
+
+    Args:
+        image: augmentation 適用済みの PIL 画像 (RGB).
+        boxes: bbox テンソル (N, 4), COCO 形式 [x, y, w, h].
+        labels: ラベルテンソル (N,).
+        save_path: 保存先ファイルパス.
+    """
+    from PIL import ImageDraw
+
+    debug_image = image.copy()
+    draw = ImageDraw.Draw(debug_image)
+
+    # ラベルごとに異なる色を割り当て
+    colors = [
+        "#FF0000",
+        "#00FF00",
+        "#0000FF",
+        "#FFFF00",
+        "#FF00FF",
+        "#00FFFF",
+        "#FF8000",
+        "#8000FF",
+        "#00FF80",
+        "#FF0080",
+        "#80FF00",
+        "#0080FF",
+    ]
+
+    for i in range(len(boxes)):
+        x, y, w, h = boxes[i].tolist()
+        color = colors[int(labels[i].item()) % len(colors)]
+        draw.rectangle([x, y, x + w, y + h], outline=color, width=2)
+        draw.text((x, y - 12), f"cls:{int(labels[i].item())}", fill=color)
+
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    debug_image.save(save_path)
+    logger.debug(f"Augmentation debug image saved: {save_path}")

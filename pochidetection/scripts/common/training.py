@@ -19,6 +19,7 @@ from torchvision.transforms import v2
 from pochidetection.configs.schemas import AugmentationConfig, DetectionConfigDict
 from pochidetection.core import DetectionCollator
 from pochidetection.datasets.augmentation import build_augmentation
+from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.scripts.common.inference import setup_cudnn_benchmark
@@ -103,12 +104,19 @@ def setup_training(
     # augmentation 構築 (学習データのみに適用)
     aug_config = config.get("augmentation")
     augmentation = None
+    debug_save = 0
     if aug_config is not None:
         parsed = AugmentationConfig.model_validate(aug_config)
         augmentation = build_augmentation(parsed)
+        debug_save = parsed.debug_save
 
     train_loader, val_loader = build_data_loaders(
-        config, dataset_factory, logger, augmentation=augmentation
+        config,
+        dataset_factory,
+        logger,
+        augmentation=augmentation,
+        debug_save=debug_save,
+        debug_save_dir=workspace / "augmentation_debug" if debug_save > 0 else None,
     )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -146,6 +154,8 @@ def build_data_loaders(
     logger: logging.Logger,
     *,
     augmentation: v2.Compose | None = None,
+    debug_save: int = 0,
+    debug_save_dir: Path | None = None,
 ) -> tuple[DataLoader[dict[str, Any]], DataLoader[dict[str, Any]]]:
     """学習・検証用データローダーを構築.
 
@@ -154,6 +164,8 @@ def build_data_loaders(
         dataset_factory: ディレクトリパスを受け取りデータセットを返すファクトリ.
         logger: ロガー.
         augmentation: 学習データに適用する augmentation パイプライン (None で無効).
+        debug_save: 1 エポック目に保存するデバッグ画像数 (0 で無効).
+        debug_save_dir: デバッグ画像の保存先ディレクトリ.
 
     Returns:
         (train_loader, val_loader) のタプル.
@@ -170,11 +182,18 @@ def build_data_loaders(
     val_dataset = dataset_factory(val_dir)
 
     # augmentation は学習データのみに適用
-    if augmentation is not None and hasattr(train_dataset, "_augmentation"):
+    if augmentation is not None and isinstance(train_dataset, BaseCocoDataset):
         train_dataset._augmentation = augmentation
+        if debug_save > 0 and debug_save_dir is not None:
+            train_dataset._debug_save_count = debug_save
+            train_dataset._debug_save_dir = debug_save_dir
+            logger.info(
+                f"Augmentation debug: saving first {debug_save} images "
+                f"to {debug_save_dir}"
+            )
 
-    logger.info(f"Train samples: {len(train_dataset)}")
-    logger.info(f"Val samples: {len(val_dataset)}")
+    logger.info(f"Train samples: {len(train_dataset)}")  # type: ignore[arg-type]
+    logger.info(f"Val samples: {len(val_dataset)}")  # type: ignore[arg-type]
 
     collator = DetectionCollator()
     train_loader = DataLoader(
