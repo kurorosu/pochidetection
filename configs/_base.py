@@ -37,7 +37,7 @@ annotation_path = "data/val/annotations.json"  # mAP 評価用 COCO アノテー
 infer_image_dir = "data/val/JPEGImages"  # 推論対象の画像フォルダ
 
 # カメラ設定 (Webcam リアルタイム推論用)
-camera_fps = 60  # カメラ FPS (None でカメラのデフォルトを使用)
+camera_fps = 60.0  # カメラ FPS (None でカメラのデフォルトを使用)
 camera_resolution = [640, 480]  # カメラ解像度 [width, height] (None でデフォルト)
 
 # ワークスペース設定
