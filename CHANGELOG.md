@@ -6,6 +6,20 @@
 ## [Unreleased]
 
 ### Added
+- 無し
+
+### Changed
+- 無し
+
+### Fixed
+- 無し
+
+### Removed
+- 無し
+
+## v0.13.0 (2026-03-21)
+
+### Added
 - Webcam 推論中に `s` キーで Windows カメラ設定ダイアログ (DirectShow) を表示する機能を追加. `DisplaySink` に `cap` パラメータを追加し, `StreamReader.cap` プロパティ経由で `VideoCapture` を参照. ([#386](https://github.com/kurorosu/pochidetection/pull/386))
 - リアルタイム推論完了時に, 使用した config ファイルのコピー, カメラプロパティ, 実測 E2E FPS サマリーを推論フォルダ (`stream_metadata.json`) に保存する機能を追加. ([#387](https://github.com/kurorosu/pochidetection/pull/387))
   - `process_frames()` の戻り値を `FrameProcessingResult` dataclass に変更.
@@ -14,7 +28,7 @@
 - config.py から `camera_fps` と `camera_resolution` を設定可能にする機能を追加. `StreamReader.apply_camera_settings()` でカメラに適用し, 設定値と実際の値が異なる場合は警告ログを出力. ([#392](https://github.com/kurorosu/pochidetection/pull/392))
 
 ### Changed
-- `--record` オプションをパス指定からフラグに変更し, 録画ファイルを推論フォルダ (`inference_XXX/recording.mp4`) に自動保存するように改善. N/A.
+- `--record` オプションをパス指定からフラグに変更し, 録画ファイルを推論フォルダ (`inference_XXX/recording.mp4`) に自動保存するように改善. ([#394](https://github.com/kurorosu/pochidetection/pull/394))
 - リアルタイム推論のフレーム処理から PIL 変換を除去し, パフォーマンスを改善. ([#389](https://github.com/kurorosu/pochidetection/pull/389))
   - `IDetectionPipeline.run()` が `Image.Image | np.ndarray` を受け付けるように拡張.
   - `Visualizer.draw_cv2()` を追加し, OpenCV で BGR フレームに直接描画.
@@ -25,24 +39,6 @@
 - 無し
 
 ### Removed
-- 無し
-
-## v0.12.2 (2026-03-19)
-
-### Added
-- `inference/providers.py`, `inference/validation.py`, `inference/sync.py` のユニットテストを追加 (古典派テスト方針, 19 テスト). ([#384](https://github.com/kurorosu/pochidetection/pull/384))
-
-### Changed
-- `ModelOutputDict` をアーキテクチャ別のサブ型 (`TransformerModelOutputDict`, `SSDModelOutputDict`) に分離し, 各モデルの `forward()` 戻り値を型安全に. ([#379](https://github.com/kurorosu/pochidetection/pull/379))
-- `IDetectionPipeline` に Generic 型パラメータ (`TPreprocessed`, `TInferred`) を導入し, パイプライン実装のフェーズ間データ型を明示. ([#380](https://github.com/kurorosu/pochidetection/pull/380))
-- `IInferenceBackend` から `synchronize()` を削除し, デバイス同期を各バックエンドの `infer()` に統合. ISP 違反を解消. ([#381](https://github.com/kurorosu/pochidetection/pull/381))
-- CLI の `_resolve_train` / `_resolve_infer` の if/elif 分岐をレジストリパターン (`cli/registry.py`) に変更. 新アーキテクチャ追加時に既存コードの修正が不要に. ([#382](https://github.com/kurorosu/pochidetection/pull/382))
-- `run_training_loop()` を `TrainingLoop` クラスに責務分離. `EpochResult` dataclass でエポック結果を構造化し, ログ出力・履歴記録・TensorBoard・スケジューラ更新・Early Stopping を個別メソッドに分割. ([#383](https://github.com/kurorosu/pochidetection/pull/383))
-
-### Removed
-- `IInferenceBackend.synchronize()` 抽象メソッドを削除. CPU バックエンドに不要な空実装を強制していた ISP 違反を解消. ([#381](https://github.com/kurorosu/pochidetection/pull/381))
-
-### Fixed
 - 無し
 
 ## Archived Changelogs
