@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.14.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -95,6 +95,8 @@ uv run pochi train -c configs/rtdetr_coco.py
 uv run pochi train -c configs/ssdlite_coco.py
 ```
 
+Data Augmentation は config.py の `augmentation` セクションで設定可能 (詳細は [docs/augmentation.md](docs/augmentation.md) を参照).
+
 ### 5. 結果の確認
 
 学習結果は `work_dirs/yyyymmdd_xxx/` に保存されます:
@@ -134,6 +136,7 @@ uv run pochi infer -d images/ -c configs/ssdlite_coco.py
 推論結果は `work_dirs/yyyymmdd_xxx/inference_xxx/` に保存されます.
 
 - バウンディングボックス付きの結果画像 (`{filename}_result.{ext}`)
+- 検出ボックスのクロップ画像 (`crop/` フォルダ, デフォルト有効, `--no-crop` で無効化)
 - 推論速度の統計 (平均 ms/image, 合計時間)
 
 #### 動画推論
