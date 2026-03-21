@@ -17,7 +17,7 @@ batch_size = 8
 
 # 学習設定
 learning_rate = 1e-4
-lr_scheduler_params = {"eta_min": 1e-7}  # Scheduler 固有パラメータ
+lr_scheduler_params = {"eta_min": 1e-5}  # Scheduler 固有パラメータ
 
 # NMS 設定
 nms_iou_threshold = 0.5  # 推論時の NMS IoU 閾値 (重複検出の除去)
