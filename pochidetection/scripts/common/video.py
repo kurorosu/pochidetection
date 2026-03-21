@@ -155,27 +155,31 @@ class StreamReader(IFrameSource):
             resolution: 目標解像度 [width, height] (None の場合は変更しない).
             logger: 警告出力用ロガー.
         """
-        if resolution is not None and logger is not None:
+        if resolution is not None:
             req_w, req_h = resolution
             self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, req_w)
             self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, req_h)
             actual_w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             actual_h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            if (actual_w, actual_h) == (req_w, req_h):
-                logger.info(f"Camera resolution: {actual_w}x{actual_h}")
-            else:
-                logger.warning(
-                    f"Camera resolution: requested {req_w}x{req_h}, "
-                    f"actual {actual_w}x{actual_h}"
-                )
+            if logger is not None:
+                if (actual_w, actual_h) == (req_w, req_h):
+                    logger.info(f"Camera resolution: {actual_w}x{actual_h}")
+                else:
+                    logger.warning(
+                        f"Camera resolution: requested {req_w}x{req_h}, "
+                        f"actual {actual_w}x{actual_h}"
+                    )
 
-        if fps is not None and logger is not None:
+        if fps is not None:
             self._cap.set(cv2.CAP_PROP_FPS, fps)
             actual_fps = self._cap.get(cv2.CAP_PROP_FPS)
-            if actual_fps == fps:
-                logger.info(f"Camera FPS: {actual_fps:.0f}")
-            else:
-                logger.warning(f"Camera FPS: requested {fps}, actual {actual_fps:.1f}")
+            if logger is not None:
+                if actual_fps == fps:
+                    logger.info(f"Camera FPS: {actual_fps:.0f}")
+                else:
+                    logger.warning(
+                        f"Camera FPS: requested {fps}, actual {actual_fps:.1f}"
+                    )
 
     def get_camera_properties(self) -> dict[str, float]:
         """カメラプロパティを取得.
