@@ -5,7 +5,17 @@
 
 ## [Unreleased]
 
-無し
+### Added
+- 無し
+
+### Changed
+- 無し
+
+### Fixed
+- 無し
+
+### Removed
+- 無し
 
 ## v0.14.0 (2026-03-21)
 
