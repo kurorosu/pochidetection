@@ -12,7 +12,7 @@
 - 無し
 
 ### Fixed
-- 無し
+- `StreamReader.apply_camera_settings()` で `logger=None` 時にカメラ設定 (`cap.set()`) が適用されないバグを修正. logger チェックをログ出力部分のみに分離. N/A.
 
 ### Removed
 - 無し
