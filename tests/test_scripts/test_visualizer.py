@@ -1,5 +1,6 @@
 """Visualizerクラスのテスト."""
 
+import numpy as np
 import pytest
 from PIL import Image, ImageFont
 
@@ -107,3 +108,72 @@ class TestVisualizerDraw:
         font = ImageFont.load_default(size=font_size)
 
         assert font.size == font_size
+
+
+class TestHexToBgr:
+    """_hex_to_bgr メソッドのテスト."""
+
+    @pytest.mark.parametrize(
+        ("hex_color", "expected_bgr"),
+        [
+            ("#FF0000", (0, 0, 255)),  # red
+            ("#00FF00", (0, 255, 0)),  # green
+            ("#0000FF", (255, 0, 0)),  # blue
+            ("#FFFFFF", (255, 255, 255)),  # white
+            ("#000000", (0, 0, 0)),  # black
+        ],
+    )
+    def test_hex_to_bgr_conversion(
+        self, hex_color: str, expected_bgr: tuple[int, int, int]
+    ) -> None:
+        """HEX カラーが正しい BGR タプルに変換されることを確認."""
+        assert Visualizer._hex_to_bgr(hex_color) == expected_bgr
+
+
+class TestDrawCv2:
+    """Visualizer.draw_cv2 メソッドのテスト."""
+
+    def test_draw_cv2_returns_same_array(self) -> None:
+        """draw_cv2 が入力画像と同一の numpy 配列を返すことを確認."""
+        visualizer = Visualizer()
+        image = np.zeros((480, 640, 3), dtype=np.uint8)
+        detections = [Detection(box=[10, 10, 100, 100], score=0.9, label=0)]
+
+        result = visualizer.draw_cv2(image, detections)
+
+        assert result is image
+
+    def test_draw_cv2_modifies_image(self) -> None:
+        """draw_cv2 が画像にボックスを描画することを確認."""
+        visualizer = Visualizer()
+        image = np.zeros((480, 640, 3), dtype=np.uint8)
+        detections = [Detection(box=[10, 10, 100, 100], score=0.9, label=0)]
+
+        visualizer.draw_cv2(image, detections)
+
+        assert np.any(image != 0)
+
+    def test_draw_cv2_empty_detections(self) -> None:
+        """検出なしの場合に画像が変更されないことを確認."""
+        visualizer = Visualizer()
+        image = np.full((480, 640, 3), 128, dtype=np.uint8)
+        original = image.copy()
+
+        visualizer.draw_cv2(image, [])
+
+        np.testing.assert_array_equal(image, original)
+
+    def test_draw_cv2_multiple_detections(self) -> None:
+        """複数検出が全て描画されることを確認."""
+        visualizer = Visualizer()
+        image = np.zeros((480, 640, 3), dtype=np.uint8)
+        detections = [
+            Detection(box=[10, 10, 50, 50], score=0.9, label=0),
+            Detection(box=[200, 200, 300, 300], score=0.8, label=1),
+        ]
+
+        visualizer.draw_cv2(image, detections)
+
+        # 両方のボックス領域が描画されている
+        assert np.any(image[10:50, 10:50] != 0)
+        assert np.any(image[200:300, 200:300] != 0)
