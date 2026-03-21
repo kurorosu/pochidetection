@@ -100,8 +100,18 @@ class InferenceSaver:
         stem = Path(filename).stem
         saved: list[Path] = []
 
+        img_w, img_h = image.size
+
         for i, det in enumerate(detections):
             x1, y1, x2, y2 = [int(v) for v in det.box]
+            x1 = max(0, x1)
+            y1 = max(0, y1)
+            x2 = min(img_w, x2)
+            y2 = min(img_h, y2)
+
+            if x2 - x1 <= 0 or y2 - y1 <= 0:
+                continue
+
             crop = image.crop((x1, y1, x2, y2))
 
             if label_mapper is not None:

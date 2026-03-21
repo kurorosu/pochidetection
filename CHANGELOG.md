@@ -12,7 +12,8 @@
 - 無し
 
 ### Fixed
-- `StreamReader.apply_camera_settings()` で `logger=None` 時にカメラ設定 (`cap.set()`) が適用されないバグを修正. logger チェックをログ出力部分のみに分離. N/A.
+- `StreamReader.apply_camera_settings()` で `logger=None` 時にカメラ設定 (`cap.set()`) が適用されないバグを修正. logger チェックをログ出力部分のみに分離. ([#408](https://github.com/kurorosu/pochidetection/pull/408))
+- `InferenceSaver.save_crops()` で bbox が画像外にはみ出す場合のクリッピングを追加. 面積ゼロの bbox はスキップ. N/A.
 
 ### Removed
 - 無し
