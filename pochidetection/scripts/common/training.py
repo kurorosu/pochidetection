@@ -59,6 +59,36 @@ DatasetFactory = Callable[[Path], Dataset[dict[str, Any]]]
 ModelFactory = Callable[[DetectionConfigDict], IDetectionModel]
 
 
+def _apply_augmentation_to_dataset(
+    dataset: Dataset[dict[str, Any]],
+    augmentation: v2.Compose,
+    debug_save_count: int = 0,
+    debug_save_dir: Path | None = None,
+    logger: logging.Logger | None = None,
+) -> None:
+    """データセットに augmentation とデバッグ保存設定を適用する.
+
+    Args:
+        dataset: 対象データセット.
+        augmentation: 構築済みの augmentation パイプライン.
+        debug_save_count: デバッグ画像保存枚数 (0 で無効).
+        debug_save_dir: デバッグ画像の保存先ディレクトリ.
+        logger: ロガー (None の場合はログ出力なし).
+    """
+    if not isinstance(dataset, BaseCocoDataset):
+        return
+
+    dataset._augmentation = augmentation
+    if debug_save_count > 0 and debug_save_dir is not None:
+        dataset._debug_save_count = debug_save_count
+        dataset._debug_save_dir = debug_save_dir
+        if logger is not None:
+            logger.info(
+                f"Augmentation debug: saving first {debug_save_count} "
+                f"images to {debug_save_dir}"
+            )
+
+
 def setup_training(
     config: DetectionConfigDict,
     config_path: str,
@@ -104,20 +134,26 @@ def setup_training(
     # augmentation 構築 (学習データのみに適用)
     aug_config = config.get("augmentation")
     augmentation = None
-    debug_save = 0
+    debug_save_count = 0
+    debug_save_dir: Path | None = None
     if aug_config is not None:
         parsed = AugmentationConfig.model_validate(aug_config)
         augmentation = build_augmentation(parsed)
-        debug_save = parsed.debug_save
+        debug_save_count = parsed.debug_save
+        if debug_save_count > 0:
+            debug_save_dir = workspace / "augmentation_debug"
 
-    train_loader, val_loader = build_data_loaders(
-        config,
-        dataset_factory,
-        logger,
-        augmentation=augmentation,
-        debug_save=debug_save,
-        debug_save_dir=workspace / "augmentation_debug" if debug_save > 0 else None,
-    )
+    train_loader, val_loader = build_data_loaders(config, dataset_factory, logger)
+
+    # augmentation は学習データのみに適用
+    if augmentation is not None:
+        _apply_augmentation_to_dataset(
+            train_loader.dataset,
+            augmentation,
+            debug_save_count=debug_save_count,
+            debug_save_dir=debug_save_dir,
+            logger=logger,
+        )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -152,10 +188,6 @@ def build_data_loaders(
     config: DetectionConfigDict,
     dataset_factory: DatasetFactory,
     logger: logging.Logger,
-    *,
-    augmentation: v2.Compose | None = None,
-    debug_save: int = 0,
-    debug_save_dir: Path | None = None,
 ) -> tuple[DataLoader[dict[str, Any]], DataLoader[dict[str, Any]]]:
     """学習・検証用データローダーを構築.
 
@@ -163,9 +195,6 @@ def build_data_loaders(
         config: 設定辞書.
         dataset_factory: ディレクトリパスを受け取りデータセットを返すファクトリ.
         logger: ロガー.
-        augmentation: 学習データに適用する augmentation パイプライン (None で無効).
-        debug_save: 1 エポック目に保存するデバッグ画像数 (0 で無効).
-        debug_save_dir: デバッグ画像の保存先ディレクトリ.
 
     Returns:
         (train_loader, val_loader) のタプル.
@@ -180,17 +209,6 @@ def build_data_loaders(
 
     train_dataset = dataset_factory(train_dir)
     val_dataset = dataset_factory(val_dir)
-
-    # augmentation は学習データのみに適用
-    if augmentation is not None and isinstance(train_dataset, BaseCocoDataset):
-        train_dataset._augmentation = augmentation
-        if debug_save > 0 and debug_save_dir is not None:
-            train_dataset._debug_save_count = debug_save
-            train_dataset._debug_save_dir = debug_save_dir
-            logger.info(
-                f"Augmentation debug: saving first {debug_save} images "
-                f"to {debug_save_dir}"
-            )
 
     logger.info(f"Train samples: {len(train_dataset)}")  # type: ignore[arg-type]
     logger.info(f"Val samples: {len(val_dataset)}")  # type: ignore[arg-type]
