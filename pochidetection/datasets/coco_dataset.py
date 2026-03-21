@@ -5,6 +5,7 @@ from typing import Any
 
 import torch
 from PIL import Image
+from torchvision.transforms import v2
 from transformers import RTDetrImageProcessor
 
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
@@ -33,6 +34,7 @@ class CocoDetectionDataset(BaseCocoDataset):
         root: str | Path,
         processor: RTDetrImageProcessor,
         annotation_file: str | None = None,
+        augmentation: v2.Compose | None = None,
     ) -> None:
         """CocoDetectionDatasetを初期化.
 
@@ -41,12 +43,13 @@ class CocoDetectionDataset(BaseCocoDataset):
             processor: RTDetrImageProcessor.
             annotation_file: アノテーションファイル名.
                 指定しない場合, annotations.json または instances_*.json を自動検索.
+            augmentation: 学習時に適用する augmentation パイプライン.
 
         Raises:
             FileNotFoundError: アノテーションファイルが見つからない場合.
         """
         self._processor = processor
-        super().__init__(root, annotation_file)
+        super().__init__(root, annotation_file, augmentation)
 
     def _transform_sample(
         self,

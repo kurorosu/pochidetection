@@ -14,9 +14,11 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics.detection import MeanAveragePrecision
+from torchvision.transforms import v2
 
-from pochidetection.configs.schemas import DetectionConfigDict
+from pochidetection.configs.schemas import AugmentationConfig, DetectionConfigDict
 from pochidetection.core import DetectionCollator
+from pochidetection.datasets.augmentation import build_augmentation
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.scripts.common.inference import setup_cudnn_benchmark
@@ -98,7 +100,16 @@ def setup_training(
     model = model_factory(config)
     model.to(device)
 
-    train_loader, val_loader = build_data_loaders(config, dataset_factory, logger)
+    # augmentation 構築 (学習データのみに適用)
+    aug_config = config.get("augmentation")
+    augmentation = None
+    if aug_config is not None:
+        parsed = AugmentationConfig.model_validate(aug_config)
+        augmentation = build_augmentation(parsed)
+
+    train_loader, val_loader = build_data_loaders(
+        config, dataset_factory, logger, augmentation=augmentation
+    )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -133,6 +144,8 @@ def build_data_loaders(
     config: DetectionConfigDict,
     dataset_factory: DatasetFactory,
     logger: logging.Logger,
+    *,
+    augmentation: v2.Compose | None = None,
 ) -> tuple[DataLoader[dict[str, Any]], DataLoader[dict[str, Any]]]:
     """学習・検証用データローダーを構築.
 
@@ -140,6 +153,7 @@ def build_data_loaders(
         config: 設定辞書.
         dataset_factory: ディレクトリパスを受け取りデータセットを返すファクトリ.
         logger: ロガー.
+        augmentation: 学習データに適用する augmentation パイプライン (None で無効).
 
     Returns:
         (train_loader, val_loader) のタプル.
@@ -154,6 +168,10 @@ def build_data_loaders(
 
     train_dataset = dataset_factory(train_dir)
     val_dataset = dataset_factory(val_dir)
+
+    # augmentation は学習データのみに適用
+    if augmentation is not None and hasattr(train_dataset, "_augmentation"):
+        train_dataset._augmentation = augmentation
 
     logger.info(f"Train samples: {len(train_dataset)}")
     logger.info(f"Val samples: {len(val_dataset)}")
