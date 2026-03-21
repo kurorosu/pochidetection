@@ -355,6 +355,8 @@ def infer(
     setup_pipeline: SetupPipelineFn,
     model_dir: str | None = None,
     config_path: str | None = None,
+    *,
+    save_crop: bool = True,
 ) -> None:
     """フォルダ内の画像を一括推論.
 
@@ -365,6 +367,7 @@ def infer(
             (config, model_path) を受け取り InferenceContext を返す.
         model_dir: モデルディレクトリ. None の場合は最新ワークスペースの best を使用.
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
+        save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
     """
     model_path = resolve_model_path(config, model_dir)
     if model_path is None:
@@ -390,19 +393,22 @@ def infer(
     ctx = setup_pipeline(config, model_path)
     logger.info(f"Results will be saved to {ctx.saver.output_dir}")
 
-    all_predictions = run_inference(image_files, ctx)
+    all_predictions = run_inference(image_files, ctx, save_crop=save_crop)
     write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
 
 
 def run_inference(
     image_files: list[Path],
     ctx: InferenceContext,
+    *,
+    save_crop: bool = True,
 ) -> dict[str, list[Detection]]:
     """画像ループで推論を実行.
 
     Args:
         image_files: 推論対象の画像ファイルリスト.
         ctx: パイプラインコンテキスト.
+        save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
 
     Returns:
         ファイル名をキー, 検出結果リストを値とする辞書.
@@ -414,6 +420,10 @@ def run_inference(
             image = img.convert("RGB")
         detections = ctx.pipeline.run(image)
         all_predictions[image_file.name] = detections
+
+        if save_crop:
+            ctx.saver.save_crops(image, detections, image_file.name, ctx.label_mapper)
+
         result_image = ctx.visualizer.draw(image, detections, inplace=True)
         output_path = ctx.saver.save(result_image, image_file.name)
 
