@@ -46,6 +46,8 @@ def infer(
     image_dir: str,
     model_dir: str | None = None,
     config_path: str | None = None,
+    *,
+    save_crop: bool = True,
 ) -> None:
     """フォルダ内の画像を一括推論.
 
@@ -54,8 +56,16 @@ def infer(
         image_dir: 推論対象の画像フォルダパス.
         model_dir: モデルディレクトリ. Noneの場合は最新ワークスペースのbestを使用.
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
+        save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
     """
-    common_infer(config, image_dir, _setup_pipeline, model_dir, config_path)
+    common_infer(
+        config,
+        image_dir,
+        _setup_pipeline,
+        model_dir,
+        config_path,
+        save_crop=save_crop,
+    )
 
 
 # ---------------------------------------------------------------------------

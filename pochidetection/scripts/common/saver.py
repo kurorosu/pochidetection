@@ -1,9 +1,16 @@
 """推論結果を保存するクラス."""
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PIL import Image
+
+if TYPE_CHECKING:
+    from pochidetection.core.detection import Detection
+    from pochidetection.visualization.label_mapper import LabelMapper
 
 
 class InferenceSaver:
@@ -65,6 +72,48 @@ class InferenceSaver:
 
         image.save(output_path)
         return output_path
+
+    def save_crops(
+        self,
+        image: Image.Image,
+        detections: list[Detection],
+        filename: str,
+        label_mapper: LabelMapper | None = None,
+    ) -> list[Path]:
+        """検出ボックスのクロップ画像を保存.
+
+        Args:
+            image: 元画像.
+            detections: 検出結果リスト.
+            filename: 元のファイル名.
+            label_mapper: クラス ID をラベル名に変換するマッパー.
+
+        Returns:
+            保存先パスのリスト.
+        """
+        if not detections:
+            return []
+
+        crop_dir = self._output_dir / "crop"
+        crop_dir.mkdir(exist_ok=True)
+
+        stem = Path(filename).stem
+        saved: list[Path] = []
+
+        for i, det in enumerate(detections):
+            x1, y1, x2, y2 = [int(v) for v in det.box]
+            crop = image.crop((x1, y1, x2, y2))
+
+            if label_mapper is not None:
+                label = label_mapper.get_label(det.label)
+            else:
+                label = str(det.label)
+
+            crop_path = crop_dir / f"{stem}_{i}_{label}_{det.score:.2f}.jpg"
+            crop.save(crop_path)
+            saved.append(crop_path)
+
+        return saved
 
     @property
     def output_dir(self) -> Path:

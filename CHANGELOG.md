@@ -6,10 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- 無し
+- 画像推論で検出ボックスのクロップ画像を `inference_XXX/crop/` に自動保存する機能を追加 (デフォルト有効). `--no-crop` で無効化可能. N/A.
 
 ### Changed
-- 無し
+- `InferFn` の型定義を `Callable` から `Protocol` に変更し, keyword-only 引数 (`save_crop`) に対応. N/A.
 
 ### Fixed
 - 無し

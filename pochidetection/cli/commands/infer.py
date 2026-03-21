@@ -328,4 +328,10 @@ def run_infer(args: argparse.Namespace) -> None:
         _run_video_infer(config, input_path, args.model_dir, config_path, args.interval)
     else:
         infer_fn = resolve_infer(config)
-        infer_fn(config, input_path, args.model_dir, config_path)
+        infer_fn(
+            config,
+            input_path,
+            args.model_dir,
+            config_path,
+            save_crop=not args.no_crop,
+        )
