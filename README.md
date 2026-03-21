@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.12.2-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -163,16 +163,19 @@ uv run pochi infer -d 0
 # RTSP ストリーム
 uv run pochi infer -d rtsp://192.168.1.100:554/stream
 
-# 表示 + 録画 (--record で出力先を指定)
-uv run pochi infer -d 0 --record output.mp4
+# 表示 + 録画 (推論フォルダに自動保存)
+uv run pochi infer -d 0 --record
 
 # モデル指定 + 3フレーム間隔で推論
 uv run pochi infer -d 0 -m work_dirs/20260124_001/best --interval 3
 ```
 
-- FPS オーバーレイが自動表示
+- フェーズ別 FPS 内訳オーバーレイが自動表示 (capture/pre/infer/post/draw/display)
 - `q` キーで終了, `Ctrl+C` でも安全に停止
-- `--record output.mp4`: 表示と同時に動画ファイルへ録画
+- `s` キーでカメラ設定ダイアログを表示 (Windows, Webcam のみ)
+- `--record`: 推論フォルダに `recording.mp4` として録画
+- 推論完了時に `stream_metadata.json` (カメラ設定, FPS サマリー) を自動保存
+- config.py で `camera_fps`, `camera_resolution` を指定可能
 - モデル未指定時は RT-DETR COCO プリトレインモデルで推論
 
 ### 7. ONNX エクスポート
@@ -260,7 +263,7 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 - **自動ワークスペース管理**: `work_dirs/yyyymmdd_xxx/` で学習結果を自動管理
 - **インタラクティブ可視化**: Plotly による HTML グラフで学習過程を分析
 - **動画推論**: OpenCV による動画ファイルのフレーム単位推論. `--interval` でフレーム間隔指定可能
-- **リアルタイム推論**: Webcam (`-d 0`) / RTSP (`-d rtsp://...`) ストリーム対応. FPS オーバーレイ, `--record` で録画可能
+- **リアルタイム推論**: Webcam (`-d 0`) / RTSP (`-d rtsp://...`) ストリーム対応. フェーズ別 FPS 内訳表示, `--record` で推論フォルダに録画, `s` キーでカメラ設定, config.py で FPS・解像度設定可能
 - **COCO プリトレイン推論**: モデル未指定時に RT-DETR COCO プリトレインモデルで即座に推論
 - **ONNX エクスポート**: RT-DETR / SSDLite 両対応. SSDLite は FP16 エクスポートにも対応
 - **ONNX 推論**: ONNX Runtime による推論バックエンド (CUDA / CPU 自動選択)
