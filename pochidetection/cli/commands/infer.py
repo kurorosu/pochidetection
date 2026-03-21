@@ -115,6 +115,13 @@ def _run_stream_infer(
     camera_props: dict[str, float] = {}
 
     with StreamReader(source) as reader:
+        if isinstance(source, int):
+            reader.apply_camera_settings(
+                fps=config.get("camera_fps"),
+                resolution=config.get("camera_resolution"),
+                logger=logger,
+            )
+
         display = DisplaySink(cap=reader.cap)
 
         sink: IFrameSink

@@ -67,6 +67,9 @@ class DetectionConfigDict(TypedDict, total=False):
     annotation_path: str | None
     infer_image_dir: str | None
 
+    camera_fps: int | None
+    camera_resolution: list[int] | None
+
     work_dir: str
 
 
@@ -116,7 +119,20 @@ class DetectionConfig(BaseModel):
     annotation_path: str | None = None
     infer_image_dir: str | None = None
 
+    camera_fps: PositiveInt | None = None
+    camera_resolution: list[PositiveInt] | None = None
+
     work_dir: str = Field(default="work_dirs", min_length=1)
+
+    @field_validator("camera_resolution", mode="before")
+    @classmethod
+    def validate_camera_resolution(cls, v: list[int] | None) -> list[int] | None:
+        """camera_resolution が [width, height] の2要素であることを検証."""
+        if v is not None and len(v) != 2:
+            raise ValueError(
+                "camera_resolution は [width, height] の2要素で指定してください"
+            )
+        return v
 
     @field_validator("architecture", mode="before")
     @classmethod

@@ -140,6 +140,43 @@ class StreamReader(IFrameSource):
         """内部の VideoCapture インスタンスを取得."""
         return self._cap
 
+    def apply_camera_settings(
+        self,
+        fps: int | None = None,
+        resolution: list[int] | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """カメラの FPS・解像度を設定する.
+
+        設定値と実際値を INFO で出力し, 不一致時は WARNING で出力する.
+
+        Args:
+            fps: 目標 FPS (None の場合は変更しない).
+            resolution: 目標解像度 [width, height] (None の場合は変更しない).
+            logger: 警告出力用ロガー.
+        """
+        if resolution is not None and logger is not None:
+            req_w, req_h = resolution
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, req_w)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, req_h)
+            actual_w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            actual_h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            if (actual_w, actual_h) == (req_w, req_h):
+                logger.info(f"Camera resolution: {actual_w}x{actual_h}")
+            else:
+                logger.warning(
+                    f"Camera resolution: requested {req_w}x{req_h}, "
+                    f"actual {actual_w}x{actual_h}"
+                )
+
+        if fps is not None and logger is not None:
+            self._cap.set(cv2.CAP_PROP_FPS, fps)
+            actual_fps = self._cap.get(cv2.CAP_PROP_FPS)
+            if actual_fps == fps:
+                logger.info(f"Camera FPS: {actual_fps:.0f}")
+            else:
+                logger.warning(f"Camera FPS: requested {fps}, actual {actual_fps:.1f}")
+
     def get_camera_properties(self) -> dict[str, float]:
         """カメラプロパティを取得.
 

@@ -11,6 +11,7 @@
   - `process_frames()` の戻り値を `FrameProcessingResult` dataclass に変更.
   - `cli/commands/infer.py` の遅延インポートを全てトップレベルに移動.
 - リアルタイム推論の FPS オーバーレイに全フェーズ別内訳 (capture/pre/infer/post/draw/display) を縦書き表示 (白縁取り + 黒文字). サマリーログと `stream_metadata.json` にもフェーズ別平均を出力. 既存の `PhasedTimer` を再利用. ([#388](https://github.com/kurorosu/pochidetection/pull/388))
+- config.py から `camera_fps` と `camera_resolution` を設定可能にする機能を追加. `StreamReader.apply_camera_settings()` でカメラに適用し, 設定値と実際の値が異なる場合は警告ログを出力. N/A.
 
 ### Changed
 - リアルタイム推論のフレーム処理から PIL 変換を除去し, パフォーマンスを改善. ([#389](https://github.com/kurorosu/pochidetection/pull/389))
