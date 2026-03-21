@@ -3,12 +3,15 @@
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Union
 
+import numpy as np
 from PIL import Image
 
 from pochidetection.core.detection import Detection
 from pochidetection.utils import PhasedTimer
+
+ImageInput = Union[Image.Image, np.ndarray]
 
 TPreprocessed = TypeVar("TPreprocessed")
 TInferred = TypeVar("TInferred")
@@ -70,11 +73,11 @@ class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
             yield
 
     @abstractmethod
-    def run(self, image: Image.Image) -> list[Detection]:
+    def run(self, image: ImageInput) -> list[Detection]:
         """E2E 推論を実行する.
 
         Args:
-            image: 入力画像 (PIL Image).
+            image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
             検出結果のリスト.

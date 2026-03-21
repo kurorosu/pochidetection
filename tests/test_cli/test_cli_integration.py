@@ -438,13 +438,13 @@ class TestRecordArgParse:
     """--record 引数のパーステスト."""
 
     def test_default_record(self) -> None:
-        """record 未指定時に None."""
+        """record 未指定時に False."""
         parser = _create_parser()
         args = parser.parse_args(["infer", "-d", "0"])
-        assert args.record is None
+        assert args.record is False
 
-    def test_custom_record(self) -> None:
-        """record 指定時にその値が使われる."""
+    def test_record_flag(self) -> None:
+        """record 指定時に True."""
         parser = _create_parser()
-        args = parser.parse_args(["infer", "-d", "0", "--record", "output.mp4"])
-        assert args.record == "output.mp4"
+        args = parser.parse_args(["infer", "-d", "0", "--record"])
+        assert args.record is True

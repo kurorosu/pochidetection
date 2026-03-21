@@ -1,22 +1,41 @@
 """動画・ストリーム推論の共通ロジック.
 
 VideoReader, VideoWriter, StreamReader, DisplaySink, CompositeSink,
-process_frames を提供する.
+process_frames, FrameProcessingResult を提供する.
 """
 
 import logging
 import time
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image
 
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.scripts.common.visualizer import Visualizer
+
+
+@dataclass(frozen=True, slots=True)
+class FrameProcessingResult:
+    """フレーム処理のサマリー結果.
+
+    Attributes:
+        processed_frames: 推論処理したフレーム数.
+        total_frames: 総フレーム数 (スキップ含む).
+        elapsed_seconds: 経過時間 (秒).
+        avg_fps: 平均 FPS.
+        phase_summary: フェーズ別計測サマリー (PhasedTimer 未使用時は None).
+    """
+
+    processed_frames: int
+    total_frames: int
+    elapsed_seconds: float
+    avg_fps: float
+    phase_summary: dict[str, dict[str, int | float]] | None
 
 
 class VideoReader(IFrameSource):
@@ -91,7 +110,10 @@ class StreamReader(IFrameSource):
         Raises:
             RuntimeError: ストリームを開けない場合.
         """
-        self._cap = cv2.VideoCapture(source)
+        if isinstance(source, int):
+            self._cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
+        else:
+            self._cap = cv2.VideoCapture(source)
         if not self._cap.isOpened():
             raise RuntimeError(f"Failed to open stream: {source}")
 
@@ -113,6 +135,72 @@ class StreamReader(IFrameSource):
         h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         return (w, h)
 
+    @property
+    def cap(self) -> cv2.VideoCapture:
+        """内部の VideoCapture インスタンスを取得."""
+        return self._cap
+
+    def apply_camera_settings(
+        self,
+        fps: int | None = None,
+        resolution: list[int] | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        """カメラの FPS・解像度を設定する.
+
+        設定値と実際値を INFO で出力し, 不一致時は WARNING で出力する.
+
+        Args:
+            fps: 目標 FPS (None の場合は変更しない).
+            resolution: 目標解像度 [width, height] (None の場合は変更しない).
+            logger: 警告出力用ロガー.
+        """
+        if resolution is not None and logger is not None:
+            req_w, req_h = resolution
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, req_w)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, req_h)
+            actual_w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            actual_h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            if (actual_w, actual_h) == (req_w, req_h):
+                logger.info(f"Camera resolution: {actual_w}x{actual_h}")
+            else:
+                logger.warning(
+                    f"Camera resolution: requested {req_w}x{req_h}, "
+                    f"actual {actual_w}x{actual_h}"
+                )
+
+        if fps is not None and logger is not None:
+            self._cap.set(cv2.CAP_PROP_FPS, fps)
+            actual_fps = self._cap.get(cv2.CAP_PROP_FPS)
+            if actual_fps == fps:
+                logger.info(f"Camera FPS: {actual_fps:.0f}")
+            else:
+                logger.warning(f"Camera FPS: requested {fps}, actual {actual_fps:.1f}")
+
+    def get_camera_properties(self) -> dict[str, float]:
+        """カメラプロパティを取得.
+
+        Returns:
+            プロパティ名と値の辞書.
+        """
+        props = {
+            "frame_width": cv2.CAP_PROP_FRAME_WIDTH,
+            "frame_height": cv2.CAP_PROP_FRAME_HEIGHT,
+            "fps": cv2.CAP_PROP_FPS,
+            "brightness": cv2.CAP_PROP_BRIGHTNESS,
+            "contrast": cv2.CAP_PROP_CONTRAST,
+            "saturation": cv2.CAP_PROP_SATURATION,
+            "hue": cv2.CAP_PROP_HUE,
+            "gain": cv2.CAP_PROP_GAIN,
+            "exposure": cv2.CAP_PROP_EXPOSURE,
+            "auto_exposure": cv2.CAP_PROP_AUTO_EXPOSURE,
+            "focus": cv2.CAP_PROP_FOCUS,
+            "autofocus": cv2.CAP_PROP_AUTOFOCUS,
+            "white_balance": cv2.CAP_PROP_WB_TEMPERATURE,
+            "auto_white_balance": cv2.CAP_PROP_AUTO_WB,
+        }
+        return {name: self._cap.get(prop_id) for name, prop_id in props.items()}
+
     def __iter__(self) -> Iterator[np.ndarray]:
         """フレームを順次返すイテレータ."""
         while True:
@@ -131,18 +219,27 @@ class DisplaySink(IFrameSink):
 
     Attributes:
         _window_name: ウィンドウ名.
+        _cap: カメラ設定ダイアログ用の VideoCapture 参照.
     """
 
-    def __init__(self, window_name: str = "pochidetection") -> None:
+    def __init__(
+        self,
+        window_name: str = "pochidetection",
+        cap: cv2.VideoCapture | None = None,
+    ) -> None:
         """初期化.
 
         Args:
             window_name: ウィンドウ名.
+            cap: カメラ設定ダイアログ表示用の VideoCapture (Windows 限定).
         """
         self._window_name = window_name
+        self._cap = cap
 
     def write(self, frame: np.ndarray) -> None:
         """フレームを表示し, q キーで StopIteration を raise.
+
+        s キーが押された場合, Windows のカメラ設定ダイアログを表示する.
 
         Args:
             frame: BGR 形式の画像フレーム.
@@ -151,8 +248,11 @@ class DisplaySink(IFrameSink):
             StopIteration: q キーが押された場合.
         """
         cv2.imshow(self._window_name, frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
             raise StopIteration
+        if key == ord("s") and self._cap is not None:
+            self._cap.set(cv2.CAP_PROP_SETTINGS, 0)
 
     def release(self) -> None:
         """ウィンドウを破棄する."""
@@ -234,7 +334,7 @@ def process_frames(
     interval: int = 1,
     overlay_fps: bool = False,
     logger: logging.Logger,
-) -> None:
+) -> FrameProcessingResult:
     """フレーム単位で推論・描画・書き出しを行う.
 
     ソースとシンクは抽象基底クラスで受け取るため,
@@ -248,47 +348,83 @@ def process_frames(
         interval: N フレーム間隔で推論 (1 = 全フレーム処理).
         overlay_fps: True の場合, フレーム左上に実測 FPS を描画.
         logger: ロガー.
+
+    Returns:
+        フレーム処理のサマリー結果.
     """
     total = getattr(source, "total_frames", 0)
     processed = 0
     frame_idx = 0
     start_time = time.monotonic()
 
+    # フレーム外フェーズの累積計測用
+    capture_total_ms = 0.0
+    draw_total_ms = 0.0
+    display_total_ms = 0.0
+    last_capture_ms = 0.0
+    last_draw_ms = 0.0
+    last_display_ms = 0.0
+    last_e2e_fps = 0.0
+    display_end = time.monotonic()
+
     try:
         for frame in source:
-            frame_start = time.monotonic()
+            # capture 計測: 前フレームの display 終了 〜 今フレームの capture 完了
+            capture_end = time.monotonic()
+            last_capture_ms = (capture_end - display_end) * 1000
+            if processed > 0:
+                capture_total_ms += last_capture_ms
+
+            frame_start = capture_end
 
             if interval > 1 and frame_idx % interval != 0:
-                sink.write(frame)  # スキップフレームはそのまま書き出し
+                sink.write(frame)
                 frame_idx += 1
                 continue
 
-            # BGR → RGB → PIL
+            # BGR → RGB (パイプライン入力用, PIL 変換なし)
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_image = Image.fromarray(rgb)
 
-            # 推論 + 描画
-            detections = pipeline.run(pil_image)
-            result_image = visualizer.draw(pil_image, detections, inplace=True)
+            # 推論 (pre/infer/post は PhasedTimer が計測)
+            detections = pipeline.run(rgb)
 
-            # PIL → BGR → 書き出し
-            result_bgr = cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR)
+            # draw 計測 (OpenCV で元の BGR フレームに直接描画)
+            draw_start = time.monotonic()
+            result_bgr = frame
+            visualizer.draw_cv2(result_bgr, detections)
+            last_draw_ms = (time.monotonic() - draw_start) * 1000
+            draw_total_ms += last_draw_ms
 
-            # FPS オーバーレイ
+            # FPS オーバーレイ (前フレームの E2E FPS を表示)
             if overlay_fps:
-                frame_time = time.monotonic() - frame_start
-                current_fps = 1.0 / frame_time if frame_time > 0 else 0.0
-                cv2.putText(
-                    result_bgr,
-                    f"FPS: {current_fps:.1f}",
-                    (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1.0,
-                    (0, 255, 0),
-                    2,
-                )
+                lines = [f"FPS: {last_e2e_fps:.1f}"]
+                lines.append(f"capture: {last_capture_ms:.1f}ms")
 
+                phased_timer = pipeline.phased_timer
+                if phased_timer is not None:
+                    pre_ms = phased_timer.get_timer("preprocess").last_time_ms
+                    inf_ms = phased_timer.get_timer("inference").last_time_ms
+                    post_ms = phased_timer.get_timer("postprocess").last_time_ms
+                    lines.append(f"pre: {pre_ms:.1f}ms")
+                    lines.append(f"infer: {inf_ms:.1f}ms")
+                    lines.append(f"post: {post_ms:.1f}ms")
+
+                lines.append(f"draw: {last_draw_ms:.1f}ms")
+                lines.append(f"display: {last_display_ms:.1f}ms")
+
+                _draw_overlay_text(result_bgr, lines)
+
+            # display 計測
+            display_start = time.monotonic()
             sink.write(result_bgr)
+            new_display_end = time.monotonic()
+            last_display_ms = (new_display_end - display_start) * 1000
+            display_total_ms += last_display_ms
+
+            # E2E FPS 更新: 前フレームの display 終了 〜 現フレームの display 終了
+            e2e_time = new_display_end - display_end
+            last_e2e_fps = 1.0 / e2e_time if e2e_time > 0 else 0.0
+            display_end = new_display_end
 
             processed += 1
             frame_idx += 1
@@ -297,10 +433,109 @@ def process_frames(
             if total > 0 and processed % 100 == 0:
                 pct = frame_idx / total * 100
                 logger.info(f"Processing: {frame_idx}/{total} frames ({pct:.1f}%)")
+    except (StopIteration, KeyboardInterrupt):
+        pass
     finally:
         elapsed = time.monotonic() - start_time
         avg_fps = processed / elapsed if elapsed > 0 else 0.0
         logger.info(
             f"Video inference completed: {processed} frames processed "
-            f"({frame_idx} total), {elapsed:.1f}s, {avg_fps:.1f} avg FPS"
+            f"({frame_idx} total), {elapsed:.1f}s, {avg_fps:.1f} avg E2E FPS"
         )
+
+        # フェーズ別サマリー
+        phase_summary = _build_phase_summary(
+            pipeline, processed, capture_total_ms, draw_total_ms, display_total_ms
+        )
+        if phase_summary is not None:
+            for phase_name, stats in phase_summary.items():
+                logger.info(
+                    f"  {phase_name}: avg {stats['average_ms']:.1f}ms, "
+                    f"total {stats['total_ms']:.1f}ms "
+                    f"({stats['count']} measured)"
+                )
+
+    return FrameProcessingResult(
+        processed_frames=processed,
+        total_frames=frame_idx,
+        elapsed_seconds=elapsed,
+        avg_fps=avg_fps,
+        phase_summary=phase_summary,
+    )
+
+
+def _draw_overlay_text(
+    frame: np.ndarray,
+    lines: list[str],
+    *,
+    x: int = 10,
+    y_start: int = 20,
+    line_height: int = 20,
+    font_scale: float = 0.5,
+) -> None:
+    """白縁取り + 黒文字でオーバーレイテキストを描画する.
+
+    Args:
+        frame: BGR 形式の画像フレーム.
+        lines: 描画するテキスト行のリスト.
+        x: テキストの x 座標.
+        y_start: 最初の行の y 座標.
+        line_height: 行間のピクセル数.
+        font_scale: フォントスケール.
+    """
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    for i, line in enumerate(lines):
+        y = y_start + i * line_height
+        # 白アウトライン
+        cv2.putText(frame, line, (x, y), font, font_scale, (255, 255, 255), 3)
+        # 黒文字
+        cv2.putText(frame, line, (x, y), font, font_scale, (0, 0, 0), 1)
+
+
+def _build_phase_summary(
+    pipeline: IDetectionPipeline,
+    processed: int,
+    capture_total_ms: float,
+    draw_total_ms: float,
+    display_total_ms: float,
+) -> dict[str, dict[str, int | float]] | None:
+    """全フェーズのサマリーを構築する.
+
+    Args:
+        pipeline: 推論パイプライン.
+        processed: 処理済みフレーム数.
+        capture_total_ms: キャプチャの合計時間 (ms).
+        draw_total_ms: 描画の合計時間 (ms).
+        display_total_ms: 表示の合計時間 (ms).
+
+    Returns:
+        フェーズ別サマリー辞書. フレーム未処理の場合は None.
+    """
+    if processed == 0:
+        return None
+
+    summary: dict[str, dict[str, int | float]] = {
+        "capture": {
+            "total_ms": capture_total_ms,
+            "count": processed,
+            "average_ms": capture_total_ms / processed,
+        },
+    }
+
+    # PhasedTimer のフェーズ (pre/infer/post)
+    phased_timer = pipeline.phased_timer
+    if phased_timer is not None:
+        summary.update(phased_timer.summary())
+
+    summary["draw"] = {
+        "total_ms": draw_total_ms,
+        "count": processed,
+        "average_ms": draw_total_ms / processed,
+    }
+    summary["display"] = {
+        "total_ms": display_total_ms,
+        "count": processed,
+        "average_ms": display_total_ms / processed,
+    }
+
+    return summary
