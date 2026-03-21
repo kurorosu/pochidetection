@@ -109,10 +109,12 @@ class AugmentationConfig(BaseModel):
     Attributes:
         enabled: True の場合, 学習時にデータ拡張を適用する.
         transforms: 適用する変換のリスト.
+        debug_save: 1 エポック目に保存するデバッグ画像数 (0 で無効).
     """
 
     enabled: bool = True
     transforms: list[AugmentTransformConfig] = Field(default_factory=list)
+    debug_save: int = Field(default=0, ge=0)
 
 
 class ImageSizeConfig(BaseModel):

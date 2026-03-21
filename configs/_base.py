@@ -14,7 +14,7 @@ train_split = "train"
 val_split = "val"
 
 # 学習設定
-epochs = 100
+epochs = 20
 lr_scheduler = "CosineAnnealingLR"  # None で無効 (デフォルト)
 
 # Early Stopping 設定
@@ -39,6 +39,7 @@ infer_image_dir = "data/val/JPEGImages"  # 推論対象の画像フォルダ
 # Data Augmentation 設定 (学習時のみ適用, 詳細は docs/augmentation.md を参照)
 augmentation = {
     "enabled": False,  # データ拡張の有効化 (True で transforms の変換を適用)
+    "debug_save": 10,  # 1 エポック目にデバッグ画像を保存する枚数 (0 で無効)
     "transforms": [
         # 幾何変換 (bbox も自動変換)
         {"name": "RandomHorizontalFlip", "p": 0.5},
@@ -47,7 +48,7 @@ augmentation = {
         # {"name": "RandomAffine", "degrees": 0,
         #   "translate": [0.1, 0.1], "scale": [0.9, 1.1]},
         # {"name": "RandomPerspective", "distortion_scale": 0.1, "p": 0.2},
-        # {"name": "RandomZoomOut", "p": 0.2, "side_range": [1.0, 1.5]},
+        {"name": "RandomZoomOut", "p": 0.2, "side_range": [1.0, 1.5]},
         # 色変換 (対象の色が特徴の場合はコメントアウトを推奨)
         # {"name": "ColorJitter", "brightness": 0.2, "contrast": 0.2, "saturation": 0.2, "hue": 0.1},
     ],

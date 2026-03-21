@@ -8,8 +8,10 @@
 ### Added
 - 画像推論で検出ボックスのクロップ画像を `inference_XXX/crop/` に自動保存する機能を追加 (デフォルト有効). `--no-crop` で無効化可能. ([#396](https://github.com/kurorosu/pochidetection/pull/396))
   - `InferFn` の型定義を `Callable` から `Protocol` に変更し, keyword-only 引数 (`save_crop`) に対応.
-- `torchvision.transforms.v2` ベースの Data Augmentation パイプラインを導入. config.py の `augmentation` セクションで変換を設定可能. 学習データのみに適用, bbox は `tv_tensors.BoundingBoxes` で同時変換. N/A.
+- `torchvision.transforms.v2` ベースの Data Augmentation パイプラインを導入. config.py の `augmentation` セクションで変換を設定可能. 学習データのみに適用, bbox は `tv_tensors.BoundingBoxes` で同時変換. ([#397](https://github.com/kurorosu/pochidetection/pull/397))
   - `docs/augmentation.md` に設定方法・変換一覧・使用例を記載.
+- Data Augmentation のデバッグ可視化機能を追加. `augmentation.debug_save` で 1 エポック目の最初の N 枚を bbox 付きで保存. N/A.
+  - `build_data_loaders()` の augmentation 設定を `hasattr` から `isinstance(BaseCocoDataset)` チェックに改善.
 
 ### Changed
 

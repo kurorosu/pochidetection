@@ -124,6 +124,22 @@ augmentation = {
 }
 ```
 
+## デバッグ可視化
+
+augmentation 適用後の画像と bbox を保存して, 変換が正しく動作しているか確認できる.
+
+```python
+augmentation = {
+    "enabled": True,
+    "debug_save": 5,  # 1 エポック目の最初の 5 枚を保存 (0 で無効)
+    "transforms": [...],
+}
+```
+
+保存先: `work_dirs/YYYYMMDD_XXX/augmentation_debug/aug_0000.jpg` ~ `aug_0004.jpg`
+
+画像には augmentation 適用後の bbox がラベル付きで描画される. 確認後は `debug_save` を `0` に戻して学習を再開する.
+
 ## 注意事項
 
 - Augmentation は **学習データのみ** に適用される. 検証・推論データには適用されない
