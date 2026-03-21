@@ -36,9 +36,9 @@ def _create_parser() -> argparse.ArgumentParser:
 
   リアルタイム推論 (Webcam / RTSP):
     uv run pochi infer -d 0                                          # Webcam
-    uv run pochi infer -d 0 --record output.mp4                      # Webcam + 録画
+    uv run pochi infer -d 0 --record                                 # Webcam + 録画
     uv run pochi infer -d rtsp://192.168.1.10/stream                 # RTSP
-    uv run pochi infer -d rtsp://... --record out.mp4                # RTSP + 録画
+    uv run pochi infer -d rtsp://... --record                        # RTSP + 録画
 
   エクスポート (入力パスで ONNX / TensorRT を自動判定):
     uv run pochi export -m work_dirs/20260124_001/best                         # フォルダ → ONNX
@@ -102,10 +102,9 @@ def _create_parser() -> argparse.ArgumentParser:
     )
     infer_parser.add_argument(
         "--record",
-        type=str,
-        default=None,
-        metavar="OUTPUT.mp4",
-        help="ストリーム推論時に表示と同時に録画する出力ファイルパス",
+        action="store_true",
+        default=False,
+        help="ストリーム推論時に表示と同時に推論フォルダへ録画する",
     )
 
     # エクスポートコマンド (フォルダ → ONNX, .onnx → TensorRT を自動判定)

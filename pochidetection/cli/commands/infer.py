@@ -79,7 +79,7 @@ def _run_stream_infer(
     model_dir: str | None,
     config_path: str | None,
     interval: int,
-    record_path: str | None,
+    record: bool,
 ) -> None:
     """Webcam / RTSP ストリームのリアルタイム推論を実行する.
 
@@ -89,7 +89,7 @@ def _run_stream_infer(
         model_dir: モデルディレクトリ.
         config_path: 設定ファイルのパス.
         interval: N フレーム間隔で推論.
-        record_path: 録画出力パス (None の場合は表示のみ).
+        record: True の場合, 推論フォルダに録画を保存する.
     """
     logger = LoggerManager().get_logger(__name__)
 
@@ -125,9 +125,11 @@ def _run_stream_infer(
         display = DisplaySink(cap=reader.cap)
 
         sink: IFrameSink
-        if record_path is not None:
+        record_path: Path | None = None
+        if record:
+            record_path = ctx.saver.output_dir / "recording.mp4"
             writer = VideoWriter(
-                Path(record_path), fps=reader.fps, frame_size=reader.frame_size
+                record_path, fps=reader.fps, frame_size=reader.frame_size
             )
             sink = CompositeSink(sinks=[display, writer])
         else:
