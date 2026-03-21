@@ -9,11 +9,11 @@
 - 無し
 
 ### Changed
-- 無し
+- `build_data_loaders()` から augmentation 設定ロジックを分離し, `_apply_augmentation_to_dataset()` トップレベル関数に切り出し. `build_data_loaders()` のシグネチャを簡素化. N/A.
 
 ### Fixed
 - `StreamReader.apply_camera_settings()` で `logger=None` 時にカメラ設定 (`cap.set()`) が適用されないバグを修正. logger チェックをログ出力部分のみに分離. ([#408](https://github.com/kurorosu/pochidetection/pull/408))
-- `InferenceSaver.save_crops()` で bbox が画像外にはみ出す場合のクリッピングを追加. 面積ゼロの bbox はスキップ. N/A.
+- `InferenceSaver.save_crops()` で bbox が画像外にはみ出す場合のクリッピングを追加. 面積ゼロの bbox はスキップ. ([#409](https://github.com/kurorosu/pochidetection/pull/409))
 
 ### Removed
 - 無し
