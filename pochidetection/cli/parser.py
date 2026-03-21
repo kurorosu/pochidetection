@@ -101,6 +101,12 @@ def _create_parser() -> argparse.ArgumentParser:
         help="N フレーム間隔で推論 (動画/ストリームのみ, default: 1 = 全フレーム)",
     )
     infer_parser.add_argument(
+        "--no-crop",
+        action="store_true",
+        default=False,
+        help="画像推論で検出ボックスのクロップ画像を保存しない (デフォルト: 保存する)",
+    )
+    infer_parser.add_argument(
         "--record",
         action="store_true",
         default=False,

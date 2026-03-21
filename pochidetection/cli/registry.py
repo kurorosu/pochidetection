@@ -2,13 +2,29 @@
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.scripts.common.inference import PipelineContext
 
 TrainFn = Callable[[DetectionConfigDict, str], None]
-InferFn = Callable[[DetectionConfigDict, str, str | None, str | None], None]
 SetupPipelineFn = Callable[[DetectionConfigDict, Path], PipelineContext]
+
+
+class InferFn(Protocol):
+    """画像推論関数のプロトコル."""
+
+    def __call__(
+        self,
+        config: DetectionConfigDict,
+        image_dir: str,
+        model_dir: str | None = None,
+        config_path: str | None = None,
+        *,
+        save_crop: bool = True,
+    ) -> None:
+        """画像推論を実行する."""
+        ...
 
 
 def _import_rtdetr_train() -> TrainFn:

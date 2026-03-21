@@ -5,9 +5,12 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 
+import torch
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision.transforms import v2
 
+from pochidetection.datasets.augmentation import apply_augmentation, save_debug_image
 from pochidetection.interfaces.dataset import DatasetSampleDict, IDetectionDataset
 from pochidetection.utils.category_utils import (
     build_category_id_to_idx,
@@ -34,6 +37,7 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         self,
         root: str | Path,
         annotation_file: str | None = None,
+        augmentation: v2.Compose | None = None,
     ) -> None:
         """初期化.
 
@@ -41,10 +45,15 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
             root: データセットのルートディレクトリパス.
             annotation_file: アノテーションファイル名.
                 指定しない場合, annotations.json または instances_*.json を自動検索.
+            augmentation: 学習時に適用する augmentation パイプライン (None で無効).
 
         Raises:
             FileNotFoundError: アノテーションファイルが見つからない場合.
         """
+        self._augmentation = augmentation
+        self._debug_save_count: int = 0
+        self._debug_save_dir: Path | None = None
+        self._debug_saved: int = 0
         self._root = Path(root)
         self._annotation_file = self._find_annotation_file(annotation_file)
         images, annotations_by_id, self._categories = self._load_annotations()
@@ -179,9 +188,41 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         image_path = self._root / file_name
         with Image.open(image_path) as img:
             image = img.convert("RGB")
-        orig_w, orig_h = image.size
 
         annotations = self._annotations.get(image_id, [])
+
+        if self._augmentation is not None and annotations:
+            boxes = torch.tensor(
+                [ann["bbox"] for ann in annotations], dtype=torch.float32
+            )
+            labels = torch.tensor(
+                [ann["category_id"] for ann in annotations], dtype=torch.int64
+            )
+
+            image, boxes, labels = apply_augmentation(
+                self._augmentation, image, boxes, labels
+            )
+
+            # デバッグ画像保存 (1 エポック目の最初の N 枚)
+            if (
+                self._debug_save_dir is not None
+                and self._debug_saved < self._debug_save_count
+            ):
+                save_debug_image(
+                    image,
+                    boxes,
+                    labels,
+                    self._debug_save_dir / f"aug_{self._debug_saved:04d}.jpg",
+                )
+                self._debug_saved += 1
+
+            # augmentation 後のアノテーションを再構築
+            annotations = [
+                {"bbox": boxes[i].tolist(), "category_id": labels[i].item()}
+                for i in range(len(labels))
+            ]
+
+        orig_w, orig_h = image.size
 
         return self._transform_sample(image, annotations, orig_w, orig_h)
 

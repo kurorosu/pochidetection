@@ -14,6 +14,20 @@ from pydantic import (
 )
 
 
+class AugmentTransformDict(TypedDict, total=False):
+    """個別の拡張変換の TypedDict."""
+
+    name: str
+    p: float
+
+
+class AugmentationDict(TypedDict, total=False):
+    """Data Augmentation 設定の TypedDict."""
+
+    enabled: bool
+    transforms: list[AugmentTransformDict]
+
+
 class ImageSizeDict(TypedDict):
     """画像サイズの TypedDict."""
 
@@ -67,10 +81,40 @@ class DetectionConfigDict(TypedDict, total=False):
     annotation_path: str | None
     infer_image_dir: str | None
 
+    augmentation: AugmentationDict | None
+
     camera_fps: int | None
     camera_resolution: list[int] | None
 
     work_dir: str
+
+
+class AugmentTransformConfig(BaseModel):
+    """個別の拡張変換設定.
+
+    Attributes:
+        name: torchvision.transforms.v2 のクラス名.
+        p: 適用確率 (変換が自前で p を持たない場合に RandomApply でラップ).
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(min_length=1)
+    p: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class AugmentationConfig(BaseModel):
+    """Data Augmentation 設定.
+
+    Attributes:
+        enabled: True の場合, 学習時にデータ拡張を適用する.
+        transforms: 適用する変換のリスト.
+        debug_save: 1 エポック目に保存するデバッグ画像数 (0 で無効).
+    """
+
+    enabled: bool = True
+    transforms: list[AugmentTransformConfig] = Field(default_factory=list)
+    debug_save: int = Field(default=0, ge=0)
 
 
 class ImageSizeConfig(BaseModel):
@@ -118,6 +162,8 @@ class DetectionConfig(BaseModel):
 
     annotation_path: str | None = None
     infer_image_dir: str | None = None
+
+    augmentation: AugmentationConfig | None = None
 
     camera_fps: PositiveInt | None = None
     camera_resolution: list[PositiveInt] | None = None

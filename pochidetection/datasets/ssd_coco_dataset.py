@@ -33,6 +33,7 @@ class SsdCocoDataset(BaseCocoDataset):
         root: str | Path,
         image_size: ImageSizeDict,
         annotation_file: str | None = None,
+        augmentation: v2.Compose | None = None,
     ) -> None:
         """初期化.
 
@@ -41,6 +42,7 @@ class SsdCocoDataset(BaseCocoDataset):
             image_size: リサイズ先の画像サイズ {"height": int, "width": int}.
             annotation_file: アノテーションファイル名.
                 指定しない場合, annotations.json または instances_*.json を自動検索.
+            augmentation: 学習時に適用する augmentation パイプライン.
 
         Raises:
             FileNotFoundError: アノテーションファイルが見つからない場合.
@@ -53,7 +55,7 @@ class SsdCocoDataset(BaseCocoDataset):
                 v2.ToDtype(torch.float32, scale=True),
             ]
         )
-        super().__init__(root, annotation_file)
+        super().__init__(root, annotation_file, augmentation)
 
     def _transform_sample(
         self,
