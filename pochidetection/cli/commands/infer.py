@@ -6,6 +6,7 @@ import logging
 import shutil
 import sys
 from pathlib import Path
+from typing import Any, NamedTuple
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
 from pochidetection.cli.registry import (
@@ -35,6 +36,14 @@ from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov"}
+
+
+class _ResolvedPipeline(NamedTuple):
+    """モデル解決・パイプライン構築の結果."""
+
+    ctx: Any  # PipelineContext
+    config: DetectionConfigDict
+    config_path: str | None
 
 
 def is_video_file(path: str) -> bool:
@@ -73,6 +82,46 @@ def is_rtsp_source(path: str) -> bool:
     return path.startswith(("rtsp://", "http://"))
 
 
+def _resolve_and_setup_pipeline(
+    config: DetectionConfigDict,
+    model_dir: str | None,
+    config_path: str | None,
+    logger: logging.Logger,
+) -> _ResolvedPipeline | None:
+    """モデルパスを解決し, パイプラインを構築する.
+
+    model_dir が None の場合はプリトレインモデルにフォールバックする.
+    model_dir 指定時にモデルが見つからない場合は None を返す.
+
+    Args:
+        config: 設定辞書.
+        model_dir: モデルディレクトリ (None でプリトレイン).
+        config_path: 設定ファイルのパス.
+        logger: ロガー.
+
+    Returns:
+        解決済みパイプライン情報. モデル未発見時は None.
+    """
+    if model_dir is not None:
+        model_path = resolve_model_path(config, model_dir)
+        if model_path is None:
+            return None
+    else:
+        model_path = PRETRAINED
+
+    if model_path == PRETRAINED:
+        config_path = PRETRAINED_CONFIG_PATH
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
+        setup_pipeline_fn: SetupPipelineFn = rtdetr_setup_pipeline
+        logger.info("Loading RT-DETR COCO pretrained model")
+    else:
+        setup_pipeline_fn = resolve_setup_pipeline(config)
+        logger.info(f"Loading model from {model_path}")
+
+    ctx = setup_pipeline_fn(config, model_path)
+    return _ResolvedPipeline(ctx=ctx, config=config, config_path=config_path)
+
+
 def _run_stream_infer(
     config: DetectionConfigDict,
     source: int | str,
@@ -93,24 +142,11 @@ def _run_stream_infer(
     """
     logger = LoggerManager().get_logger(__name__)
 
-    if model_dir is not None:
-        model_path = resolve_model_path(config, model_dir)
-        if model_path is None:
-            return
-    else:
-        model_path = PRETRAINED
+    resolved = _resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    if resolved is None:
+        return
 
-    # プリトレイン時は config とパイプラインを差し替え
-    if model_path == PRETRAINED:
-        config_path = PRETRAINED_CONFIG_PATH
-        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn: SetupPipelineFn = rtdetr_setup_pipeline
-        logger.info("Loading RT-DETR COCO pretrained model")
-    else:
-        setup_pipeline_fn = resolve_setup_pipeline(config)
-        logger.info(f"Loading model from {model_path}")
-
-    ctx = setup_pipeline_fn(config, model_path)
+    ctx, config, config_path = resolved
 
     camera_props: dict[str, float] = {}
 
@@ -237,28 +273,16 @@ def _run_video_infer(
     """
     logger = LoggerManager().get_logger(__name__)
 
-    if model_dir is not None:
-        model_path = resolve_model_path(config, model_dir)
-        if model_path is None:
-            return
-    else:
-        model_path = PRETRAINED
-
     video_file = Path(video_path)
     if not video_file.exists():
         logger.error(f"Video file not found: {video_path}")
         return
 
-    # プリトレイン時は config とパイプラインを差し替え
-    if model_path == PRETRAINED:
-        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn: SetupPipelineFn = rtdetr_setup_pipeline
-        logger.info("Loading RT-DETR COCO pretrained model")
-    else:
-        setup_pipeline_fn = resolve_setup_pipeline(config)
-        logger.info(f"Loading model from {model_path}")
+    resolved = _resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    if resolved is None:
+        return
 
-    ctx = setup_pipeline_fn(config, model_path)
+    ctx = resolved.ctx
 
     # 出力パス: 入力と同じディレクトリに _result 付きで出力
     output_path = video_file.parent / f"{video_file.stem}_result.mp4"
