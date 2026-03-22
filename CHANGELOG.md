@@ -7,8 +7,9 @@
 
 ### Added
 - `--record` オプションで録画中のストリーム推論時に, FPS オーバーレイの最下段に赤文字で `REC` を表示. ([#423](https://github.com/kurorosu/pochidetection/pull/423))
-- リアルタイム推論の FPS オーバーレイに GPU 使用率・VRAM 使用量・CPU 使用率を表示. 30 フレームごとに更新. N/A.
+- リアルタイム推論の FPS オーバーレイに GPU 使用率・VRAM 使用量・CPU 使用率を表示. 30 フレームごとに更新. ([#424](https://github.com/kurorosu/pochidetection/pull/424))
   - `psutil`, `nvidia-ml-py` を依存に追加. `ResourceUsage` dataclass と `get_resource_usage()` を `utils/resource_monitor.py` に実装.
+- リアルタイム推論中に `o` キーでオーバーレイの表示/非表示をトグルする機能を追加. N/A.
 
 ### Changed
 - 無し
