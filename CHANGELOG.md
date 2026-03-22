@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し
+- `--record` オプションで録画中のストリーム推論時に, FPS オーバーレイの最下段に赤文字で `REC` を表示. N/A.
 
 ### Changed
 - 無し
