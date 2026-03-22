@@ -1,13 +1,12 @@
 """アーキテクチャごとの train / infer / setup_pipeline を解決するレジストリ."""
 
 from collections.abc import Callable
-from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from pochidetection.configs.schemas import DetectionConfigDict
+from pochidetection.scripts.common.types import SetupPipelineFn
 
 TrainFn = Callable[[DetectionConfigDict, str], None]
-SetupPipelineFn = Callable[[DetectionConfigDict, Path], Any]
 
 
 class InferFn(Protocol):
