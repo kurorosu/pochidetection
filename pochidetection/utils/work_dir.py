@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from pochidetection.configs.schemas import DetectionConfigDict
+from pochidetection.utils.config_loader import ConfigLoader
 
 
 def get_current_date_str() -> str:
@@ -209,8 +210,6 @@ class WorkspaceManager:
         Raises:
             RuntimeError: ワークスペースが作成されていない場合.
         """
-        from pochidetection.utils.config_loader import ConfigLoader
-
         workspace = self._ensure_workspace_created()
         target_path = workspace / config_name
         ConfigLoader.write_config(config, target_path)

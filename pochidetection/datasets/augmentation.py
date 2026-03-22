@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from PIL import Image
+from PIL import Image, ImageDraw
 from torchvision import tv_tensors
 from torchvision.transforms import v2
 
@@ -150,8 +150,6 @@ def save_debug_image(
         labels: ラベルテンソル (N,).
         save_path: 保存先ファイルパス.
     """
-    from PIL import ImageDraw
-
     debug_image = image.copy()
     draw = ImageDraw.Draw(debug_image)
 

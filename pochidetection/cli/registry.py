@@ -25,6 +25,8 @@ class InferFn(Protocol):
         ...
 
 
+# Why: アーキテクチャ別モジュールの遅延ロード. 未使用アーキテクチャの重い依存
+# (transformers, torchvision models 等) を CLI 起動時に読み込まないため.
 def _import_rtdetr_train() -> TrainFn:
     from pochidetection.scripts.rtdetr.train import train
 

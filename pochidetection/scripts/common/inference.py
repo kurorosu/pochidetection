@@ -12,6 +12,7 @@ from typing import Any, NamedTuple, Protocol
 import torch
 from PIL import Image
 
+from pochidetection.cli.registry import resolve_setup_pipeline
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
@@ -26,6 +27,7 @@ from pochidetection.scripts.common import (
     write_detection_results_csv,
     write_detection_summary,
 )
+from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
 from pochidetection.scripts.common.types import SetupPipelineFn
 from pochidetection.utils import (
     BenchmarkResult,
@@ -35,6 +37,7 @@ from pochidetection.utils import (
     build_benchmark_result,
     write_benchmark_result,
 )
+from pochidetection.utils.config_loader import ConfigLoader
 from pochidetection.utils.device import is_fp16_available
 from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import (
@@ -376,11 +379,6 @@ def resolve_and_setup_pipeline(
     Returns:
         解決済みパイプライン情報. モデル未発見時は None.
     """
-    # 循環インポート回避: inference.py → registry.py → rtdetr/infer.py → inference.py
-    from pochidetection.cli.registry import resolve_setup_pipeline
-    from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
-    from pochidetection.utils.config_loader import ConfigLoader
-
     log = logger_instance or logger
 
     if model_dir is not None:
@@ -562,8 +560,6 @@ def _save_config(
         config_path: 設定ファイルのパス (ファイル名の取得に使用).
         output_dir: 推論結果の出力ディレクトリ.
     """
-    from pochidetection.utils.config_loader import ConfigLoader
-
     dst = output_dir / Path(config_path).name
     ConfigLoader.write_config(config, dst)
     logger.info(f"Config saved to {dst}")

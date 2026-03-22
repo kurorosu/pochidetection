@@ -29,6 +29,7 @@ def _run_trt_export(args: argparse.Namespace, config: DetectionConfigDict) -> No
 
     int8_calibrator = None
     if args.int8:
+        # Why: INT8 キャリブレーションはオプション機能. TensorRT 未インストール時を考慮.
         from pochidetection.tensorrt import INT8Calibrator
 
         calib_image_dir = Path(str(config["infer_image_dir"]))
@@ -40,6 +41,7 @@ def _run_trt_export(args: argparse.Namespace, config: DetectionConfigDict) -> No
             cache_path=cache_path,
         )
 
+    # Why: TensorRT エクスポートは export サブコマンド時のみ必要.
     from pochidetection.scripts.common.export_trt import export_trt
 
     export_trt(
@@ -66,6 +68,7 @@ def _run_onnx_export(args: argparse.Namespace, config: DetectionConfigDict) -> N
     input_size = tuple(args.input_size) if args.input_size else None
 
     if config.get("architecture") == "SSDLite":
+        # Why: アーキテクチャ別に異なるエクスポート関数を条件分岐でロード.
         from pochidetection.scripts.ssdlite.export_onnx import (
             export_onnx as ssdlite_export_onnx,
         )
@@ -87,6 +90,7 @@ def _run_onnx_export(args: argparse.Namespace, config: DetectionConfigDict) -> N
             )
             sys.exit(1)
 
+        # Why: アーキテクチャ別に異なるエクスポート関数を条件分岐でロード.
         from pochidetection.scripts.rtdetr.export_onnx import export_onnx
 
         export_onnx(
