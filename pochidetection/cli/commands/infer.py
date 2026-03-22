@@ -1,12 +1,14 @@
 """infer コマンドの実行ロジック."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
 from pochidetection.cli.registry import (
@@ -35,13 +37,16 @@ from pochidetection.scripts.rtdetr.infer import _setup_pipeline as rtdetr_setup_
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 
+if TYPE_CHECKING:
+    from pochidetection.scripts.common.inference import PipelineContext
+
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov"}
 
 
 class _ResolvedPipeline(NamedTuple):
     """モデル解決・パイプライン構築の結果."""
 
-    ctx: Any  # PipelineContext
+    ctx: PipelineContext
     config: DetectionConfigDict
     config_path: str | None
 

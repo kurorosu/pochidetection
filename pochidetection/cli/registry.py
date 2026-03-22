@@ -2,13 +2,12 @@
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.scripts.common.inference import PipelineContext
 
 TrainFn = Callable[[DetectionConfigDict, str], None]
-SetupPipelineFn = Callable[[DetectionConfigDict, Path], PipelineContext]
+SetupPipelineFn = Callable[[DetectionConfigDict, Path], Any]
 
 
 class InferFn(Protocol):
