@@ -115,3 +115,25 @@ class TestSaveCrops:
 
         assert saved == []
         assert not (saver.output_dir / "crop").exists()
+
+    def test_bbox_clipped_to_image_bounds(self, tmp_path: Path) -> None:
+        """画像外にはみ出す bbox がクリッピングされることを確認."""
+        saver = InferenceSaver(tmp_path)
+        image = self._create_image()  # 100x100
+        detections = [Detection(box=[-10, -5, 50, 60], score=0.9, label=0)]
+
+        saved = saver.save_crops(image, detections, "test.jpg")
+
+        assert len(saved) == 1
+        crop = Image.open(saved[0])
+        assert crop.size == (50, 60)  # (min(100,50)-max(0,-10), min(100,60)-max(0,-5))
+
+    def test_bbox_fully_outside_skipped(self, tmp_path: Path) -> None:
+        """画像外に完全にはみ出す bbox がスキップされることを確認."""
+        saver = InferenceSaver(tmp_path)
+        image = self._create_image()  # 100x100
+        detections = [Detection(box=[200, 200, 300, 300], score=0.9, label=0)]
+
+        saved = saver.save_crops(image, detections, "test.jpg")
+
+        assert saved == []

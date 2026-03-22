@@ -1,14 +1,12 @@
 """アーキテクチャごとの train / infer / setup_pipeline を解決するレジストリ."""
 
 from collections.abc import Callable
-from pathlib import Path
 from typing import Protocol
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.scripts.common.inference import PipelineContext
+from pochidetection.scripts.common.types import SetupPipelineFn
 
 TrainFn = Callable[[DetectionConfigDict, str], None]
-SetupPipelineFn = Callable[[DetectionConfigDict, Path], PipelineContext]
 
 
 class InferFn(Protocol):
@@ -27,6 +25,8 @@ class InferFn(Protocol):
         ...
 
 
+# Why: アーキテクチャ別モジュールの遅延ロード. 未使用アーキテクチャの重い依存
+# (transformers, torchvision models 等) を CLI 起動時に読み込まないため.
 def _import_rtdetr_train() -> TrainFn:
     from pochidetection.scripts.rtdetr.train import train
 

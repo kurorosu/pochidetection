@@ -55,6 +55,7 @@ class RTDetrModel(IDetectionModel):
                 kwargs["ignore_mismatched_sizes"] = True
             self._model = RTDetrForObjectDetection.from_pretrained(model_name, **kwargs)
         else:
+            # Why: pretrained=False 時のみ必要. 通常パスでは不要な依存.
             from transformers import RTDetrConfig
 
             config = RTDetrConfig.from_pretrained(

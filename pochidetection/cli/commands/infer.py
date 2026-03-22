@@ -8,18 +8,13 @@ import sys
 from pathlib import Path
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
-from pochidetection.cli.registry import (
-    SetupPipelineFn,
-    resolve_infer,
-    resolve_setup_pipeline,
-)
+from pochidetection.cli.registry import resolve_infer
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.logging import LoggerManager
-from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
 from pochidetection.scripts.common.inference import (
-    PRETRAINED,
-    resolve_model_path,
+    ResolvedPipeline,
+    resolve_and_setup_pipeline,
 )
 from pochidetection.scripts.common.video import (
     CompositeSink,
@@ -30,7 +25,6 @@ from pochidetection.scripts.common.video import (
     VideoWriter,
     process_frames,
 )
-from pochidetection.scripts.rtdetr.infer import _setup_pipeline as rtdetr_setup_pipeline
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 
@@ -93,24 +87,11 @@ def _run_stream_infer(
     """
     logger = LoggerManager().get_logger(__name__)
 
-    if model_dir is not None:
-        model_path = resolve_model_path(config, model_dir)
-        if model_path is None:
-            return
-    else:
-        model_path = PRETRAINED
+    resolved = resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    if resolved is None:
+        return
 
-    # プリトレイン時は config とパイプラインを差し替え
-    if model_path == PRETRAINED:
-        config_path = PRETRAINED_CONFIG_PATH
-        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn: SetupPipelineFn = rtdetr_setup_pipeline
-        logger.info("Loading RT-DETR COCO pretrained model")
-    else:
-        setup_pipeline_fn = resolve_setup_pipeline(config)
-        logger.info(f"Loading model from {model_path}")
-
-    ctx = setup_pipeline_fn(config, model_path)
+    ctx, config, config_path, _ = resolved
 
     camera_props: dict[str, float] = {}
 
@@ -237,28 +218,16 @@ def _run_video_infer(
     """
     logger = LoggerManager().get_logger(__name__)
 
-    if model_dir is not None:
-        model_path = resolve_model_path(config, model_dir)
-        if model_path is None:
-            return
-    else:
-        model_path = PRETRAINED
-
     video_file = Path(video_path)
     if not video_file.exists():
         logger.error(f"Video file not found: {video_path}")
         return
 
-    # プリトレイン時は config とパイプラインを差し替え
-    if model_path == PRETRAINED:
-        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn: SetupPipelineFn = rtdetr_setup_pipeline
-        logger.info("Loading RT-DETR COCO pretrained model")
-    else:
-        setup_pipeline_fn = resolve_setup_pipeline(config)
-        logger.info(f"Loading model from {model_path}")
+    resolved = resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    if resolved is None:
+        return
 
-    ctx = setup_pipeline_fn(config, model_path)
+    ctx = resolved.ctx
 
     # 出力パス: 入力と同じディレクトリに _result 付きで出力
     output_path = video_file.parent / f"{video_file.stem}_result.mp4"

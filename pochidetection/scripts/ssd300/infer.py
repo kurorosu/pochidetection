@@ -49,7 +49,6 @@ def infer(
     common_infer(
         config,
         image_dir,
-        _setup_pipeline,
         model_dir,
         config_path,
         save_crop=save_crop,
