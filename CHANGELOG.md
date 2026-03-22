@@ -9,12 +9,26 @@
 - 無し
 
 ### Changed
+- 無し
+
+### Fixed
+- 無し
+
+### Removed
+- 無し
+
+## v0.14.1 (2026-03-22)
+
+### Added
+- 無し
+
+### Changed
 - `build_data_loaders()` から augmentation 設定ロジックを分離し, `_apply_augmentation_to_dataset()` トップレベル関数に切り出し. `build_data_loaders()` のシグネチャを簡素化. ([#410](https://github.com/kurorosu/pochidetection/pull/410))
 - `_run_stream_infer()` と `_run_video_infer()` のモデル解決・パイプライン構築ロジックを `_resolve_and_setup_pipeline()` に共通化. ([#411](https://github.com/kurorosu/pochidetection/pull/411))
 - `_ResolvedPipeline.ctx` の型注釈を `Any` から `PipelineContext` に変更. `cli/registry.py` の `PipelineContext` インポートを `TYPE_CHECKING` ブロックに移動し循環インポートを解消. ([#416](https://github.com/kurorosu/pochidetection/pull/416))
 - 画像推論 (`infer()`) のプリトレイン判定ロジックを `_resolve_and_setup_pipeline()` に統合. ([#419](https://github.com/kurorosu/pochidetection/pull/419))
 - `SetupPipelineFn` の二重定義を `scripts/common/types.py` に集約. `_resolve_and_setup_pipeline()` を `cli/commands/infer.py` → `scripts/common/inference.py` に移動し, 下位→上位層の遅延インポートを解消. ([#420](https://github.com/kurorosu/pochidetection/pull/420))
-- `resolve_and_setup_pipeline()` 内の遅延インポート (`resolve_setup_pipeline`, `PRETRAINED_CONFIG_PATH`, `ConfigLoader`) をトップレベルに移動. 循環回避のための遅延インポートがゼロに. N/A.
+- `resolve_and_setup_pipeline()` 内の遅延インポート (`resolve_setup_pipeline`, `PRETRAINED_CONFIG_PATH`, `ConfigLoader`) をトップレベルに移動. 循環回避のための遅延インポートがゼロに. ([#421](https://github.com/kurorosu/pochidetection/pull/421))
   - `inference.py` と `work_dir.py` の不要な遅延インポートを削除.
   - `augmentation.py` の `ImageDraw` をトップレベルに移動.
   - 正当な遅延インポートに why コメントを追加.
@@ -26,28 +40,9 @@
 ### Removed
 - 無し
 
-## v0.14.0 (2026-03-21)
-
-### Added
-- 画像推論で検出ボックスのクロップ画像を `inference_XXX/crop/` に自動保存する機能を追加 (デフォルト有効). `--no-crop` で無効化可能. ([#396](https://github.com/kurorosu/pochidetection/pull/396))
-  - `InferFn` の型定義を `Callable` から `Protocol` に変更し, keyword-only 引数 (`save_crop`) に対応.
-- `torchvision.transforms.v2` ベースの Data Augmentation パイプラインを導入. config.py の `augmentation` セクションで変換を設定可能. 学習データのみに適用, bbox は `tv_tensors.BoundingBoxes` で同時変換. ([#397](https://github.com/kurorosu/pochidetection/pull/397))
-  - `docs/augmentation.md` に設定方法・変換一覧・使用例を記載.
-- Data Augmentation のデバッグ可視化機能を追加. `augmentation.debug_save` で 1 エポック目の最初の N 枚を bbox 付きで保存. ([#404](https://github.com/kurorosu/pochidetection/pull/404))
-  - `build_data_loaders()` の augmentation 設定を `hasattr` から `isinstance(BaseCocoDataset)` チェックに改善.
-- `process_frames()`, `draw_cv2()`, `_build_phase_summary()`, `_draw_overlay_text()` のテストを追加 (19 テスト). ([#405](https://github.com/kurorosu/pochidetection/pull/405))
-
-### Changed
-- 無し
-
-### Fixed
-- 無し
-
-### Removed
-- 無し
-
 ## Archived Changelogs
 
+- [0.14.x](changelogs/0.14.x.md)
 - [0.13.x](changelogs/0.13.x.md)
 - [0.12.x](changelogs/0.12.x.md)
 - [0.11.x](changelogs/0.11.x.md)
