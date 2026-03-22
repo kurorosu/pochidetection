@@ -369,28 +369,19 @@ def infer(
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
         save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
     """
-    model_path = resolve_model_path(config, model_dir)
-    if model_path is None:
+    # 循環インポート回避: inference.py → cli/commands/infer.py → inference.py
+    from pochidetection.cli.commands.infer import _resolve_and_setup_pipeline
+
+    resolved = _resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    if resolved is None:
         return
 
     image_files = collect_image_files(image_dir)
     if image_files is None:
         return
 
-    if model_path == PRETRAINED:
-        from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
-        from pochidetection.scripts.rtdetr.infer import (
-            _setup_pipeline as rtdetr_setup_pipeline,
-        )
-        from pochidetection.utils import ConfigLoader
-
-        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline = rtdetr_setup_pipeline
-        logger.info("Loading RT-DETR COCO pretrained model")
-    else:
-        logger.info(f"Loading model from {model_path}")
-
-    ctx = setup_pipeline(config, model_path)
+    ctx, config, config_path = resolved
+    model_path = resolve_model_path(config, model_dir) or PRETRAINED
     logger.info(f"Results will be saved to {ctx.saver.output_dir}")
 
     all_predictions = run_inference(image_files, ctx, save_crop=save_crop)
