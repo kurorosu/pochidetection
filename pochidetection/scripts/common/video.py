@@ -243,18 +243,24 @@ class DisplaySink(IFrameSink):
         """
         self._window_name = window_name
         self._cap = cap
-        self._overlay_visible = True
+        self._overlay_visible = False
+        self._help_visible = True
 
     @property
     def overlay_visible(self) -> bool:
         """オーバーレイの表示状態."""
         return self._overlay_visible
 
-    def write(self, frame: np.ndarray) -> None:
-        """フレームを表示し, q キーで StopIteration を raise.
+    @property
+    def help_visible(self) -> bool:
+        """キーバインドヘルプの表示状態."""
+        return self._help_visible
 
-        s キーが押された場合, Windows のカメラ設定ダイアログを表示する.
-        o キーが押された場合, オーバーレイの表示/非表示をトグルする.
+    def write(self, frame: np.ndarray) -> None:
+        """フレームを表示し, キー入力を処理する.
+
+        q: 終了 (StopIteration), s: カメラ設定 (Windows),
+        o: オーバーレイ切替, h: ヘルプ切替.
 
         Args:
             frame: BGR 形式の画像フレーム.
@@ -270,6 +276,8 @@ class DisplaySink(IFrameSink):
             self._cap.set(cv2.CAP_PROP_SETTINGS, 0)
         if key == ord("o"):
             self._overlay_visible = not self._overlay_visible
+        if key == ord("h"):
+            self._help_visible = not self._help_visible
 
     def release(self) -> None:
         """ウィンドウを破棄する."""
@@ -468,6 +476,10 @@ def process_frames(
                 if recording:
                     _draw_rec_indicator(result_bgr, lines)
 
+            # キーバインドヘルプ (o キーとは独立, h キーでトグル)
+            if display_sink is not None and display_sink.help_visible:
+                _draw_help_text(result_bgr)
+
             # display 計測
             display_start = time.monotonic()
             sink.write(result_bgr)
@@ -571,6 +583,33 @@ def _draw_rec_indicator(
     cv2.putText(frame, "REC", (x, y), font, font_scale, (255, 255, 255), 3)
     # 赤文字 (BGR)
     cv2.putText(frame, "REC", (x, y), font, font_scale, (0, 0, 255), 1)
+
+
+_HELP_TEXT = "q:Quit  s:Settings  o:Status  h:Help"
+
+
+def _draw_help_text(
+    frame: np.ndarray,
+    *,
+    font_scale: float = 0.5,
+    margin: int = 10,
+) -> None:
+    """画面右下にキーバインドヘルプを白縁取り + 黒文字で描画する.
+
+    Args:
+        frame: BGR 形式の画像フレーム.
+        font_scale: フォントスケール.
+        margin: 右下からのマージン (px).
+    """
+    h, w = frame.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text_size = cv2.getTextSize(_HELP_TEXT, font, font_scale, 1)[0]
+    x = w - text_size[0] - margin
+    y = h - margin
+    # 白アウトライン
+    cv2.putText(frame, _HELP_TEXT, (x, y), font, font_scale, (255, 255, 255), 3)
+    # 黒文字
+    cv2.putText(frame, _HELP_TEXT, (x, y), font, font_scale, (0, 0, 0), 1)
 
 
 def _build_phase_summary(
