@@ -337,6 +337,7 @@ def process_frames(
     *,
     interval: int = 1,
     overlay_fps: bool = False,
+    recording: bool = False,
     logger: logging.Logger,
 ) -> FrameProcessingResult:
     """フレーム単位で推論・描画・書き出しを行う.
@@ -351,6 +352,7 @@ def process_frames(
         visualizer: 検出結果の描画.
         interval: N フレーム間隔で推論 (1 = 全フレーム処理).
         overlay_fps: True の場合, フレーム左上に実測 FPS を描画.
+        recording: True の場合, オーバーレイに "REC" を赤文字で表示.
         logger: ロガー.
 
     Returns:
@@ -417,6 +419,9 @@ def process_frames(
                 lines.append(f"display: {last_display_ms:.1f}ms")
 
                 _draw_overlay_text(result_bgr, lines)
+
+                if recording:
+                    _draw_rec_indicator(result_bgr, lines)
 
             # display 計測
             display_start = time.monotonic()
@@ -494,6 +499,33 @@ def _draw_overlay_text(
         cv2.putText(frame, line, (x, y), font, font_scale, (255, 255, 255), 3)
         # 黒文字
         cv2.putText(frame, line, (x, y), font, font_scale, (0, 0, 0), 1)
+
+
+def _draw_rec_indicator(
+    frame: np.ndarray,
+    overlay_lines: list[str],
+    *,
+    x: int = 10,
+    y_start: int = 20,
+    line_height: int = 20,
+    font_scale: float = 0.5,
+) -> None:
+    """オーバーレイの最下段に赤文字で "REC" を描画する.
+
+    Args:
+        frame: BGR 形式の画像フレーム.
+        overlay_lines: 既に描画済みのオーバーレイ行 (y 座標計算用).
+        x: テキストの x 座標.
+        y_start: 最初の行の y 座標.
+        line_height: 行間のピクセル数.
+        font_scale: フォントスケール.
+    """
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    y = y_start + len(overlay_lines) * line_height
+    # 白アウトライン
+    cv2.putText(frame, "REC", (x, y), font, font_scale, (255, 255, 255), 3)
+    # 赤文字 (BGR)
+    cv2.putText(frame, "REC", (x, y), font, font_scale, (0, 0, 255), 1)
 
 
 def _build_phase_summary(

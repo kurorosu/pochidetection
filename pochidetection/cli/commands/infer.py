@@ -131,6 +131,7 @@ def _run_stream_infer(
                 visualizer=ctx.visualizer,
                 interval=interval,
                 overlay_fps=True,
+                recording=record,
                 logger=logger,
             )
 
