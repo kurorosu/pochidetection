@@ -243,11 +243,18 @@ class DisplaySink(IFrameSink):
         """
         self._window_name = window_name
         self._cap = cap
+        self._overlay_visible = True
+
+    @property
+    def overlay_visible(self) -> bool:
+        """オーバーレイの表示状態."""
+        return self._overlay_visible
 
     def write(self, frame: np.ndarray) -> None:
         """フレームを表示し, q キーで StopIteration を raise.
 
         s キーが押された場合, Windows のカメラ設定ダイアログを表示する.
+        o キーが押された場合, オーバーレイの表示/非表示をトグルする.
 
         Args:
             frame: BGR 形式の画像フレーム.
@@ -261,6 +268,8 @@ class DisplaySink(IFrameSink):
             raise StopIteration
         if key == ord("s") and self._cap is not None:
             self._cap.set(cv2.CAP_PROP_SETTINGS, 0)
+        if key == ord("o"):
+            self._overlay_visible = not self._overlay_visible
 
     def release(self) -> None:
         """ウィンドウを破棄する."""
@@ -333,6 +342,24 @@ class VideoWriter(IFrameSink):
         self._writer.release()
 
 
+def _find_display_sink(sink: IFrameSink) -> DisplaySink | None:
+    """シンクツリーから DisplaySink を探す.
+
+    Args:
+        sink: 検索対象のシンク.
+
+    Returns:
+        DisplaySink インスタンス. 見つからない場合は None.
+    """
+    if isinstance(sink, DisplaySink):
+        return sink
+    if isinstance(sink, CompositeSink):
+        for s in sink._sinks:
+            if isinstance(s, DisplaySink):
+                return s
+    return None
+
+
 def process_frames(
     source: IFrameSource,
     sink: IFrameSink,
@@ -366,6 +393,7 @@ def process_frames(
     processed = 0
     frame_idx = 0
     start_time = time.monotonic()
+    display_sink = _find_display_sink(sink)
 
     # フレーム外フェーズの累積計測用
     capture_total_ms = 0.0
@@ -410,7 +438,11 @@ def process_frames(
             draw_total_ms += last_draw_ms
 
             # FPS オーバーレイ (前フレームの E2E FPS を表示)
-            if overlay_fps:
+            # o キーでトグル可能 (DisplaySink が存在する場合)
+            overlay_visible = (
+                display_sink.overlay_visible if display_sink is not None else True
+            )
+            if overlay_fps and overlay_visible:
                 lines = [f"FPS: {last_e2e_fps:.1f}"]
                 lines.append(f"capture: {last_capture_ms:.1f}ms")
 
