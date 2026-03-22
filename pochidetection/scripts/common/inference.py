@@ -4,6 +4,7 @@ RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 ベンチマークサマリーのロジックを提供する.
 """
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
@@ -25,6 +26,7 @@ from pochidetection.scripts.common import (
     write_detection_results_csv,
     write_detection_summary,
 )
+from pochidetection.scripts.common.types import SetupPipelineFn
 from pochidetection.utils import (
     BenchmarkResult,
     DetectionMetrics,
@@ -345,14 +347,67 @@ def build_pipeline_context(
     )
 
 
-# セットアップコールバックの型
-SetupPipelineFn = Callable[[DetectionConfigDict, Path], InferenceContext]
+class ResolvedPipeline(NamedTuple):
+    """モデル解決・パイプライン構築の結果."""
+
+    ctx: PipelineContext
+    config: DetectionConfigDict
+    config_path: str | None
+    model_path: Path
+
+
+def resolve_and_setup_pipeline(
+    config: DetectionConfigDict,
+    model_dir: str | None,
+    config_path: str | None,
+    logger_instance: logging.Logger | None = None,
+) -> ResolvedPipeline | None:
+    """モデルパスを解決し, パイプラインを構築する.
+
+    model_dir が None の場合はプリトレインモデルにフォールバックする.
+    model_dir 指定時にモデルが見つからない場合は None を返す.
+
+    Args:
+        config: 設定辞書.
+        model_dir: モデルディレクトリ (None でプリトレイン).
+        config_path: 設定ファイルのパス.
+        logger_instance: ロガー. None の場合はモジュールロガーを使用.
+
+    Returns:
+        解決済みパイプライン情報. モデル未発見時は None.
+    """
+    # 循環インポート回避: inference.py → registry.py → rtdetr/infer.py → inference.py
+    from pochidetection.cli.registry import resolve_setup_pipeline
+    from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
+    from pochidetection.utils.config_loader import ConfigLoader
+
+    log = logger_instance or logger
+
+    if model_dir is not None:
+        model_path = resolve_model_path(config, model_dir)
+        if model_path is None:
+            return None
+    else:
+        model_path = PRETRAINED
+
+    if model_path == PRETRAINED:
+        config_path = PRETRAINED_CONFIG_PATH
+        config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
+        setup_pipeline_fn: SetupPipelineFn = resolve_setup_pipeline(config)
+        log.info("Loading RT-DETR COCO pretrained model")
+    else:
+        setup_pipeline_fn = resolve_setup_pipeline(config)
+        log.info(f"Loading model from {model_path}")
+
+    ctx = setup_pipeline_fn(config, model_path)
+    return ResolvedPipeline(
+        ctx=ctx, config=config, config_path=config_path, model_path=model_path
+    )
 
 
 def infer(
     config: DetectionConfigDict,
     image_dir: str,
-    setup_pipeline: SetupPipelineFn,
     model_dir: str | None = None,
     config_path: str | None = None,
     *,
@@ -363,16 +418,11 @@ def infer(
     Args:
         config: 設定辞書.
         image_dir: 推論対象の画像フォルダパス.
-        setup_pipeline: パイプライン構築コールバック.
-            (config, model_path) を受け取り InferenceContext を返す.
         model_dir: モデルディレクトリ. None の場合は最新ワークスペースの best を使用.
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
         save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
     """
-    # 循環インポート回避: inference.py → cli/commands/infer.py → inference.py
-    from pochidetection.cli.commands.infer import _resolve_and_setup_pipeline
-
-    resolved = _resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    resolved = resolve_and_setup_pipeline(config, model_dir, config_path)
     if resolved is None:
         return
 
@@ -380,8 +430,7 @@ def infer(
     if image_files is None:
         return
 
-    ctx, config, config_path = resolved
-    model_path = resolve_model_path(config, model_dir) or PRETRAINED
+    ctx, config, config_path, model_path = resolved
     logger.info(f"Results will be saved to {ctx.saver.output_dir}")
 
     all_predictions = run_inference(image_files, ctx, save_crop=save_crop)
