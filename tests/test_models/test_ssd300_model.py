@@ -1,5 +1,6 @@
 """SSD300Model のテスト."""
 
+import pytest
 import torch
 import torch.nn as nn
 
@@ -10,29 +11,25 @@ from pochidetection.models import SSD300Model
 class TestSSD300Model:
     """SSD300Model のテスト."""
 
-    def test_implements_interface(self) -> None:
+    def test_implements_interface(self, ssd300_model: SSD300Model) -> None:
         """IDetectionModel を実装していることを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        assert isinstance(model, IDetectionModel)
+        assert isinstance(ssd300_model, IDetectionModel)
 
-    def test_is_nn_module(self) -> None:
+    def test_is_nn_module(self, ssd300_model: SSD300Model) -> None:
         """nn.Module を継承していることを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        assert isinstance(model, nn.Module)
+        assert isinstance(ssd300_model, nn.Module)
 
+    @pytest.mark.slow
     def test_num_classes_property(self) -> None:
         """num_classes がユーザ指定値 (背景なし) を返すことを確認."""
         model = SSD300Model(num_classes=4, pretrained=False)
         assert model.num_classes == 4
 
-    def test_forward_inference(self) -> None:
+    def test_forward_inference(self, ssd300_model: SSD300Model) -> None:
         """推論時の forward が predictions を返すことを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        model.eval()
-
         pixel_values = torch.randn(1, 3, 300, 300)
         with torch.no_grad():
-            outputs = model(pixel_values)
+            outputs = ssd300_model(pixel_values)
 
         assert "predictions" in outputs
         assert len(outputs["predictions"]) == 1
@@ -42,23 +39,22 @@ class TestSSD300Model:
         assert "scores" in pred
         assert "labels" in pred
 
-    def test_forward_inference_labels_are_0_indexed(self) -> None:
+    def test_forward_inference_labels_are_0_indexed(
+        self, ssd300_model: SSD300Model
+    ) -> None:
         """推論時のラベルが 0-indexed (>= 0) であることを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        model.eval()
-
         pixel_values = torch.randn(1, 3, 300, 300)
         with torch.no_grad():
-            outputs = model(pixel_values)
+            outputs = ssd300_model(pixel_values)
 
         pred = outputs["predictions"][0]
         if pred["labels"].numel() > 0:
             assert pred["labels"].min().item() >= 0
 
-    def test_forward_with_labels(self) -> None:
+    def test_forward_with_labels(self, ssd300_model: SSD300Model) -> None:
         """学習時の forward が loss を返すことを確認 (0-indexed ラベル)."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        model.train()
+        was_training = ssd300_model.training
+        ssd300_model.train()
 
         pixel_values = torch.randn(2, 3, 300, 300)
         labels = [
@@ -74,32 +70,31 @@ class TestSSD300Model:
             },
         ]
 
-        outputs = model(pixel_values, labels=labels)
+        outputs = ssd300_model(pixel_values, labels=labels)
 
         assert "loss" in outputs
         assert isinstance(outputs["loss"], torch.Tensor)
 
-    def test_forward_batch_size(self) -> None:
-        """バッチサイズ > 1 の推論が動作することを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        model.eval()
+        if not was_training:
+            ssd300_model.eval()
 
+    def test_forward_batch_size(self, ssd300_model: SSD300Model) -> None:
+        """バッチサイズ > 1 の推論が動作することを確認."""
         pixel_values = torch.randn(3, 3, 300, 300)
         with torch.no_grad():
-            outputs = model(pixel_values)
+            outputs = ssd300_model(pixel_values)
 
         assert len(outputs["predictions"]) == 3
 
-    def test_model_property(self) -> None:
+    def test_model_property(self, ssd300_model: SSD300Model) -> None:
         """model プロパティが内部モデルを返すことを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        assert isinstance(model.model, nn.Module)
+        assert isinstance(ssd300_model.model, nn.Module)
 
-    def test_nms_iou_threshold_default(self) -> None:
+    def test_nms_iou_threshold_default(self, ssd300_model: SSD300Model) -> None:
         """デフォルトの nms_iou_threshold が torchvision に渡されることを確認."""
-        model = SSD300Model(num_classes=2, pretrained=False)
-        assert model.model.nms_thresh == 0.5
+        assert ssd300_model.model.nms_thresh == 0.5
 
+    @pytest.mark.slow
     def test_nms_iou_threshold_custom(self) -> None:
         """カスタム nms_iou_threshold が torchvision に渡されることを確認."""
         model = SSD300Model(num_classes=2, pretrained=False, nms_iou_threshold=0.3)

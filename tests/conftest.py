@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from pochidetection.core.detection import Detection
-from pochidetection.models import RTDetrModel
+from pochidetection.models import RTDetrModel, SSD300Model, SSDLiteModel
 from pochidetection.utils import TrainingHistory
 
 
@@ -22,6 +22,32 @@ def rtdetr_model() -> RTDetrModel:
         model_name="PekingU/rtdetr_r18vd", num_classes=2, pretrained=False
     )
     model.model.config.num_queries = 50
+    model.eval()
+    return model
+
+
+@pytest.fixture(scope="session")
+def ssd300_model() -> SSD300Model:
+    """テスト用の軽量SSD300Modelを作成するsessionスコープfixture.
+
+    全テストで1つのインスタンスを共有し, モデル初期化コストを削減する.
+    eval モードで返すため, train モードが必要なテストでは
+    was_training パターンで一時切り替え・復元すること.
+    """
+    model = SSD300Model(num_classes=2, pretrained=False)
+    model.eval()
+    return model
+
+
+@pytest.fixture(scope="session")
+def ssdlite_model() -> SSDLiteModel:
+    """テスト用の軽量SSDLiteModelを作成するsessionスコープfixture.
+
+    全テストで1つのインスタンスを共有し, モデル初期化コストを削減する.
+    eval モードで返すため, train モードが必要なテストでは
+    was_training パターンで一時切り替え・復元すること.
+    """
+    model = SSDLiteModel(num_classes=2, pretrained=False)
     model.eval()
     return model
 

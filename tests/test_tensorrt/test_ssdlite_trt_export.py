@@ -10,6 +10,8 @@ from pochidetection.tensorrt import TensorRTExporter
 
 from .conftest import SSDLITE_INPUT_SIZE
 
+pytestmark = pytest.mark.slow
+
 
 class TestSSDLiteTensorRTExport:
     """SSDLite ONNX モデルから TensorRT エンジンへのエクスポートテスト."""
