@@ -17,6 +17,10 @@ from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.scripts.common.visualizer import Visualizer
+from pochidetection.utils.resource_monitor import (
+    format_resource_lines,
+    get_resource_usage,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -371,6 +375,10 @@ def process_frames(
     last_draw_ms = 0.0
     last_display_ms = 0.0
     last_e2e_fps = 0.0
+
+    # リソース使用状況 (N フレームごとに更新して負荷を抑える)
+    _RESOURCE_UPDATE_INTERVAL = 30
+    resource_lines: list[str] = []
     display_end = time.monotonic()
 
     try:
@@ -417,6 +425,11 @@ def process_frames(
 
                 lines.append(f"draw: {last_draw_ms:.1f}ms")
                 lines.append(f"display: {last_display_ms:.1f}ms")
+
+                # リソース使用状況 (N フレームごとに更新)
+                if processed % _RESOURCE_UPDATE_INTERVAL == 0:
+                    resource_lines = format_resource_lines(get_resource_usage())
+                lines.extend(resource_lines)
 
                 _draw_overlay_text(result_bgr, lines)
 

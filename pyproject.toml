@@ -21,6 +21,8 @@ dependencies = [
     "onnx",
     "onnxruntime-gpu",
     "tensorboard>=2.14.0",
+    "psutil>=7.2.2",
+    "nvidia-ml-py>=13.595.45",
 ]
 
 [project.scripts]
@@ -49,6 +51,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
     "pytest-xdist>=3.5.0",
+    "types-psutil>=7.2.2.20260130",
 ]
 
 [tool.black]
