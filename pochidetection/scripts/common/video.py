@@ -366,7 +366,7 @@ class LazyVideoWriter(IFrameSink):
         _estimated_fps: 推定された fps.
     """
 
-    _DEFAULT_WARMUP_FRAMES = 10
+    _DEFAULT_WARMUP_FRAMES = 100
 
     def __init__(self, path: Path, warmup_frames: int | None = None) -> None:
         """初期化.
