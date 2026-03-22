@@ -11,7 +11,8 @@
 ### Changed
 - `build_data_loaders()` から augmentation 設定ロジックを分離し, `_apply_augmentation_to_dataset()` トップレベル関数に切り出し. `build_data_loaders()` のシグネチャを簡素化. ([#410](https://github.com/kurorosu/pochidetection/pull/410))
 - `_run_stream_infer()` と `_run_video_infer()` のモデル解決・パイプライン構築ロジックを `_resolve_and_setup_pipeline()` に共通化. ([#411](https://github.com/kurorosu/pochidetection/pull/411))
-- `_ResolvedPipeline.ctx` の型注釈を `Any` から `PipelineContext` に変更. `cli/registry.py` の `PipelineContext` インポートを `TYPE_CHECKING` ブロックに移動し循環インポートを解消. N/A.
+- `_ResolvedPipeline.ctx` の型注釈を `Any` から `PipelineContext` に変更. `cli/registry.py` の `PipelineContext` インポートを `TYPE_CHECKING` ブロックに移動し循環インポートを解消. ([#416](https://github.com/kurorosu/pochidetection/pull/416))
+- 画像推論 (`infer()`) のプリトレイン判定ロジックを `_resolve_and_setup_pipeline()` に統合. N/A.
 
 ### Fixed
 - `StreamReader.apply_camera_settings()` で `logger=None` 時にカメラ設定 (`cap.set()`) が適用されないバグを修正. logger チェックをログ出力部分のみに分離. ([#408](https://github.com/kurorosu/pochidetection/pull/408))
