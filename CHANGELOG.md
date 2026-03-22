@@ -11,7 +11,7 @@
   - `psutil`, `nvidia-ml-py` を依存に追加. `ResourceUsage` dataclass と `get_resource_usage()` を `utils/resource_monitor.py` に実装.
 - リアルタイム推論中に `o` キーでオーバーレイの表示/非表示をトグルする機能を追加. ([#427](https://github.com/kurorosu/pochidetection/pull/427))
 - リアルタイム推論中に `h` キーで画面右下にキーバインドヘルプ (`q:Quit s:Settings o:Status h:Help`) を表示/非表示する機能を追加. 初期状態はヘルプ表示・ステータス非表示. ([#429](https://github.com/kurorosu/pochidetection/pull/429))
-- `pytest.mark.slow` マーカーを導入し, 時間のかかるテスト (CLI subprocess, TensorRT エクスポート, ONNX エクスポート, モデル新規初期化) を分類. 通常テスト実行時間を 84s → 15s に短縮 (82%削減). N/A.
+- `pytest.mark.slow` マーカーを導入し, 時間のかかるテスト (CLI subprocess, TensorRT エクスポート, ONNX エクスポート, モデル新規初期化) を分類. 通常テスト実行時間を 84s → 15s に短縮 (82%削減). ([#432](https://github.com/kurorosu/pochidetection/pull/432))
   - SSD300Model / SSDLiteModel の session スコープフィクスチャを追加し, モデル初期化コストを共有化.
   - `tests/docs/slow_tests.md` に slow テスト一覧と理由を記載.
 
@@ -19,7 +19,7 @@
 - 無し
 
 ### Fixed
-- 無し
+- ストリーム録画の再生時間が実際の録画時間と一致しない問題を修正. `LazyVideoWriter` を導入し, 最初の 10 フレームで実測 fps を推定して VideoWriter を初期化する方式に変更. N/A.
 
 ### Removed
 - 無し

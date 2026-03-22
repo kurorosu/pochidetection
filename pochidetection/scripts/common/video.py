@@ -350,6 +350,98 @@ class VideoWriter(IFrameSink):
         self._writer.release()
 
 
+class LazyVideoWriter(IFrameSink):
+    """実測 fps で VideoWriter を遅延初期化する IFrameSink 実装.
+
+    最初の N フレームをバッファに溜めて実測 fps を推定し,
+    その fps で VideoWriter を初期化する.
+    バッファ内のフレームは初期化後に一括書き出しされる.
+
+    Attributes:
+        _path: 出力動画ファイルのパス.
+        _warmup_frames: fps 推定に使うフレーム数.
+        _buffer: ウォームアップ中のフレームバッファ.
+        _warmup_start: ウォームアップ開始時刻.
+        _writer: 初期化済みの VideoWriter (ウォームアップ完了後).
+        _estimated_fps: 推定された fps.
+    """
+
+    _DEFAULT_WARMUP_FRAMES = 10
+
+    def __init__(self, path: Path, warmup_frames: int | None = None) -> None:
+        """初期化.
+
+        Args:
+            path: 出力動画ファイルのパス.
+            warmup_frames: fps 推定に使うフレーム数.
+                None の場合はデフォルト値 (10) を使用.
+        """
+        self._path = path
+        self._warmup_frames = warmup_frames or self._DEFAULT_WARMUP_FRAMES
+        self._buffer: list[np.ndarray] = []
+        self._warmup_start: float = 0.0
+        self._writer: cv2.VideoWriter | None = None
+        self._estimated_fps: float = 0.0
+
+    @property
+    def estimated_fps(self) -> float:
+        """推定された fps."""
+        return self._estimated_fps
+
+    def write(self, frame: np.ndarray) -> None:
+        """フレームを書き出す.
+
+        ウォームアップ中はバッファに溜め, 完了後に VideoWriter を
+        初期化してバッファを一括書き出しする.
+
+        Args:
+            frame: BGR 形式の画像フレーム.
+        """
+        if self._writer is not None:
+            self._writer.write(frame)
+            return
+
+        if len(self._buffer) == 0:
+            self._warmup_start = time.monotonic()
+
+        self._buffer.append(frame.copy())
+
+        if len(self._buffer) >= self._warmup_frames:
+            elapsed = time.monotonic() - self._warmup_start
+            self._estimated_fps = len(self._buffer) / elapsed if elapsed > 0 else 30.0
+
+            h, w = self._buffer[0].shape[:2]
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            self._writer = cv2.VideoWriter(
+                str(self._path), fourcc, self._estimated_fps, (w, h)
+            )
+
+            for buffered in self._buffer:
+                self._writer.write(buffered)
+            self._buffer.clear()
+
+    def release(self) -> None:
+        """リソースを解放する.
+
+        ウォームアップ中に終了した場合は, バッファ内フレームを
+        デフォルト fps (30) で書き出す.
+        """
+        if self._writer is None and self._buffer:
+            elapsed = time.monotonic() - self._warmup_start
+            self._estimated_fps = len(self._buffer) / elapsed if elapsed > 0 else 30.0
+            h, w = self._buffer[0].shape[:2]
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            self._writer = cv2.VideoWriter(
+                str(self._path), fourcc, self._estimated_fps, (w, h)
+            )
+            for buffered in self._buffer:
+                self._writer.write(buffered)
+            self._buffer.clear()
+
+        if self._writer is not None:
+            self._writer.release()
+
+
 def _find_display_sink(sink: IFrameSink) -> DisplaySink | None:
     """シンクツリーから DisplaySink を探す.
 
