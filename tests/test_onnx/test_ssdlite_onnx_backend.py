@@ -9,6 +9,8 @@ import torch
 from pochidetection.inference import SSDLiteOnnxBackend
 from pochidetection.models import SSDLiteModel
 
+pytestmark = pytest.mark.slow
+
 from .conftest import SSDLITE_INPUT_SIZE, SSDLITE_NUM_CLASSES
 
 

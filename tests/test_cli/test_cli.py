@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.slow
+
 
 class TestCliNoCommand:
     """サブコマンド未指定時の動作テスト."""

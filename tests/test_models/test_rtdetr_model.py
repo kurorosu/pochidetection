@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import torch
 import torch.nn as nn
 
@@ -71,6 +72,7 @@ class TestRTDetrModel:
 
         assert isinstance(rtdetr_model.model, RTDetrForObjectDetection)
 
+    @pytest.mark.slow
     def test_custom_num_classes(self) -> None:
         """カスタムクラス数でモデルを初期化できることを確認."""
         model = RTDetrModel(
@@ -87,6 +89,7 @@ class TestRTDetrModel:
 
         assert outputs["pred_logits"].shape[2] == 10
 
+    @pytest.mark.slow
     def test_load_updates_num_classes(self, tmp_path: Path) -> None:
         """load 後に _num_classes が更新されることを確認."""
         # num_classes=5 のモデルを保存

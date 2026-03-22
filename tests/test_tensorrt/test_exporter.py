@@ -10,6 +10,8 @@ from pochidetection.tensorrt import INT8Calibrator, TensorRTExporter
 
 from .conftest import INPUT_SIZE
 
+pytestmark = pytest.mark.slow
+
 
 class TestTensorRTExporter:
     """TensorRTExporterのテスト."""

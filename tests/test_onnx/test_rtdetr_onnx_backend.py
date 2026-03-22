@@ -8,6 +8,8 @@ import torch
 
 from pochidetection.inference import RTDetrOnnxBackend
 from pochidetection.inference.providers import resolve_providers
+
+pytestmark = pytest.mark.slow
 from pochidetection.models import RTDetrModel
 from tests.test_onnx.conftest import RTDETR_INPUT_SIZE as INPUT_SIZE
 

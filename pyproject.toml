@@ -84,7 +84,8 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v -n 6"
+addopts = "-v -n 6 -m 'not slow'"
+markers = ["slow: 時間のかかるテスト (uv run pytest -m slow で実行)"]
 filterwarnings = [
     "ignore:.*legacy TorchScript-based ONNX export.*:DeprecationWarning",
     "ignore::torch.jit.TracerWarning",
