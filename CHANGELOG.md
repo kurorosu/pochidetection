@@ -13,7 +13,11 @@
 - `_run_stream_infer()` と `_run_video_infer()` のモデル解決・パイプライン構築ロジックを `_resolve_and_setup_pipeline()` に共通化. ([#411](https://github.com/kurorosu/pochidetection/pull/411))
 - `_ResolvedPipeline.ctx` の型注釈を `Any` から `PipelineContext` に変更. `cli/registry.py` の `PipelineContext` インポートを `TYPE_CHECKING` ブロックに移動し循環インポートを解消. ([#416](https://github.com/kurorosu/pochidetection/pull/416))
 - 画像推論 (`infer()`) のプリトレイン判定ロジックを `_resolve_and_setup_pipeline()` に統合. ([#419](https://github.com/kurorosu/pochidetection/pull/419))
-- `SetupPipelineFn` の二重定義を `scripts/common/types.py` に集約. `_resolve_and_setup_pipeline()` を `cli/commands/infer.py` → `scripts/common/inference.py` に移動し, 下位→上位層の遅延インポートを解消. N/A.
+- `SetupPipelineFn` の二重定義を `scripts/common/types.py` に集約. `_resolve_and_setup_pipeline()` を `cli/commands/infer.py` → `scripts/common/inference.py` に移動し, 下位→上位層の遅延インポートを解消. ([#420](https://github.com/kurorosu/pochidetection/pull/420))
+- `resolve_and_setup_pipeline()` 内の遅延インポート (`resolve_setup_pipeline`, `PRETRAINED_CONFIG_PATH`, `ConfigLoader`) をトップレベルに移動. 循環回避のための遅延インポートがゼロに. N/A.
+  - `inference.py` と `work_dir.py` の不要な遅延インポートを削除.
+  - `augmentation.py` の `ImageDraw` をトップレベルに移動.
+  - 正当な遅延インポートに why コメントを追加.
 
 ### Fixed
 - `StreamReader.apply_camera_settings()` で `logger=None` 時にカメラ設定 (`cap.set()`) が適用されないバグを修正. logger チェックをログ出力部分のみに分離. ([#408](https://github.com/kurorosu/pochidetection/pull/408))
