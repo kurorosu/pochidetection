@@ -6,6 +6,20 @@
 ## [Unreleased]
 
 ### Added
+- 無し
+
+### Changed
+- 無し
+
+### Fixed
+- 無し
+
+### Removed
+- 無し
+
+## v0.15.0 (2026-03-23)
+
+### Added
 - `--record` オプションで録画中のストリーム推論時に, FPS オーバーレイの最下段に赤文字で `REC MM:SS` (経過時間付き) を表示. ([#423](https://github.com/kurorosu/pochidetection/pull/423))
 - リアルタイム推論の FPS オーバーレイに GPU 使用率・VRAM 使用量・CPU 使用率を表示. 30 フレームごとに更新. ([#424](https://github.com/kurorosu/pochidetection/pull/424))
   - `psutil`, `nvidia-ml-py` を依存に追加. `ResourceUsage` dataclass と `get_resource_usage()` を `utils/resource_monitor.py` に実装.
@@ -19,31 +33,8 @@
 - 無し
 
 ### Fixed
-- ストリーム録画の再生時間が実際の録画時間と一致しない問題を修正. `LazyVideoWriter` を導入し, 最初の 100 フレームで実測 fps を推定して VideoWriter を初期化する方式に変更. N/A.
+- ストリーム録画の再生時間が実際の録画時間と一致しない問題を修正. `LazyVideoWriter` を導入し, 最初の 100 フレームで実測 fps を推定して VideoWriter を初期化する方式に変更. ([#433](https://github.com/kurorosu/pochidetection/pull/433))
   - 録画中の REC インジケーターに経過時間 (`REC MM:SS`) を表示.
-
-### Removed
-- 無し
-
-## v0.14.1 (2026-03-22)
-
-### Added
-- 無し
-
-### Changed
-- `build_data_loaders()` から augmentation 設定ロジックを分離し, `_apply_augmentation_to_dataset()` トップレベル関数に切り出し. `build_data_loaders()` のシグネチャを簡素化. ([#410](https://github.com/kurorosu/pochidetection/pull/410))
-- `_run_stream_infer()` と `_run_video_infer()` のモデル解決・パイプライン構築ロジックを `_resolve_and_setup_pipeline()` に共通化. ([#411](https://github.com/kurorosu/pochidetection/pull/411))
-- `_ResolvedPipeline.ctx` の型注釈を `Any` から `PipelineContext` に変更. `cli/registry.py` の `PipelineContext` インポートを `TYPE_CHECKING` ブロックに移動し循環インポートを解消. ([#416](https://github.com/kurorosu/pochidetection/pull/416))
-- 画像推論 (`infer()`) のプリトレイン判定ロジックを `_resolve_and_setup_pipeline()` に統合. ([#419](https://github.com/kurorosu/pochidetection/pull/419))
-- `SetupPipelineFn` の二重定義を `scripts/common/types.py` に集約. `_resolve_and_setup_pipeline()` を `cli/commands/infer.py` → `scripts/common/inference.py` に移動し, 下位→上位層の遅延インポートを解消. ([#420](https://github.com/kurorosu/pochidetection/pull/420))
-- `resolve_and_setup_pipeline()` 内の遅延インポート (`resolve_setup_pipeline`, `PRETRAINED_CONFIG_PATH`, `ConfigLoader`) をトップレベルに移動. 循環回避のための遅延インポートがゼロに. ([#421](https://github.com/kurorosu/pochidetection/pull/421))
-  - `inference.py` と `work_dir.py` の不要な遅延インポートを削除.
-  - `augmentation.py` の `ImageDraw` をトップレベルに移動.
-  - 正当な遅延インポートに why コメントを追加.
-
-### Fixed
-- `StreamReader.apply_camera_settings()` で `logger=None` 時にカメラ設定 (`cap.set()`) が適用されないバグを修正. logger チェックをログ出力部分のみに分離. ([#408](https://github.com/kurorosu/pochidetection/pull/408))
-- `InferenceSaver.save_crops()` で bbox が画像外にはみ出す場合のクリッピングを追加. 面積ゼロの bbox はスキップ. ([#409](https://github.com/kurorosu/pochidetection/pull/409))
 
 ### Removed
 - 無し
