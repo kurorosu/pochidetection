@@ -14,6 +14,7 @@ from pochidetection.scripts.common.summary import (
 from pochidetection.scripts.common.video import (
     CompositeSink,
     DisplaySink,
+    LazyVideoWriter,
     StreamReader,
     VideoReader,
     VideoWriter,
@@ -27,6 +28,7 @@ __all__ = [
     "DetectionSummary",
     "DisplaySink",
     "InferenceSaver",
+    "LazyVideoWriter",
     "StreamReader",
     "VideoReader",
     "VideoWriter",
