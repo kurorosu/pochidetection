@@ -32,7 +32,7 @@ infer_score_threshold = 0.5
 nms_iou_threshold = 0.5
 
 # カメラ設定 (Webcam リアルタイム推論用)
-camera_fps = 60  # カメラ FPS (None でカメラのデフォルトを使用)
+camera_fps = 60.0  # カメラ FPS (None でカメラのデフォルトを使用)
 camera_resolution = [640, 480]  # カメラ解像度 [width, height] (None でデフォルト)
 
 # ワークスペース設定

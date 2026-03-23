@@ -8,6 +8,8 @@ import pytest
 import torch
 
 from pochidetection.models import SSDLiteModel
+
+pytestmark = pytest.mark.slow
 from pochidetection.onnx import SSDLiteOnnxExporter
 
 from .conftest import SSDLITE_INPUT_SIZE

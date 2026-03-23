@@ -17,6 +17,10 @@ from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.scripts.common.visualizer import Visualizer
+from pochidetection.utils.resource_monitor import (
+    format_resource_lines,
+    get_resource_usage,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,11 +243,24 @@ class DisplaySink(IFrameSink):
         """
         self._window_name = window_name
         self._cap = cap
+        self._overlay_visible = False
+        self._help_visible = True
+
+    @property
+    def overlay_visible(self) -> bool:
+        """オーバーレイの表示状態."""
+        return self._overlay_visible
+
+    @property
+    def help_visible(self) -> bool:
+        """キーバインドヘルプの表示状態."""
+        return self._help_visible
 
     def write(self, frame: np.ndarray) -> None:
-        """フレームを表示し, q キーで StopIteration を raise.
+        """フレームを表示し, キー入力を処理する.
 
-        s キーが押された場合, Windows のカメラ設定ダイアログを表示する.
+        q: 終了 (StopIteration), s: カメラ設定 (Windows),
+        o: オーバーレイ切替, h: ヘルプ切替.
 
         Args:
             frame: BGR 形式の画像フレーム.
@@ -257,6 +274,10 @@ class DisplaySink(IFrameSink):
             raise StopIteration
         if key == ord("s") and self._cap is not None:
             self._cap.set(cv2.CAP_PROP_SETTINGS, 0)
+        if key == ord("o"):
+            self._overlay_visible = not self._overlay_visible
+        if key == ord("h"):
+            self._help_visible = not self._help_visible
 
     def release(self) -> None:
         """ウィンドウを破棄する."""
@@ -329,6 +350,147 @@ class VideoWriter(IFrameSink):
         self._writer.release()
 
 
+class LazyVideoWriter(IFrameSink):
+    """実測 fps で VideoWriter を遅延初期化する IFrameSink 実装.
+
+    最初の N フレームをバッファに溜めて実測 fps を推定し,
+    その fps で VideoWriter を初期化する.
+    バッファ内のフレームは初期化後に一括書き出しされる.
+
+    Attributes:
+        _path: 出力動画ファイルのパス.
+        _warmup_frames: fps 推定に使うフレーム数.
+        _buffer: ウォームアップ中のフレームバッファ.
+        _warmup_start: ウォームアップ開始時刻.
+        _writer: 初期化済みの VideoWriter (ウォームアップ完了後).
+        _estimated_fps: 推定された fps.
+    """
+
+    _DEFAULT_WARMUP_FRAMES = 100
+
+    def __init__(self, path: Path, warmup_frames: int | None = None) -> None:
+        """初期化.
+
+        Args:
+            path: 出力動画ファイルのパス.
+            warmup_frames: fps 推定に使うフレーム数.
+                None の場合はデフォルト値 (10) を使用.
+        """
+        self._path = path
+        self._warmup_frames = warmup_frames or self._DEFAULT_WARMUP_FRAMES
+        self._buffer: list[np.ndarray] = []
+        self._warmup_start: float = 0.0
+        self._writer: cv2.VideoWriter | None = None
+        self._estimated_fps: float = 0.0
+        self._recording_start: float | None = None
+
+    @property
+    def estimated_fps(self) -> float:
+        """推定された fps."""
+        return self._estimated_fps
+
+    def write(self, frame: np.ndarray) -> None:
+        """フレームを書き出す.
+
+        ウォームアップ中はバッファに溜め, 完了後に VideoWriter を
+        初期化してバッファを一括書き出しする.
+
+        Args:
+            frame: BGR 形式の画像フレーム.
+        """
+        if self._writer is not None:
+            self._writer.write(frame)
+            return
+
+        if len(self._buffer) == 0:
+            self._warmup_start = time.monotonic()
+
+        self._buffer.append(frame.copy())
+
+        if len(self._buffer) >= self._warmup_frames:
+            elapsed = time.monotonic() - self._warmup_start
+            self._estimated_fps = len(self._buffer) / elapsed if elapsed > 0 else 30.0
+
+            h, w = self._buffer[0].shape[:2]
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            self._writer = cv2.VideoWriter(
+                str(self._path), fourcc, self._estimated_fps, (w, h)
+            )
+
+            # ウォームアップ完了時刻 = 録画の実質開始時刻.
+            # REC 表示の経過時間はこの時点を起点にする.
+            # ウォームアップ中のフレームはバッファに溜められ一括書き出しされるが,
+            # 動画ファイルの再生時間にはウォームアップ期間も含まれるため,
+            # ウォームアップ開始時刻を録画開始時刻とする.
+            self._recording_start = self._warmup_start
+
+            for buffered in self._buffer:
+                self._writer.write(buffered)
+            self._buffer.clear()
+
+    @property
+    def recording_start(self) -> float | None:
+        """録画開始時刻 (monotonic). ウォームアップ未完了時は None."""
+        return self._recording_start
+
+    def release(self) -> None:
+        """リソースを解放する.
+
+        ウォームアップ中に終了した場合は, バッファ内フレームを
+        デフォルト fps (30) で書き出す.
+        """
+        if self._writer is None and self._buffer:
+            elapsed = time.monotonic() - self._warmup_start
+            self._estimated_fps = len(self._buffer) / elapsed if elapsed > 0 else 30.0
+            h, w = self._buffer[0].shape[:2]
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            self._writer = cv2.VideoWriter(
+                str(self._path), fourcc, self._estimated_fps, (w, h)
+            )
+            for buffered in self._buffer:
+                self._writer.write(buffered)
+            self._buffer.clear()
+
+        if self._writer is not None:
+            self._writer.release()
+
+
+def _find_lazy_writer(sink: IFrameSink) -> LazyVideoWriter | None:
+    """シンクツリーから LazyVideoWriter を探す.
+
+    Args:
+        sink: 検索対象のシンク.
+
+    Returns:
+        LazyVideoWriter インスタンス. 見つからない場合は None.
+    """
+    if isinstance(sink, LazyVideoWriter):
+        return sink
+    if isinstance(sink, CompositeSink):
+        for s in sink._sinks:
+            if isinstance(s, LazyVideoWriter):
+                return s
+    return None
+
+
+def _find_display_sink(sink: IFrameSink) -> DisplaySink | None:
+    """シンクツリーから DisplaySink を探す.
+
+    Args:
+        sink: 検索対象のシンク.
+
+    Returns:
+        DisplaySink インスタンス. 見つからない場合は None.
+    """
+    if isinstance(sink, DisplaySink):
+        return sink
+    if isinstance(sink, CompositeSink):
+        for s in sink._sinks:
+            if isinstance(s, DisplaySink):
+                return s
+    return None
+
+
 def process_frames(
     source: IFrameSource,
     sink: IFrameSink,
@@ -337,6 +499,7 @@ def process_frames(
     *,
     interval: int = 1,
     overlay_fps: bool = False,
+    recording: bool = False,
     logger: logging.Logger,
 ) -> FrameProcessingResult:
     """フレーム単位で推論・描画・書き出しを行う.
@@ -351,6 +514,7 @@ def process_frames(
         visualizer: 検出結果の描画.
         interval: N フレーム間隔で推論 (1 = 全フレーム処理).
         overlay_fps: True の場合, フレーム左上に実測 FPS を描画.
+        recording: True の場合, オーバーレイに "REC" を赤文字で表示.
         logger: ロガー.
 
     Returns:
@@ -360,6 +524,8 @@ def process_frames(
     processed = 0
     frame_idx = 0
     start_time = time.monotonic()
+    display_sink = _find_display_sink(sink)
+    lazy_writer = _find_lazy_writer(sink)
 
     # フレーム外フェーズの累積計測用
     capture_total_ms = 0.0
@@ -369,6 +535,10 @@ def process_frames(
     last_draw_ms = 0.0
     last_display_ms = 0.0
     last_e2e_fps = 0.0
+
+    # リソース使用状況 (N フレームごとに更新して負荷を抑える)
+    _RESOURCE_UPDATE_INTERVAL = 30
+    resource_lines: list[str] = []
     display_end = time.monotonic()
 
     try:
@@ -400,7 +570,11 @@ def process_frames(
             draw_total_ms += last_draw_ms
 
             # FPS オーバーレイ (前フレームの E2E FPS を表示)
-            if overlay_fps:
+            # o キーでトグル可能 (DisplaySink が存在する場合)
+            overlay_visible = (
+                display_sink.overlay_visible if display_sink is not None else True
+            )
+            if overlay_fps and overlay_visible:
                 lines = [f"FPS: {last_e2e_fps:.1f}"]
                 lines.append(f"capture: {last_capture_ms:.1f}ms")
 
@@ -416,7 +590,29 @@ def process_frames(
                 lines.append(f"draw: {last_draw_ms:.1f}ms")
                 lines.append(f"display: {last_display_ms:.1f}ms")
 
+                # リソース使用状況 (N フレームごとに更新)
+                if processed % _RESOURCE_UPDATE_INTERVAL == 0:
+                    resource_lines = format_resource_lines(get_resource_usage())
+                lines.extend(resource_lines)
+
                 _draw_overlay_text(result_bgr, lines)
+
+                if recording:
+                    # 録画経過時間は LazyVideoWriter のウォームアップ開始時点から計測.
+                    # ウォームアップ中のフレームも動画ファイルに含まれるため,
+                    # start_time ではなく recording_start を使用する.
+                    rec_start = (
+                        lazy_writer.recording_start
+                        if lazy_writer is not None
+                        and lazy_writer.recording_start is not None
+                        else start_time
+                    )
+                    rec_elapsed = time.monotonic() - rec_start
+                    _draw_rec_indicator(result_bgr, lines, rec_elapsed)
+
+            # キーバインドヘルプ (o キーとは独立, h キーでトグル)
+            if display_sink is not None and display_sink.help_visible:
+                _draw_help_text(result_bgr)
 
             # display 計測
             display_start = time.monotonic()
@@ -494,6 +690,65 @@ def _draw_overlay_text(
         cv2.putText(frame, line, (x, y), font, font_scale, (255, 255, 255), 3)
         # 黒文字
         cv2.putText(frame, line, (x, y), font, font_scale, (0, 0, 0), 1)
+
+
+def _draw_rec_indicator(
+    frame: np.ndarray,
+    overlay_lines: list[str],
+    elapsed_seconds: float,
+    *,
+    x: int = 10,
+    y_start: int = 20,
+    line_height: int = 20,
+    font_scale: float = 0.5,
+) -> None:
+    """オーバーレイの最下段に赤文字で "REC MM:SS" を描画する.
+
+    Args:
+        frame: BGR 形式の画像フレーム.
+        overlay_lines: 既に描画済みのオーバーレイ行 (y 座標計算用).
+        elapsed_seconds: 録画開始からの経過秒数.
+        x: テキストの x 座標.
+        y_start: 最初の行の y 座標.
+        line_height: 行間のピクセル数.
+        font_scale: フォントスケール.
+    """
+    minutes = int(elapsed_seconds) // 60
+    seconds = int(elapsed_seconds) % 60
+    rec_text = f"REC {minutes:02d}:{seconds:02d}"
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    y = y_start + len(overlay_lines) * line_height
+    # 白アウトライン
+    cv2.putText(frame, rec_text, (x, y), font, font_scale, (255, 255, 255), 3)
+    # 赤文字 (BGR)
+    cv2.putText(frame, rec_text, (x, y), font, font_scale, (0, 0, 255), 1)
+
+
+_HELP_TEXT = "q:Quit  s:Settings  o:Status  h:Help"
+
+
+def _draw_help_text(
+    frame: np.ndarray,
+    *,
+    font_scale: float = 0.5,
+    margin: int = 10,
+) -> None:
+    """画面右下にキーバインドヘルプを白縁取り + 黒文字で描画する.
+
+    Args:
+        frame: BGR 形式の画像フレーム.
+        font_scale: フォントスケール.
+        margin: 右下からのマージン (px).
+    """
+    h, w = frame.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text_size = cv2.getTextSize(_HELP_TEXT, font, font_scale, 1)[0]
+    x = w - text_size[0] - margin
+    y = h - margin
+    # 白アウトライン
+    cv2.putText(frame, _HELP_TEXT, (x, y), font, font_scale, (255, 255, 255), 3)
+    # 黒文字
+    cv2.putText(frame, _HELP_TEXT, (x, y), font, font_scale, (0, 0, 0), 1)
 
 
 def _build_phase_summary(

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pochidetection"
-version = "0.14.1"
+version = "0.15.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -21,6 +21,8 @@ dependencies = [
     "onnx",
     "onnxruntime-gpu",
     "tensorboard>=2.14.0",
+    "psutil>=7.2.2",
+    "nvidia-ml-py>=13.595.45",
 ]
 
 [project.scripts]
@@ -49,6 +51,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
     "pytest-xdist>=3.5.0",
+    "types-psutil>=7.2.2.20260130",
 ]
 
 [tool.black]
@@ -81,7 +84,8 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v -n 6"
+addopts = "-v -n 6 -m 'not slow'"
+markers = ["slow: 時間のかかるテスト (uv run pytest -m slow で実行)"]
 filterwarnings = [
     "ignore:.*legacy TorchScript-based ONNX export.*:DeprecationWarning",
     "ignore::torch.jit.TracerWarning",

@@ -20,6 +20,7 @@ from pochidetection.scripts.common.video import (
     CompositeSink,
     DisplaySink,
     FrameProcessingResult,
+    LazyVideoWriter,
     StreamReader,
     VideoReader,
     VideoWriter,
@@ -109,9 +110,7 @@ def _run_stream_infer(
         record_path: Path | None = None
         if record:
             record_path = ctx.saver.output_dir / "recording.mp4"
-            writer = VideoWriter(
-                record_path, fps=reader.fps, frame_size=reader.frame_size
-            )
+            writer = LazyVideoWriter(record_path)
             sink = CompositeSink(sinks=[display, writer])
         else:
             sink = display
@@ -131,7 +130,14 @@ def _run_stream_infer(
                 visualizer=ctx.visualizer,
                 interval=interval,
                 overlay_fps=True,
+                recording=record,
                 logger=logger,
+            )
+
+        if record and isinstance(writer, LazyVideoWriter):
+            logger.info(
+                f"Recording saved: {record_path} "
+                f"(estimated {writer.estimated_fps:.1f} fps)"
             )
 
         # カメラプロパティを取得 (リーダー解放前)
