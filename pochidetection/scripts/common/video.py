@@ -382,6 +382,7 @@ class LazyVideoWriter(IFrameSink):
         self._warmup_start: float = 0.0
         self._writer: cv2.VideoWriter | None = None
         self._estimated_fps: float = 0.0
+        self._recording_start: float | None = None
 
     @property
     def estimated_fps(self) -> float:
@@ -416,9 +417,21 @@ class LazyVideoWriter(IFrameSink):
                 str(self._path), fourcc, self._estimated_fps, (w, h)
             )
 
+            # ウォームアップ完了時刻 = 録画の実質開始時刻.
+            # REC 表示の経過時間はこの時点を起点にする.
+            # ウォームアップ中のフレームはバッファに溜められ一括書き出しされるが,
+            # 動画ファイルの再生時間にはウォームアップ期間も含まれるため,
+            # ウォームアップ開始時刻を録画開始時刻とする.
+            self._recording_start = self._warmup_start
+
             for buffered in self._buffer:
                 self._writer.write(buffered)
             self._buffer.clear()
+
+    @property
+    def recording_start(self) -> float | None:
+        """録画開始時刻 (monotonic). ウォームアップ未完了時は None."""
+        return self._recording_start
 
     def release(self) -> None:
         """リソースを解放する.
@@ -440,6 +453,24 @@ class LazyVideoWriter(IFrameSink):
 
         if self._writer is not None:
             self._writer.release()
+
+
+def _find_lazy_writer(sink: IFrameSink) -> LazyVideoWriter | None:
+    """シンクツリーから LazyVideoWriter を探す.
+
+    Args:
+        sink: 検索対象のシンク.
+
+    Returns:
+        LazyVideoWriter インスタンス. 見つからない場合は None.
+    """
+    if isinstance(sink, LazyVideoWriter):
+        return sink
+    if isinstance(sink, CompositeSink):
+        for s in sink._sinks:
+            if isinstance(s, LazyVideoWriter):
+                return s
+    return None
 
 
 def _find_display_sink(sink: IFrameSink) -> DisplaySink | None:
@@ -494,6 +525,7 @@ def process_frames(
     frame_idx = 0
     start_time = time.monotonic()
     display_sink = _find_display_sink(sink)
+    lazy_writer = _find_lazy_writer(sink)
 
     # フレーム外フェーズの累積計測用
     capture_total_ms = 0.0
@@ -566,7 +598,17 @@ def process_frames(
                 _draw_overlay_text(result_bgr, lines)
 
                 if recording:
-                    _draw_rec_indicator(result_bgr, lines)
+                    # 録画経過時間は LazyVideoWriter のウォームアップ開始時点から計測.
+                    # ウォームアップ中のフレームも動画ファイルに含まれるため,
+                    # start_time ではなく recording_start を使用する.
+                    rec_start = (
+                        lazy_writer.recording_start
+                        if lazy_writer is not None
+                        and lazy_writer.recording_start is not None
+                        else start_time
+                    )
+                    rec_elapsed = time.monotonic() - rec_start
+                    _draw_rec_indicator(result_bgr, lines, rec_elapsed)
 
             # キーバインドヘルプ (o キーとは独立, h キーでトグル)
             if display_sink is not None and display_sink.help_visible:
@@ -653,28 +695,33 @@ def _draw_overlay_text(
 def _draw_rec_indicator(
     frame: np.ndarray,
     overlay_lines: list[str],
+    elapsed_seconds: float,
     *,
     x: int = 10,
     y_start: int = 20,
     line_height: int = 20,
     font_scale: float = 0.5,
 ) -> None:
-    """オーバーレイの最下段に赤文字で "REC" を描画する.
+    """オーバーレイの最下段に赤文字で "REC MM:SS" を描画する.
 
     Args:
         frame: BGR 形式の画像フレーム.
         overlay_lines: 既に描画済みのオーバーレイ行 (y 座標計算用).
+        elapsed_seconds: 録画開始からの経過秒数.
         x: テキストの x 座標.
         y_start: 最初の行の y 座標.
         line_height: 行間のピクセル数.
         font_scale: フォントスケール.
     """
+    minutes = int(elapsed_seconds) // 60
+    seconds = int(elapsed_seconds) % 60
+    rec_text = f"REC {minutes:02d}:{seconds:02d}"
     font = cv2.FONT_HERSHEY_SIMPLEX
     y = y_start + len(overlay_lines) * line_height
     # 白アウトライン
-    cv2.putText(frame, "REC", (x, y), font, font_scale, (255, 255, 255), 3)
+    cv2.putText(frame, rec_text, (x, y), font, font_scale, (255, 255, 255), 3)
     # 赤文字 (BGR)
-    cv2.putText(frame, "REC", (x, y), font, font_scale, (0, 0, 255), 1)
+    cv2.putText(frame, rec_text, (x, y), font, font_scale, (0, 0, 255), 1)
 
 
 _HELP_TEXT = "q:Quit  s:Settings  o:Status  h:Help"

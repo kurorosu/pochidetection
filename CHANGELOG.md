@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- `--record` オプションで録画中のストリーム推論時に, FPS オーバーレイの最下段に赤文字で `REC` を表示. ([#423](https://github.com/kurorosu/pochidetection/pull/423))
+- `--record` オプションで録画中のストリーム推論時に, FPS オーバーレイの最下段に赤文字で `REC MM:SS` (経過時間付き) を表示. ([#423](https://github.com/kurorosu/pochidetection/pull/423))
 - リアルタイム推論の FPS オーバーレイに GPU 使用率・VRAM 使用量・CPU 使用率を表示. 30 フレームごとに更新. ([#424](https://github.com/kurorosu/pochidetection/pull/424))
   - `psutil`, `nvidia-ml-py` を依存に追加. `ResourceUsage` dataclass と `get_resource_usage()` を `utils/resource_monitor.py` に実装.
 - リアルタイム推論中に `o` キーでオーバーレイの表示/非表示をトグルする機能を追加. ([#427](https://github.com/kurorosu/pochidetection/pull/427))
@@ -19,7 +19,8 @@
 - 無し
 
 ### Fixed
-- ストリーム録画の再生時間が実際の録画時間と一致しない問題を修正. `LazyVideoWriter` を導入し, 最初の 10 フレームで実測 fps を推定して VideoWriter を初期化する方式に変更. N/A.
+- ストリーム録画の再生時間が実際の録画時間と一致しない問題を修正. `LazyVideoWriter` を導入し, 最初の 100 フレームで実測 fps を推定して VideoWriter を初期化する方式に変更. N/A.
+  - 録画中の REC インジケーターに経過時間 (`REC MM:SS`) を表示.
 
 ### Removed
 - 無し
