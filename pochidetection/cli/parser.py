@@ -113,6 +113,38 @@ def _create_parser() -> argparse.ArgumentParser:
         help="ストリーム推論時に表示と同時に推論フォルダへ録画する",
     )
 
+    # WebAPI サーバー起動コマンド
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="WebAPI サーバー (FastAPI + uvicorn) を起動",
+    )
+    serve_parser.add_argument(
+        "-m",
+        "--model-path",
+        type=str,
+        required=True,
+        help="モデルディレクトリ (best/last) または .onnx / .engine ファイル",
+    )
+    serve_parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default=None,
+        help=f"設定ファイルのパス (default: モデルパスから自動検出 → {DEFAULT_CONFIG})",
+    )
+    serve_parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="バインドホスト (default: 127.0.0.1)",
+    )
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="バインドポート (default: 8000)",
+    )
+
     # エクスポートコマンド (フォルダ → ONNX, .onnx → TensorRT を自動判定)
     export_parser = subparsers.add_parser(
         "export",
