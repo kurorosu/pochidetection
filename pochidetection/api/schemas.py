@@ -68,7 +68,10 @@ class DetectRequest(BaseModel):
         default=0.5,
         ge=0.0,
         le=1.0,
-        description="検出信頼度の下限しきい値",
+        description=(
+            "検出信頼度の下限しきい値. config の infer_score_threshold と二段フィルタに"
+            "なり, 実際の下限は max(request, config) となる."
+        ),
     )
 
     @model_validator(mode="after")

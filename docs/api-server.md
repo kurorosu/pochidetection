@@ -190,6 +190,8 @@ print(requests.get(f"{BASE}/backends").json())
 | `dtype` | `str` | (default `"uint8"`) | numpy 配列の dtype (`uint8` のみ) |
 | `score_threshold` | `float` (0-1) | (default `0.5`) | 検出信頼度の下限しきい値 |
 
+> **Note**: `score_threshold` はパイプライン側の config (`infer_score_threshold`) と二段フィルタになります. リクエスト値が config 値より低い場合, 実際には config 値が下限として適用されるため, API レスポンスで得られる検出の最小 confidence は `max(request.score_threshold, config.infer_score_threshold)` となります.
+
 - 最大画像サイズ: 4096 × 4096 ピクセル
 - raw / jpeg のいずれも入力画像は **BGR** (cv2 convention) 前提. 内部で RGB に変換してパイプラインへ渡します
 - dtype は `uint8` のみ対応 (float32 はセキュリティおよびパイプライン側の前処理仕様上未対応)
