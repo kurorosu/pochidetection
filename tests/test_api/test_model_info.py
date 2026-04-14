@@ -1,29 +1,30 @@
-"""ModelHolder 注入時の /model-info, /health の応答を検証."""
+"""Engine 注入時の /model-info, /health, /backends の応答を検証."""
 
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
 from pochidetection.api import app as app_module
-from pochidetection.api.app import ModelHolder, create_app
+from pochidetection.api.app import create_app
 
 
-def _make_holder() -> ModelHolder:
-    return ModelHolder(
-        pipeline=MagicMock(),
-        config={},  # type: ignore[typeddict-item]
-        architecture="RTDetr",
-        class_names=["dog", "cat"],
-        num_classes=2,
-        input_size=(640, 640),
-        model_path="/tmp/best",
-        backend_name="pytorch",
-    )
+def _make_engine() -> MagicMock:
+    engine = MagicMock()
+    engine.backend_name = "pytorch"
+    engine.get_model_info.return_value = {
+        "architecture": "RTDetr",
+        "num_classes": 2,
+        "class_names": ["dog", "cat"],
+        "input_size": (640, 640),
+        "model_path": "/tmp/best",
+        "backend": "pytorch",
+    }
+    return engine
 
 
-def test_model_info_returns_holder_metadata() -> None:
-    """holder セット時, /model-info が architecture / num_classes / class_names を返す."""
-    app_module._holder = _make_holder()
+def test_model_info_returns_engine_metadata() -> None:
+    """Engine セット時, /model-info が architecture / num_classes / class_names を返す."""
+    app_module._engine = _make_engine()
     try:
         app = create_app(None)
         with TestClient(app) as client:
@@ -36,12 +37,12 @@ def test_model_info_returns_holder_metadata() -> None:
         assert body["input_size"] == [640, 640]
         assert body["backend"] == "pytorch"
     finally:
-        app_module._holder = None
+        app_module._engine = None
 
 
-def test_health_returns_healthy_when_holder_set() -> None:
-    """holder セット時, /health が healthy + architecture を返す."""
-    app_module._holder = _make_holder()
+def test_health_returns_healthy_when_engine_set() -> None:
+    """Engine セット時, /health が healthy + architecture を返す."""
+    app_module._engine = _make_engine()
     try:
         app = create_app(None)
         with TestClient(app) as client:
@@ -52,12 +53,12 @@ def test_health_returns_healthy_when_holder_set() -> None:
         assert body["model_loaded"] is True
         assert body["architecture"] == "RTDetr"
     finally:
-        app_module._holder = None
+        app_module._engine = None
 
 
-def test_backends_current_reflects_holder() -> None:
-    """holder セット時, /backends.current が holder.backend_name を返す."""
-    app_module._holder = _make_holder()
+def test_backends_current_reflects_engine() -> None:
+    """Engine セット時, /backends.current が engine.backend_name を返す."""
+    app_module._engine = _make_engine()
     try:
         app = create_app(None)
         with TestClient(app) as client:
@@ -65,4 +66,4 @@ def test_backends_current_reflects_holder() -> None:
         assert res.status_code == 200
         assert res.json()["current"] == "pytorch"
     finally:
-        app_module._holder = None
+        app_module._engine = None

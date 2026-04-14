@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from pochidetection import __version__
 from pochidetection.api import app as app_module
+from pochidetection.api.backends import get_available_backends
 from pochidetection.api.schemas import (
     BackendsResponse,
     HealthResponse,
@@ -19,44 +20,29 @@ API_VERSION = "v1"
 
 
 def _safe_version(package: str) -> str | None:
-    """インストール済みパッケージのバージョンを取得. 未インストールなら None."""
+    """Return installed package version or None if missing."""
     try:
         return importlib.metadata.version(package)
     except importlib.metadata.PackageNotFoundError:
         return None
 
 
-def _detect_available_backends() -> list[str]:
-    """利用可能なバックエンドを動的に検出する."""
-    available: list[str] = []
-    if _safe_version("torch") is not None:
-        available.append("pytorch")
-    if (
-        _safe_version("onnxruntime-gpu") is not None
-        or _safe_version("onnxruntime") is not None
-    ):
-        available.append("onnx")
-    if _safe_version("tensorrt") is not None:
-        available.append("tensorrt")
-    return available
-
-
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    """ヘルスチェック."""
-    if app_module._holder is None:
+    """Return server / model status."""
+    if app_module._engine is None:
         return HealthResponse(status="unhealthy", model_loaded=False)
-    holder = app_module._holder
+    info = app_module._engine.get_model_info()
     return HealthResponse(
         status="healthy",
         model_loaded=True,
-        architecture=holder.architecture,
+        architecture=info["architecture"],
     )
 
 
 @router.get("/version", response_model=VersionResponse)
 def version() -> VersionResponse:
-    """バージョン情報."""
+    """Return version info for pochidetection and the runtime backends."""
     backend_versions: dict[str, str] = {}
     for pkg in ("torch", "onnxruntime-gpu", "onnxruntime", "tensorrt"):
         v = _safe_version(pkg)
@@ -72,29 +58,29 @@ def version() -> VersionResponse:
 
 @router.get("/model-info", response_model=ModelInfoResponse)
 def model_info() -> ModelInfoResponse:
-    """モデル情報を返却する.
+    """Return loaded-model metadata.
 
     Raises:
         HTTPException: モデル未ロード時に 503 を返す.
     """
-    if app_module._holder is None:
+    if app_module._engine is None:
         raise HTTPException(status_code=503, detail="モデルが初期化されていません")
-    holder = app_module._holder
+    info = app_module._engine.get_model_info()
     return ModelInfoResponse(
-        architecture=holder.architecture,
-        num_classes=holder.num_classes,
-        class_names=holder.class_names,
-        input_size=holder.input_size,
-        model_path=holder.model_path,
-        backend=holder.backend_name,
+        architecture=info["architecture"],
+        num_classes=info["num_classes"],
+        class_names=info["class_names"],
+        input_size=info["input_size"],
+        model_path=info["model_path"],
+        backend=info["backend"],
     )
 
 
 @router.get("/backends", response_model=BackendsResponse)
 def backends() -> BackendsResponse:
-    """利用可能なバックエンド一覧と現在のバックエンドを返却する."""
-    current = app_module._holder.backend_name if app_module._holder else "none"
+    """Return available backends and the currently loaded one."""
+    current = app_module._engine.backend_name if app_module._engine else "none"
     return BackendsResponse(
-        available=_detect_available_backends(),
+        available=get_available_backends(),
         current=current,
     )
