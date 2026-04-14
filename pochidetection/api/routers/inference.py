@@ -4,6 +4,7 @@
 (デコード後の推論 + 後処理 + フィルタ) を計測する.
 """
 
+import binascii
 import time
 
 from fastapi import APIRouter, HTTPException
@@ -44,7 +45,9 @@ async def detect(request: DetectRequest) -> DetectResponse:
     try:
         serializer = _get_cached_serializer(request.format)
         image = serializer.deserialize(request.model_dump())
-    except ValueError as e:
+    except (ValueError, binascii.Error) as e:
+        # Why: base64.b64decode は不正入力で binascii.Error を投げる. ValueError と同様に
+        # クライアント起因のエラーとして 400 で返す.
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("画像デシリアライズエラー")

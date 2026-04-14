@@ -64,6 +64,24 @@ def test_detect_returns_503_when_engine_missing() -> None:
     assert res.status_code == 503
 
 
+def test_detect_returns_400_on_invalid_base64() -> None:
+    """不正な base64 (binascii.Error) は 400 で返す."""
+    _install_engine_returning([])
+    try:
+        app = create_app(None)
+        payload = {
+            "image_data": "!!!not-base64!!!",
+            "format": "raw",
+            "shape": [4, 4, 3],
+            "dtype": "uint8",
+        }
+        with TestClient(app) as client:
+            res = client.post("/api/v1/detect", json=payload)
+        assert res.status_code == 400
+    finally:
+        app_module._engine = None
+
+
 def test_detect_returns_422_when_shape_missing() -> None:
     """Raw 形式で shape 欠落は 422 (Pydantic バリデーション)."""
     _install_engine_returning([])
