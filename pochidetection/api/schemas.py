@@ -1,6 +1,11 @@
-"""API レスポンススキーマ."""
+"""API リクエスト/レスポンスのスキーマ定義."""
 
-from pydantic import BaseModel, Field
+from typing import Literal, Self
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+_ALLOWED_DTYPES: frozenset[str] = frozenset({"uint8"})
+MAX_PIXELS: int = 4096 * 4096
 
 
 class HealthResponse(BaseModel):
@@ -37,3 +42,91 @@ class BackendsResponse(BaseModel):
 
     available: list[str] = Field(description="この環境で利用可能なバックエンド一覧")
     current: str = Field(description="現在ロード中のバックエンド. 未ロード時は 'none'")
+
+
+class DetectRequest(BaseModel):
+    """検出リクエスト.
+
+    cv2 / PIL でキャプチャした numpy 配列を base64 エンコードして送信する.
+    format で raw (生配列) / jpeg (圧縮) を切り替える.
+    """
+
+    image_data: str = Field(description="base64 エンコードされた画像データ")
+    format: Literal["raw", "jpeg"] = Field(
+        default="raw",
+        description="画像データ形式",
+    )
+    shape: list[int] | None = Field(
+        default=None,
+        description="numpy 配列の shape (raw 形式時に必須, 例: [480, 640, 3])",
+    )
+    dtype: str = Field(
+        default="uint8",
+        description="numpy 配列の dtype (raw 形式時に使用, uint8 のみ)",
+    )
+    score_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "検出信頼度の下限しきい値. config の infer_score_threshold と二段フィルタに"
+            "なり, 実際の下限は max(request, config) となる."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_raw_format(self) -> Self:
+        """Raw フォーマット時に shape が必須であることを検証する."""
+        if self.format == "raw" and self.shape is None:
+            raise ValueError("raw フォーマットでは shape が必須です")
+        if self.format == "raw" and self.shape is not None and len(self.shape) != 3:
+            raise ValueError("shape は [height, width, 3] の形式である必要があります")
+        if self.format == "raw" and self.shape is not None and len(self.shape) == 3:
+            height, width = self.shape[0], self.shape[1]
+            if height * width > MAX_PIXELS:
+                raise ValueError(
+                    f"画像サイズが上限を超えています: {height}x{width} "
+                    f"(上限: {MAX_PIXELS} ピクセル)"
+                )
+        return self
+
+    @field_validator("dtype")
+    @classmethod
+    def validate_dtype(cls, v: str) -> str:
+        """Dtype が許可されたホワイトリストに含まれることを検証する."""
+        if v not in _ALLOWED_DTYPES:
+            allowed = ", ".join(sorted(_ALLOWED_DTYPES))
+            raise ValueError(
+                f"許可されていない dtype: {v}. "
+                f"次のいずれかを指定してください: {allowed}"
+            )
+        return v
+
+
+class DetectionDict(BaseModel):
+    """検出結果 1 件."""
+
+    class_id: int = Field(description="クラス ID")
+    class_name: str = Field(description="クラス名")
+    confidence: float = Field(ge=0.0, le=1.0, description="信頼度")
+    bbox: list[float] = Field(
+        description="バウンディングボックス [x1, y1, x2, y2] (元画像座標系, ピクセル)",
+    )
+
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox_length(cls, v: list[float]) -> list[float]:
+        """Bbox が 4 要素であることを検証する."""
+        if len(v) != 4:
+            raise ValueError(
+                f"bbox は 4 要素である必要があります. 受け取った: {len(v)}"
+            )
+        return v
+
+
+class DetectResponse(BaseModel):
+    """検出レスポンス."""
+
+    detections: list[DetectionDict] = Field(description="検出結果のリスト")
+    e2e_time_ms: float = Field(description="エンドツーエンド処理時間 (ミリ秒)")
+    backend: str = Field(description="使用バックエンド")

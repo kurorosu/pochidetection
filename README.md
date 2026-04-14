@@ -18,6 +18,7 @@
 - **学習の可視化**: Loss 曲線, mAP 曲線, PR 曲線を HTML で自動出力
 - **Early Stopping**: mAP または val_loss を監視し, 改善がなければ学習を自動停止
 - **CLI ツール**: コマンドひとつで学習・推論・エクスポートを実行
+- **WebAPI サーバー**: FastAPI ベースの推論 API (`pochi serve`) で base64 画像から検出結果を REST 取得
 
 ## クイックスタート
 
@@ -240,6 +241,35 @@ uv run pochi export -m model.onnx --build-memory 2147483648
 
 INT8 キャリブレーション画像は config の `infer_image_dir` から取得されます.
 
+### 10. WebAPI サーバー (`pochi serve`)
+
+FastAPI + uvicorn ベースの推論 API サーバーを起動し, base64 エンコードされた画像を POST して検出結果 (bbox, class, confidence) を取得できます.
+
+```bash
+# PyTorch モデル
+uv run pochi serve -m work_dirs/20260124_001/best
+
+# ONNX / TensorRT モデル (拡張子でバックエンド自動判定)
+uv run pochi serve -m work_dirs/20260124_001/best/model_fp32.onnx
+uv run pochi serve -m work_dirs/20260124_001/best/model_fp32.engine
+
+# 動作確認
+curl http://localhost:8000/api/v1/health
+curl http://localhost:8000/api/v1/model-info
+```
+
+主なエンドポイント:
+
+| メソッド | パス | 用途 |
+|---|---|---|
+| `POST` | `/api/v1/detect` | 画像から検出結果を取得 (bbox, class, confidence) |
+| `GET` | `/api/v1/health` | サーバー / モデル状態 |
+| `GET` | `/api/v1/model-info` | アーキテクチャ・クラス名・入力サイズ |
+| `GET` | `/api/v1/version` | pochidetection / backend ライブラリのバージョン |
+| `GET` | `/api/v1/backends` | 利用可能 / 現在のバックエンド |
+
+リクエスト例, レスポンス形式, エラーハンドリングの詳細は [docs/api-server.md](docs/api-server.md) を参照してください.
+
 ## サポート機能
 
 ### モデル
@@ -273,6 +303,7 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 - **TensorRT エクスポート**: ONNX モデルから TensorRT エンジンへの変換 (FP32/FP16/INT8, Dynamic Batching 対応)
 - **TensorRT 推論**: RT-DETR / SSDLite 両対応. `.engine` ファイル指定で自動選択
 - **INT8 Post-Training Quantization**: `INT8Calibrator` によるキャリブレーション付き INT8 エンジンビルド
+- **WebAPI サーバー**: `pochi serve` で FastAPI + uvicorn 起動. `POST /api/v1/detect` で base64 (raw / jpeg) 画像から検出結果を返却. `score_threshold` 指定可, PyTorch / ONNX / TensorRT 3 バックエンドを拡張子で自動選択
 
 ## 注意点
 

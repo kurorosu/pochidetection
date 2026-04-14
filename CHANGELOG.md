@@ -6,12 +6,18 @@
 ## [Unreleased]
 
 ### Added
-- WebAPI 基盤を追加. `pochi serve -m <model_path>` で FastAPI + uvicorn による推論 API サーバーを起動可能. (NA.)
+- WebAPI 基盤を追加. `pochi serve -m <model_path>` で FastAPI + uvicorn による推論 API サーバーを起動可能. ([#439](https://github.com/kurorosu/pochidetection/pull/439))
   - `pochidetection/api/` モジュール (`app.py`, `config.py`, `schemas.py`, `routers/health.py`) を新規作成.
   - メタ情報 4 エンドポイント: `GET /api/v1/health`, `/version`, `/model-info`, `/backends` を実装.
   - 起動時 lifespan で `resolve_and_setup_pipeline` 経由でモデルロード + ダミー画像で warmup 推論を実行.
   - `fastapi>=0.135.0`, `uvicorn[standard]>=0.43.0` を依存に追加.
   - 推論バックエンド抽象 (`IDetectionBackend`) と `/detect` エンドポイントは Issue #436 で追加予定.
+- 検出エンドポイント `POST /api/v1/detect` を追加. base64 エンコードされた画像 (raw / jpeg) を受け取り, 検出結果 (bbox, class, confidence) を返却. (NA.)
+  - `IDetectionBackend` 抽象と 3 backend (`PyTorchDetectionBackend`, `OnnxDetectionBackend`, `TrtDetectionBackend`) を `api/backends.py` に実装. 既存 `IDetectionPipeline` を内部でラップ.
+  - `api/serializers.py` に `RawArraySerializer` / `JpegSerializer` を追加.
+  - `DetectRequest` (score_threshold 対応) / `DetectionDict` (bbox `[x1,y1,x2,y2]`) / `DetectResponse` を `api/schemas.py` に追加.
+  - `#435` で導入した `ModelHolder` を `IDetectionBackend` に置換. `/model-info`, `/backends` は engine 参照に書き換え.
+  - `docs/api-server.md` に raw / jpeg リクエスト例, レスポンス形式, エラーコード一覧, バックエンド自動判定の仕様を追記. README.md にも `pochi serve` の概要とエンドポイント一覧を追加.
 
 ### Changed
 - 無し
