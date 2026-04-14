@@ -9,7 +9,8 @@ from typing import Any
 
 import uvicorn
 
-from pochidetection.api.app import create_app
+from pochidetection.api import app as app_module
+from pochidetection.api.app import build_engine, create_app
 from pochidetection.api.config import ServerConfig
 from pochidetection.logging import LoggerManager
 from pochidetection.logging.logger_manager import COLORLOG_AVAILABLE
@@ -108,7 +109,25 @@ def run_serve(args: argparse.Namespace) -> None:
         port=args.port,
     )
 
-    app = create_app(server_config)
+    # uvicorn 起動前にモデルロード + warmup を実行し, 失敗時はトレースバックを
+    # 抑制してクリーンに終了する (lifespan 失敗時の traceback 抑止).
+    try:
+        engine = build_engine(server_config)
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"モデルロードに失敗しました: {e}")
+        return
+
+    try:
+        logger.info("Running warmup inference...")
+        engine.warmup()
+        logger.info("Warmup complete")
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Warmup 推論に失敗しました: {e}")
+        engine.close()
+        return
+
+    app_module._engine = engine
+    app = create_app()
 
     logger.info(
         f"Starting WebAPI server: http://{server_config.host}:{server_config.port}"

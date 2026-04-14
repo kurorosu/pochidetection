@@ -30,7 +30,7 @@ def get_engine() -> IDetectionBackend:
     return _engine
 
 
-def _build_engine(server_config: ServerConfig) -> IDetectionBackend:
+def build_engine(server_config: ServerConfig) -> IDetectionBackend:
     """Load config and build the backend for the given server config."""
     config_path = resolve_config_path(
         config=str(server_config.config_path) if server_config.config_path else None,
@@ -56,7 +56,7 @@ def _create_lifespan(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         global _engine
 
-        _engine = _build_engine(server_config)
+        _engine = build_engine(server_config)
         info = _engine.get_model_info()
         logger.info(
             f"Model loaded: architecture={info['architecture']}, "
