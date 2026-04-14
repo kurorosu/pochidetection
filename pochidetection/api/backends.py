@@ -65,7 +65,7 @@ class IDetectionBackend(ABC):
 
     def __init__(
         self,
-        pipeline: IDetectionPipeline,  # type: ignore[type-arg]
+        pipeline: IDetectionPipeline[Any, Any],
         config: DetectionConfigDict,
         model_path: Path,
     ) -> None:
@@ -76,7 +76,7 @@ class IDetectionBackend(ABC):
         self._class_names: list[str] = list(config.get("class_names") or [])
 
     @property
-    def pipeline(self) -> IDetectionPipeline:  # type: ignore[type-arg]
+    def pipeline(self) -> IDetectionPipeline[Any, Any]:
         """Return the wrapped detection pipeline."""
         return self._pipeline
 

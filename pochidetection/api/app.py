@@ -50,7 +50,13 @@ def build_engine(server_config: ServerConfig) -> IDetectionBackend:
 def _create_lifespan(
     server_config: ServerConfig,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
-    """Create the lifespan context manager bound to the server config."""
+    """Create the lifespan context manager bound to the server config.
+
+    Note:
+        `pochi serve` CLI は ``run_serve`` 側で uvicorn 起動前にモデルロードを済ませ,
+        ``create_app()`` (lifespan なし) を使用する. 本 lifespan はプログラマティック
+        起動 (`create_app(server_config)`) とテスト用途のために残している.
+    """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
