@@ -27,6 +27,7 @@ from pochidetection.scripts.common.inference import (
 from pochidetection.scripts.common.inference import infer as common_infer
 from pochidetection.scripts.common.inference import (
     resolve_device,
+    resolve_pipeline_mode,
     setup_cudnn_benchmark,
 )
 from pochidetection.scripts.ssd.inference import SsdPipeline
@@ -137,6 +138,7 @@ def _setup_pipeline(
     )
 
     actual_device, runtime_device = resolve_device(model_path, config, backend)
+    pipeline_mode = resolve_pipeline_mode(config.get("pipeline_mode"), model_path)
 
     transform = v2.Compose(
         [
@@ -155,6 +157,7 @@ def _setup_pipeline(
         threshold=threshold,
         use_fp16=use_fp16,
         phased_timer=phased_timer,
+        pipeline_mode=pipeline_mode,
     )
 
     return build_pipeline_context(
