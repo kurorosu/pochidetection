@@ -3,11 +3,7 @@
 RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 ベンチマークサマリーのロジックを提供する.
 
-公開 API はファイル上部にまとめ, private ヘルパーは下部に配置する.
-``__all__`` に列挙したシンボルのみが外部から import されることを想定.
 """
-
-from __future__ import annotations
 
 import logging
 from collections.abc import Callable
@@ -70,11 +66,18 @@ __all__ = [
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# 定数
 # ---------------------------------------------------------------------------
 
 PRETRAINED = Path("__pretrained__")
 """プリトレインモデル使用を示すセンチネル値."""
+
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
+
+
+# ---------------------------------------------------------------------------
+# データ構造 (NamedTuple / Protocol)
+# ---------------------------------------------------------------------------
 
 
 class PipelineContext(NamedTuple):
@@ -99,6 +102,55 @@ class ResolvedPipeline(NamedTuple):
     model_path: Path
 
 
+class _InferenceContext(Protocol):
+    """推論コンテキストのプロトコル (内部利用)."""
+
+    @property
+    def pipeline(self) -> IDetectionPipeline:
+        """推論パイプライン."""
+        ...
+
+    @property
+    def phased_timer(self) -> PhasedTimer:
+        """PhasedTimer."""
+        ...
+
+    @property
+    def saver(self) -> InferenceSaver:
+        """InferenceSaver."""
+        ...
+
+    @property
+    def label_mapper(self) -> LabelMapper | None:
+        """LabelMapper."""
+        ...
+
+    @property
+    def class_names(self) -> list[str] | None:
+        """クラス名リスト."""
+        ...
+
+    @property
+    def actual_device(self) -> str:
+        """実際のデバイス名."""
+        ...
+
+    @property
+    def precision(self) -> str:
+        """精度 (fp32/fp16)."""
+        ...
+
+    @property
+    def visualizer(self) -> Visualizer:
+        """Visualizer."""
+        ...
+
+
+# ---------------------------------------------------------------------------
+# モデルパス解決
+# ---------------------------------------------------------------------------
+
+
 def is_onnx_model(model_path: Path) -> bool:
     """モデルパスが ONNX ファイルかどうかを判定する.
 
@@ -121,6 +173,57 @@ def is_tensorrt_model(model_path: Path) -> bool:
         .engine ファイルの場合 True.
     """
     return model_path.suffix.lower() == ".engine"
+
+
+def _resolve_model_path(
+    config: DetectionConfigDict,
+    model_dir: str | None,
+) -> Path | None:
+    """モデルパスを解決.
+
+    Args:
+        config: 設定辞書.
+        model_dir: 指定されたモデルディレクトリ.
+
+    Returns:
+        モデルパス. エラー時は None.
+    """
+    if model_dir is not None:
+        model_path = Path(model_dir)
+        if not model_path.exists():
+            logger.error(f"Model not found at {model_path}")
+            return None
+        return model_path
+
+    workspace_manager = WorkspaceManager(config["work_dir"])
+    workspaces = workspace_manager.get_available_workspaces()
+
+    if not workspaces:
+        logger.info(
+            "No trained models found. Using COCO pretrained model for inference."
+        )
+        return PRETRAINED
+
+    latest_workspace = Path(str(workspaces[-1]["path"]))
+    model_path = latest_workspace / "best"
+
+    if not model_path.exists():
+        logger.error(
+            f"Best model not found at {model_path}. Please run training first."
+        )
+        return None
+
+    return model_path
+
+
+# ---------------------------------------------------------------------------
+# Backend / Pipeline 構築
+# ---------------------------------------------------------------------------
+
+# バックエンドファクトリコールバックの型
+_CreateTrtFn = Callable[[Path], IInferenceBackend[Any]]
+_CreateOnnxFn = Callable[[Path, str], IInferenceBackend[Any]]
+_CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend[Any]]
 
 
 def resolve_pipeline_mode(
@@ -340,6 +443,37 @@ def resolve_and_setup_pipeline(
     )
 
 
+# ---------------------------------------------------------------------------
+# 推論実行
+# ---------------------------------------------------------------------------
+
+
+def _collect_image_files(image_dir: str) -> list[Path] | None:
+    """画像ファイルを収集.
+
+    Args:
+        image_dir: 画像ディレクトリパス.
+
+    Returns:
+        画像ファイルリスト. エラー時は None.
+    """
+    image_dir_path = Path(image_dir)
+    if not image_dir_path.exists():
+        logger.error(f"Image directory not found: {image_dir}")
+        return None
+
+    image_files = [
+        f for f in image_dir_path.iterdir() if f.suffix.lower() in _IMAGE_EXTENSIONS
+    ]
+
+    if not image_files:
+        logger.warning(f"No image files found in {image_dir}")
+        return None
+
+    logger.info(f"Found {len(image_files)} images in {image_dir}")
+    return image_files
+
+
 def infer(
     config: DetectionConfigDict,
     image_dir: str,
@@ -370,129 +504,6 @@ def infer(
 
     all_predictions = _run_inference(image_files, ctx, save_crop=save_crop)
     _write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
-
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
-
-_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
-
-# バックエンドファクトリコールバックの型
-_CreateTrtFn = Callable[[Path], IInferenceBackend[Any]]
-_CreateOnnxFn = Callable[[Path, str], IInferenceBackend[Any]]
-_CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend[Any]]
-
-
-class _InferenceContext(Protocol):
-    """推論コンテキストのプロトコル (内部利用)."""
-
-    @property
-    def pipeline(self) -> IDetectionPipeline:
-        """推論パイプライン."""
-        ...
-
-    @property
-    def phased_timer(self) -> PhasedTimer:
-        """PhasedTimer."""
-        ...
-
-    @property
-    def saver(self) -> InferenceSaver:
-        """InferenceSaver."""
-        ...
-
-    @property
-    def label_mapper(self) -> LabelMapper | None:
-        """LabelMapper."""
-        ...
-
-    @property
-    def class_names(self) -> list[str] | None:
-        """クラス名リスト."""
-        ...
-
-    @property
-    def actual_device(self) -> str:
-        """実際のデバイス名."""
-        ...
-
-    @property
-    def precision(self) -> str:
-        """精度 (fp32/fp16)."""
-        ...
-
-    @property
-    def visualizer(self) -> Visualizer:
-        """Visualizer."""
-        ...
-
-
-def _resolve_model_path(
-    config: DetectionConfigDict,
-    model_dir: str | None,
-) -> Path | None:
-    """モデルパスを解決.
-
-    Args:
-        config: 設定辞書.
-        model_dir: 指定されたモデルディレクトリ.
-
-    Returns:
-        モデルパス. エラー時は None.
-    """
-    if model_dir is not None:
-        model_path = Path(model_dir)
-        if not model_path.exists():
-            logger.error(f"Model not found at {model_path}")
-            return None
-        return model_path
-
-    workspace_manager = WorkspaceManager(config["work_dir"])
-    workspaces = workspace_manager.get_available_workspaces()
-
-    if not workspaces:
-        logger.info(
-            "No trained models found. Using COCO pretrained model for inference."
-        )
-        return PRETRAINED
-
-    latest_workspace = Path(str(workspaces[-1]["path"]))
-    model_path = latest_workspace / "best"
-
-    if not model_path.exists():
-        logger.error(
-            f"Best model not found at {model_path}. Please run training first."
-        )
-        return None
-
-    return model_path
-
-
-def _collect_image_files(image_dir: str) -> list[Path] | None:
-    """画像ファイルを収集.
-
-    Args:
-        image_dir: 画像ディレクトリパス.
-
-    Returns:
-        画像ファイルリスト. エラー時は None.
-    """
-    image_dir_path = Path(image_dir)
-    if not image_dir_path.exists():
-        logger.error(f"Image directory not found: {image_dir}")
-        return None
-
-    image_files = [
-        f for f in image_dir_path.iterdir() if f.suffix.lower() in _IMAGE_EXTENSIONS
-    ]
-
-    if not image_files:
-        logger.warning(f"No image files found in {image_dir}")
-        return None
-
-    logger.info(f"Found {len(image_files)} images in {image_dir}")
-    return image_files
 
 
 def _run_inference(
@@ -532,6 +543,11 @@ def _run_inference(
         )
 
     return all_predictions
+
+
+# ---------------------------------------------------------------------------
+# レポート出力
+# ---------------------------------------------------------------------------
 
 
 def _write_reports(
