@@ -10,6 +10,7 @@ from torchvision.transforms import v2
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
+from pochidetection.scripts.common.preprocess import gpu_preprocess_tensor
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 
@@ -116,9 +117,8 @@ class SsdPipeline(
     def _preprocess_gpu(self, image_np: np.ndarray) -> torch.Tensor:
         """GPU 経路の前処理.
 
-        numpy RGB uint8 → uint8 tensor CHW → CPU 上で uint8 のまま resize →
-        GPU バッファに ``copy_`` で float32 化 + H2D → ``div_(255)`` で [0,1] 化.
-        バッファは動的サイズに対応し shape mismatch 時のみ再確保.
+        ``gpu_preprocess_tensor`` ヘルパーに委譲する.
+        バッファ再利用の state は本クラスが保持する.
 
         Args:
             image_np: RGB uint8 numpy 配列 (H, W, 3).
@@ -126,31 +126,14 @@ class SsdPipeline(
         Returns:
             モデル入力テンソル (1, C, H, W).
         """
-        target_h, target_w = self._image_size
-
-        tensor_uint8 = torch.from_numpy(image_np).permute(2, 0, 1)  # (C, H, W) uint8
-        if tensor_uint8.shape[1:] != (target_h, target_w):
-            tensor_uint8 = v2.functional.resize(
-                tensor_uint8,
-                [target_h, target_w],
-                interpolation=v2.InterpolationMode.BILINEAR,
-            )
-        tensor_uint8 = tensor_uint8.unsqueeze(0)  # (1, C, H, W) uint8
-
-        buf = self._gpu_input_buffer
-        if buf is None or buf.shape != tensor_uint8.shape:
-            buf = torch.empty(
-                tensor_uint8.shape, dtype=torch.float32, device=self._device
-            )
-            self._gpu_input_buffer = buf
-        # Why: copy_ は dtype 変換兼 H2D. float32 buffer に uint8 を入れることで
-        # uint8→float32 キャストと CPU→GPU 転送を 1 度の CUDA コピーで済ませる.
-        buf.copy_(tensor_uint8)
-        buf.div_(255.0)
-
-        if self._use_fp16:
-            return buf.half()
-        return buf
+        pixel_values, self._gpu_input_buffer = gpu_preprocess_tensor(
+            image_np=image_np,
+            target_hw=self._image_size,
+            device=self._device,
+            input_buffer=self._gpu_input_buffer,
+            use_fp16=self._use_fp16,
+        )
+        return pixel_values
 
     def infer(self, pixel_values: torch.Tensor) -> dict[str, torch.Tensor]:
         """推論を実行.
