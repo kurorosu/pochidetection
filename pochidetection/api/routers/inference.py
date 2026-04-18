@@ -21,6 +21,10 @@ router = APIRouter(prefix="/api/v1", tags=["inference"])
 
 _serializer_cache: dict[str, IImageSerializer] = {}
 
+# Why: リクエスト間の gap が GPU 性能に与える影響を分析するため,
+# 直前リクエスト開始時刻を保持し各リクエストで gap を算出する.
+_last_request_t: float | None = None
+
 
 def _get_cached_serializer(fmt: str) -> IImageSerializer:
     """Return a cached serializer for the given format."""
@@ -44,7 +48,12 @@ async def detect(request: DetectRequest) -> DetectResponse:
             detail="モデルがロードされていません",
         )
 
+    global _last_request_t
     t_start = time.perf_counter()
+    gap_ms: float | None = None
+    if _last_request_t is not None:
+        gap_ms = (t_start - _last_request_t) * 1000
+    _last_request_t = t_start
 
     t0 = time.perf_counter()
     data = request.model_dump()
@@ -83,10 +92,23 @@ async def detect(request: DetectRequest) -> DetectResponse:
         **{k: round(v, 3) for k, v in deserialize_phases.items()},
         **{k: round(v, 3) for k, v in predict_phases.items()},
     }
+    if gap_ms is not None:
+        phase_times["gap_since_last_request_ms"] = round(gap_ms, 3)
+
+    inference_wall = phase_times.get("pipeline_inference_ms")
+    inference_gpu = phase_times.get("pipeline_inference_gpu_ms")
+    if inference_wall is not None and inference_gpu is not None:
+        inference_breakdown = (
+            f", inference: gpu={inference_gpu:.1f} / wall={inference_wall:.1f}"
+        )
+    else:
+        inference_breakdown = ""
+
+    gap_str = f", gap={gap_ms:.0f}ms" if gap_ms is not None else ", gap=N/A"
 
     logger.info(
-        f"Detection complete: {len(detections)} objects, e2e={elapsed_ms:.1f}ms, "
-        f"phases={phase_times}"
+        f"Detection complete: {len(detections)} objects, e2e={elapsed_ms:.1f}ms"
+        f"{gap_str}{inference_breakdown}, phases={phase_times}"
     )
 
     return DetectResponse(

@@ -135,6 +135,9 @@ class DetectResponse(BaseModel):
         description=(
             "フェーズ別タイミング (ms). ボトルネック特定用. "
             "b64_decode / imdecode / cvt_color / pipeline_preprocess / "
-            "pipeline_inference / pipeline_postprocess 等."
+            "pipeline_inference / pipeline_postprocess / "
+            "pipeline_inference_gpu (CUDA Event 計測の GPU 実時間, CUDA 利用時のみ) 等. "
+            "pipeline_inference_ms と pipeline_inference_gpu_ms の差分が "
+            "Python 側の待ち時間 (GIL / asyncio / OS scheduler) の指標."
         ),
     )
