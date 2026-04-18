@@ -94,6 +94,11 @@ class LoggerManager:
     def _create_logger(self, name: str, level: LogLevel) -> logging.Logger:
         """新しいロガーを作成.
 
+        Why: ``logging.getLogger(name)`` は同名ならプロセス全体で同一インスタンスを
+        返すため, ここで ``handlers.clear()`` を呼ぶと pytest caplog など外部が
+        追加した handler も破壊してしまう. 自前 handler には ``_pochi_owned``
+        マーカを付け, 既に存在する場合は重複追加せず, 外部 handler は残す.
+
         Args:
             name: ロガー名.
             level: ログレベル.
@@ -104,12 +109,10 @@ class LoggerManager:
         logger = logging.getLogger(name)
         logger.setLevel(getattr(logging, level.value))
 
-        # 既存のハンドラーをクリア
-        logger.handlers.clear()
-
-        # ハンドラーを追加
-        handler = self._create_handler()
-        logger.addHandler(handler)
+        if not any(getattr(h, "_pochi_owned", False) for h in logger.handlers):
+            handler = self._create_handler()
+            setattr(handler, "_pochi_owned", True)
+            logger.addHandler(handler)
 
         # 親ロガーへの伝播を無効化
         logger.propagate = False

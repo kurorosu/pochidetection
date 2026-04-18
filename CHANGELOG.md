@@ -16,7 +16,8 @@
 - `pochidetection/interfaces/pipeline.py` の `typing.Union` を Python 3.12+ の `X | Y` 記法に置換. `ImageInput` 型エイリアスを PEP 695 の `type` 文に書き換え. ([#475](https://github.com/kurorosu/pochidetection/pull/475))
 - WebAPI テスト (`tests/test_api/`) のグローバル `_engine` 直接書き換えを `conftest.py` の autouse fixture で隔離. 各テストの try/finally 手動リセットを削除し, pytest-xdist 並列実行時の state 残留を防止. ([#476](https://github.com/kurorosu/pochidetection/pull/476))
 - `IDetectionModel` に `num_classes` と `model` の抽象プロパティを追加. 3 実装 (RTDetr / SSD300 / SSDLite) は既にプロパティを持つため契約の明文化のみ. ([#477](https://github.com/kurorosu/pochidetection/pull/477))
-- `IDetectionDataset` に `get_num_classes()` と `get_category_names()` の抽象メソッドを追加. `BaseCocoDataset` は既に実装済みのため契約の明文化のみ. (NA.)
+- `IDetectionDataset` に `get_num_classes()` と `get_category_names()` の抽象メソッドを追加. `BaseCocoDataset` は既に実装済みのため契約の明文化のみ. ([#478](https://github.com/kurorosu/pochidetection/pull/478))
+- `LoggerManager._create_logger` の `logger.handlers.clear()` を撤去し, 自前 handler に `_pochi_owned` マーカを付与して重複追加を回避. 外部 (pytest caplog 等) が追加した handler を破壊しない設計に修正. (NA.)
 
 ### Fixed
 - 無し

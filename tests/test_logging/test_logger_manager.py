@@ -50,3 +50,36 @@ class TestLoggerManager:
         assert logger.level == logging.DEBUG
         # 元に戻す
         manager.set_default_level(LogLevel.INFO)
+
+    def test_preserves_external_handler(self) -> None:
+        """外部が追加した handler を破壊しないことを確認.
+
+        pytest caplog 等が logger に付けた handler を ``handlers.clear()`` で
+        消していた旧挙動のリグレッション防止.
+        """
+        name = "external_handler_target"
+        external = logging.StreamHandler()
+        logging.getLogger(name).addHandler(external)
+
+        manager = LoggerManager()
+        logger = manager.get_logger(name)
+
+        assert external in logger.handlers
+
+    def test_does_not_duplicate_owned_handler(self) -> None:
+        """自前 handler (``_pochi_owned``) が重複追加されないことを確認."""
+        name = "owned_handler_check"
+        manager = LoggerManager()
+        logger = manager.get_logger(name)
+        owned_count_first = sum(
+            1 for h in logger.handlers if getattr(h, "_pochi_owned", False)
+        )
+
+        # 内部 _create_logger を再度通しても自前 handler は 1 つのまま.
+        manager._create_logger(name, LogLevel.INFO)
+        owned_count_second = sum(
+            1 for h in logger.handlers if getattr(h, "_pochi_owned", False)
+        )
+
+        assert owned_count_first == 1
+        assert owned_count_second == 1
