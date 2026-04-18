@@ -18,9 +18,12 @@
 - `IDetectionModel` に `num_classes` と `model` の抽象プロパティを追加. 3 実装 (RTDetr / SSD300 / SSDLite) は既にプロパティを持つため契約の明文化のみ. ([#477](https://github.com/kurorosu/pochidetection/pull/477))
 - `IDetectionDataset` に `get_num_classes()` と `get_category_names()` の抽象メソッドを追加. `BaseCocoDataset` は既に実装済みのため契約の明文化のみ. ([#478](https://github.com/kurorosu/pochidetection/pull/478))
 - `LoggerManager._create_logger` の `logger.handlers.clear()` を撤去し, 自前 handler に `_pochi_owned` マーカを付与して重複追加を回避. 外部 (pytest caplog 等) が追加した handler を破壊しない設計に修正. ([#479](https://github.com/kurorosu/pochidetection/pull/479))
-- RTDetr / SSD の `_preprocess_gpu` 重複を `scripts/common/preprocess.py` の `gpu_preprocess_tensor` ヘルパーに共通化. 両 Pipeline はヘルパー呼び出しに置換し buffer 再利用の state のみ保持する設計に変更. (NA.)
+- RTDetr / SSD の `_preprocess_gpu` 重複を `scripts/common/preprocess.py` の `gpu_preprocess_tensor` ヘルパーに共通化. 両 Pipeline はヘルパー呼び出しに置換し buffer 再利用の state のみ保持する設計に変更. ([#480](https://github.com/kurorosu/pochidetection/pull/480))
   - persisted buffer を常に float32 で維持. fp16 経路は戻り値 `pixel_values` のみ `.half()` キャストし, 次回 `copy_(uint8)` 時の dtype 事故を防止.
   - `tests/test_scripts/test_common_preprocess.py` にヘルパー単体テスト (shape 検証 / buffer 再利用 / fp16 / resize skip) を追加.
+- `SSD300Model` / `SSDLiteModel` の `forward` / `save` / `load` 等の共通実装を `pochidetection/models/ssd_base.py` の `SSDModelBase` に集約. サブクラスは Template Method (`_create_torchvision_model`) で torchvision factory と weights のみ提供する設計に変更. (NA.)
+  - 両サブクラスの `__init__` を撤去. default 値も基底側に寄せる.
+  - `SSDLiteModel` / `ssdlite/onnx_backend.py` / `ssdlite/tensorrt_backend.py` の `nms_iou_threshold` default を `0.55` → `0.5` に統一し, [#348](https://github.com/kurorosu/pochidetection/pull/348) 時点で残っていた統一漏れを解消. 通常経路 (`pochi train` / `pochi infer`) は config 経由で 0.5 が渡されるため実害なし.
 
 ### Fixed
 - 無し

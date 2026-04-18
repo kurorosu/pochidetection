@@ -37,7 +37,7 @@ class SSDLiteOnnxBackend(IInferenceBackend[dict[str, torch.Tensor]]):
         model_path: Path,
         num_classes: int,
         image_size: tuple[int, int],
-        nms_iou_threshold: float = 0.55,
+        nms_iou_threshold: float = 0.5,
         score_thresh: float = 0.001,
         topk_candidates: int = 300,
         detections_per_img: int = 300,

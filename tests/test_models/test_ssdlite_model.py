@@ -93,7 +93,7 @@ class TestSSDLiteModel:
 
     def test_nms_iou_threshold_default(self, ssdlite_model: SSDLiteModel) -> None:
         """デフォルトの nms_iou_threshold が torchvision に渡されることを確認."""
-        assert ssdlite_model.model.nms_thresh == 0.55
+        assert ssdlite_model.model.nms_thresh == 0.5
 
     @pytest.mark.slow
     def test_nms_iou_threshold_custom(self) -> None:
