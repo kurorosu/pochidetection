@@ -6,8 +6,8 @@ import pytest
 
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.pipelines.builder import (
-    collect_image_files,
-    resolve_model_path,
+    _collect_image_files,
+    _resolve_model_path,
     resolve_pipeline_mode,
 )
 
@@ -21,7 +21,7 @@ class TestResolveModelPath:
         model_dir.mkdir()
         config: DetectionConfigDict = {"work_dir": str(tmp_path)}
 
-        result = resolve_model_path(config, str(model_dir))
+        result = _resolve_model_path(config, str(model_dir))
 
         assert result == model_dir
 
@@ -29,7 +29,7 @@ class TestResolveModelPath:
         """model_dir が存在しない場合 None を返すことを確認."""
         config: DetectionConfigDict = {"work_dir": str(tmp_path)}
 
-        result = resolve_model_path(config, str(tmp_path / "nonexistent"))
+        result = _resolve_model_path(config, str(tmp_path / "nonexistent"))
 
         assert result is None
 
@@ -41,7 +41,7 @@ class TestResolveModelPath:
         work_dir.mkdir()
         config: DetectionConfigDict = {"work_dir": str(work_dir)}
 
-        result = resolve_model_path(config, None)
+        result = _resolve_model_path(config, None)
 
         assert result == PRETRAINED
 
@@ -53,7 +53,7 @@ class TestResolveModelPath:
         best_dir.mkdir(parents=True)
         config: DetectionConfigDict = {"work_dir": str(work_dir)}
 
-        result = resolve_model_path(config, None)
+        result = _resolve_model_path(config, None)
 
         assert result == best_dir
 
@@ -64,7 +64,7 @@ class TestResolveModelPath:
         workspace.mkdir(parents=True)
         config: DetectionConfigDict = {"work_dir": str(work_dir)}
 
-        result = resolve_model_path(config, None)
+        result = _resolve_model_path(config, None)
 
         assert result is None
 
@@ -74,7 +74,7 @@ class TestCollectImageFiles:
 
     def test_returns_none_when_dir_not_exists(self, tmp_path: Path) -> None:
         """ディレクトリが存在しない場合 None を返すことを確認."""
-        result = collect_image_files(str(tmp_path / "nonexistent"))
+        result = _collect_image_files(str(tmp_path / "nonexistent"))
 
         assert result is None
 
@@ -83,7 +83,7 @@ class TestCollectImageFiles:
         (tmp_path / "readme.txt").write_text("hello")
         (tmp_path / "data.csv").write_text("a,b")
 
-        result = collect_image_files(str(tmp_path))
+        result = _collect_image_files(str(tmp_path))
 
         assert result is None
 
@@ -93,7 +93,7 @@ class TestCollectImageFiles:
         (tmp_path / "diagram.png").write_bytes(b"\x89PNG")
         (tmp_path / "notes.txt").write_text("not an image")
 
-        result = collect_image_files(str(tmp_path))
+        result = _collect_image_files(str(tmp_path))
 
         assert result is not None
         assert len(result) == 2
@@ -105,7 +105,7 @@ class TestCollectImageFiles:
         (tmp_path / "photo.JPG").write_bytes(b"\xff\xd8")
         (tmp_path / "image.PNG").write_bytes(b"\x89PNG")
 
-        result = collect_image_files(str(tmp_path))
+        result = _collect_image_files(str(tmp_path))
 
         assert result is not None
         assert len(result) == 2
