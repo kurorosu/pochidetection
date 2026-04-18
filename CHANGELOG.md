@@ -9,7 +9,10 @@
 - 無し
 
 ### Changed
-- 無し
+- `api/gpu_clock.py` の `get_gpu_clock_mhz()` に対する単体テストを追加. pynvml 未インストール / 初期化失敗 / handle 取得失敗 / clock 取得失敗 / handle キャッシュ挙動の各分岐をカバー. ([#470](https://github.com/kurorosu/pochidetection/pull/470))
+- `IDetectionBackend` の `get_model_info` / `set_class_names` / `warmup` / `close` / `backend_name` の動作テストを追加. 既存 phase_times テストも class 単位で整理. ([#473](https://github.com/kurorosu/pochidetection/pull/473))
+- `IDetectionPipeline.pipeline_mode` プロパティの cpu / gpu 反映を RTDetr / SSD 両方で検証するテストを追加. ([#471](https://github.com/kurorosu/pochidetection/pull/471))
+- `resolve_pipeline_mode()` の入力組合せを `@pytest.mark.parametrize` で網羅. ONNX + gpu 拒否時の `ValueError` メッセージも検証. ([#472](https://github.com/kurorosu/pochidetection/pull/472))
 
 ### Fixed
 - 無し
