@@ -130,6 +130,7 @@ def _setup_pipeline(
         use_fp16=use_fp16,
         phased_timer=phased_timer,
         pipeline_mode=pipeline_mode,
+        image_size=image_size,
     )
 
     return build_pipeline_context(
