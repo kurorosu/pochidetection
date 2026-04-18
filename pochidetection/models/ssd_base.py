@@ -1,0 +1,161 @@
+"""SSD 系モデル (SSD300 / SSDLite) の共通基底クラス."""
+
+from abc import abstractmethod
+from pathlib import Path
+
+import torch
+from torchvision.models.detection.ssd import SSD
+
+from pochidetection.interfaces.model import IDetectionModel, SSDModelOutputDict
+
+
+class SSDModelBase(IDetectionModel):
+    """SSD 系モデルの共通実装を提供する基底クラス.
+
+    torchvision の SSD をラップする共通フロー (``__init__`` の背景クラス +1,
+    ``forward`` の 0-indexed ↔ 1-indexed 変換, ``save`` / ``load``) をここに集約し,
+    サブクラスは ``_create_torchvision_model`` で具象 factory 関数と weights のみ
+    提供する.
+
+    SSD は背景クラス (label=0) を内部で使用するため, torchvision に渡す
+    num_classes はユーザ指定値 +1 となる. label オフセット (+1/-1) は本クラスに
+    集約し, 外部との入出力は全て 0-indexed で統一する.
+
+    Note:
+        NMS は torchvision の SSD 内部 (``postprocess_detections``) で
+        自動適用される. ``nms_iou_threshold`` でその閾値を制御する.
+
+    Attributes:
+        _model: torchvision の SSD モデルインスタンス.
+        _num_classes: ユーザ指定のクラス数 (背景なし).
+    """
+
+    def __init__(
+        self,
+        num_classes: int,
+        pretrained: bool = True,
+        nms_iou_threshold: float = 0.5,
+    ) -> None:
+        """初期化.
+
+        Args:
+            num_classes: クラス数 (背景クラスを含まない).
+            pretrained: 事前学習済みバックボーン重みを使用するかどうか.
+            nms_iou_threshold: NMS の IoU 閾値. torchvision の nms_thresh に渡される.
+        """
+        super().__init__()
+
+        ssd_num_classes = num_classes + 1  # SSD は背景クラスを含むため +1
+        self._model: SSD = self._create_torchvision_model(
+            num_classes=ssd_num_classes,
+            nms_iou_threshold=nms_iou_threshold,
+            pretrained=pretrained,
+        )
+        self._num_classes = num_classes
+
+    @abstractmethod
+    def _create_torchvision_model(
+        self,
+        num_classes: int,
+        nms_iou_threshold: float,
+        pretrained: bool,
+    ) -> SSD:
+        """Torchvision の SSD インスタンスを生成する.
+
+        Args:
+            num_classes: 背景クラスを含むクラス数 (ユーザ指定 + 1).
+            nms_iou_threshold: torchvision に渡す nms_thresh.
+            pretrained: 事前学習済みバックボーン重みを使用するかどうか.
+
+        Returns:
+            torchvision の SSD モデルインスタンス.
+        """
+
+    def forward(
+        self,
+        pixel_values: torch.Tensor,
+        labels: list[dict[str, torch.Tensor]] | None = None,
+    ) -> SSDModelOutputDict:
+        """順伝播.
+
+        Args:
+            pixel_values: 入力画像テンソル, 形状は (B, C, H, W).
+            labels: 学習時のターゲット. 各要素は以下のキーを含む辞書:
+                - boxes: バウンディングボックス (N, 4), xyxy ピクセル座標
+                - class_labels: クラスラベル (N,), 0-indexed
+
+        Returns:
+            以下のキーを含む辞書:
+            - loss: 学習時の損失 (labels が指定された場合)
+            - predictions: 推論時の検出結果 (labels が None の場合).
+                list[dict] で各要素は boxes (M, 4), scores (M,),
+                labels (M,) を含む (0-indexed).
+        """
+        images = list(pixel_values.unbind(0))
+
+        if self._model.training and labels is not None:
+            targets = [
+                {
+                    "boxes": t["boxes"],
+                    "labels": t["class_labels"] + 1,  # 0-indexed → 1-indexed
+                }
+                for t in labels
+            ]
+            losses = self._model(images, targets)
+            return {"loss": sum(losses.values())}
+
+        detections = self._model(images)
+        predictions = []
+        for det in detections:
+            raw_labels = det["labels"] - 1  # 1-indexed → 0-indexed
+            # 背景クラス (torchvision label=0 → -1) を除去
+            fg_mask = raw_labels >= 0
+            predictions.append(
+                {
+                    "boxes": det["boxes"][fg_mask],
+                    "scores": det["scores"][fg_mask],
+                    "labels": raw_labels[fg_mask],
+                }
+            )
+        return {"predictions": predictions}
+
+    def save(self, save_dir: str | Path) -> None:
+        """モデルを state_dict 形式で保存.
+
+        Args:
+            save_dir: 保存先ディレクトリパス.
+        """
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        torch.save(self._model.state_dict(), save_dir / "model.pth")
+
+    def load(self, load_dir: str | Path) -> None:
+        """state_dict 形式のディレクトリからモデルを復元.
+
+        Args:
+            load_dir: 読み込み元ディレクトリパス.
+        """
+        state_dict = torch.load(
+            Path(load_dir) / "model.pth",
+            map_location="cpu",
+            weights_only=True,
+        )
+        self._model.load_state_dict(state_dict)
+
+    @property
+    def num_classes(self) -> int:
+        """クラス数を取得 (背景クラスを含まない).
+
+        Returns:
+            クラス数.
+        """
+        return self._num_classes
+
+    @property
+    def model(self) -> torch.nn.Module:
+        """内部モデルを取得.
+
+        Returns:
+            torchvision の SSD モデルインスタンス.
+        """
+        return self._model
