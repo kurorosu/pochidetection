@@ -6,6 +6,20 @@
 ## [Unreleased]
 
 ### Added
+- 無し
+
+### Changed
+- 無し
+
+### Fixed
+- 無し
+
+### Removed
+- 無し
+
+## v0.16.0 (2026-04-18)
+
+### Added
 - WebAPI 基盤を追加. `pochi serve -m <model_path>` で FastAPI + uvicorn による推論 API サーバーを起動可能. ([#439](https://github.com/kurorosu/pochidetection/pull/439))
   - `pochidetection/api/` モジュール (`app.py`, `config.py`, `schemas.py`, `routers/health.py`) を新規作成.
   - メタ情報 4 エンドポイント: `GET /api/v1/health`, `/version`, `/model-info`, `/backends` を実装.
@@ -28,7 +42,7 @@
 - `POST /api/v1/detect` の inference フェーズに CUDA Event 計測 (`pipeline_inference_gpu_ms`) と リクエスト間隔 (`gap_since_last_request_ms`) を追加. 真因が NVIDIA driver の adaptive clock policy であることを `nvidia-smi --lock-gpu-clocks` 検証で確定. 資料 `docs/api_detect_inference_variance_investigation.md` を最終結論で改訂. ([#452](https://github.com/kurorosu/pochidetection/pull/452))
 - `POST /api/v1/detect` の INFO ログを 1 行サマリに圧縮し可読性を改善. GPU クロック (pynvml 経由, `pochidetection/api/gpu_clock.py` 新設) もログ末尾に併記. ([#455](https://github.com/kurorosu/pochidetection/pull/455))
   - `DetectResponse.phase_times_ms` を pipeline 内訳 4 値に縮小し, serializer / backend の breakdown 計測を撤去.
-- `RTDetrPipeline` / `SsdPipeline` に GPU 上 preprocess 経路を追加し起動時オプション `--pipeline cpu/gpu` (default: `gpu`) で切替可能化. preprocess 7-12ms → 3-4ms に短縮し CLI / API / カメラ全経路で効果. ONNX backend は CPU 経路のみ対応 (gpu 明示時は起動拒否). ログ末尾に `pipeline=cpu/gpu` を併記. (NA.)
+- `RTDetrPipeline` / `SsdPipeline` に GPU 上 preprocess 経路を追加し起動時オプション `--pipeline cpu/gpu` (default: `gpu`) で切替可能化. preprocess 7-12ms → 3-4ms に短縮し CLI / API / カメラ全経路で効果. ONNX backend は CPU 経路のみ対応 (gpu 明示時は起動拒否). ログ末尾に `pipeline=cpu/gpu` を併記. ([#456](https://github.com/kurorosu/pochidetection/pull/456))
   - GPU 経路: numpy → uint8 tensor (CHW) → CPU 上で uint8 のまま resize → GPU バッファに `copy_` で float32 化 + H2D → `div_(255)` で `[0,1]` 化. バッファは shape mismatch 時のみ再確保.
   - `IDetectionPipeline.pipeline_mode` プロパティを追加 (router の INFO ログ出力用).
   - `DetectionConfigDict` / `DetectionConfig` / `ServerConfig` に `pipeline_mode` (CLI 引数の上書き対象) を追加.
@@ -39,30 +53,9 @@
 ### Removed
 - 無し
 
-## v0.15.0 (2026-03-23)
-
-### Added
-- `--record` オプションで録画中のストリーム推論時に, FPS オーバーレイの最下段に赤文字で `REC MM:SS` (経過時間付き) を表示. ([#423](https://github.com/kurorosu/pochidetection/pull/423))
-- リアルタイム推論の FPS オーバーレイに GPU 使用率・VRAM 使用量・CPU 使用率を表示. 30 フレームごとに更新. ([#424](https://github.com/kurorosu/pochidetection/pull/424))
-  - `psutil`, `nvidia-ml-py` を依存に追加. `ResourceUsage` dataclass と `get_resource_usage()` を `utils/resource_monitor.py` に実装.
-- リアルタイム推論中に `o` キーでオーバーレイの表示/非表示をトグルする機能を追加. ([#427](https://github.com/kurorosu/pochidetection/pull/427))
-- リアルタイム推論中に `h` キーで画面右下にキーバインドヘルプ (`q:Quit s:Settings o:Status h:Help`) を表示/非表示する機能を追加. 初期状態はヘルプ表示・ステータス非表示. ([#429](https://github.com/kurorosu/pochidetection/pull/429))
-- `pytest.mark.slow` マーカーを導入し, 時間のかかるテスト (CLI subprocess, TensorRT エクスポート, ONNX エクスポート, モデル新規初期化) を分類. 通常テスト実行時間を 84s → 15s に短縮 (82%削減). ([#432](https://github.com/kurorosu/pochidetection/pull/432))
-  - SSD300Model / SSDLiteModel の session スコープフィクスチャを追加し, モデル初期化コストを共有化.
-  - `tests/docs/slow_tests.md` に slow テスト一覧と理由を記載.
-
-### Changed
-- 無し
-
-### Fixed
-- ストリーム録画の再生時間が実際の録画時間と一致しない問題を修正. `LazyVideoWriter` を導入し, 最初の 100 フレームで実測 fps を推定して VideoWriter を初期化する方式に変更. ([#433](https://github.com/kurorosu/pochidetection/pull/433))
-  - 録画中の REC インジケーターに経過時間 (`REC MM:SS`) を表示.
-
-### Removed
-- 無し
-
 ## Archived Changelogs
 
+- [0.15.x](changelogs/0.15.x.md)
 - [0.14.x](changelogs/0.14.x.md)
 - [0.13.x](changelogs/0.13.x.md)
 - [0.12.x](changelogs/0.12.x.md)

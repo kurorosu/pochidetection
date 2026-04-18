@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.15.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.16.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -246,12 +246,15 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 FastAPI + uvicorn ベースの推論 API サーバーを起動し, base64 エンコードされた画像を POST して検出結果 (bbox, class, confidence) を取得できます.
 
 ```bash
-# PyTorch モデル
+# PyTorch モデル (default: --pipeline gpu)
 uv run pochi serve -m work_dirs/20260124_001/best
 
 # ONNX / TensorRT モデル (拡張子でバックエンド自動判定)
 uv run pochi serve -m work_dirs/20260124_001/best/model_fp32.onnx
 uv run pochi serve -m work_dirs/20260124_001/best/model_fp32.engine
+
+# preprocess 経路を CPU に強制 (ベンチマーク比較用)
+uv run pochi serve -m work_dirs/20260124_001/best --pipeline cpu
 
 # 動作確認
 curl http://localhost:8000/api/v1/health
@@ -267,6 +270,15 @@ curl http://localhost:8000/api/v1/model-info
 | `GET` | `/api/v1/model-info` | アーキテクチャ・クラス名・入力サイズ |
 | `GET` | `/api/v1/version` | pochidetection / backend ライブラリのバージョン |
 | `GET` | `/api/v1/backends` | 利用可能 / 現在のバックエンド |
+
+`POST /api/v1/detect` のレスポンスには `e2e_time_ms` (router 全体の wall) と `phase_times_ms` (`pipeline_preprocess_ms` / `pipeline_inference_ms` / `pipeline_postprocess_ms` + CUDA 利用時 `pipeline_inference_gpu_ms`) が含まれ, INFO ログには 1 行サマリ + GPU クロック (`clk=YYYYMHz`) + 採用経路 (`pipeline=cpu/gpu`) が併記されます.
+
+`--pipeline cpu/gpu` の挙動:
+
+| backend | `--pipeline` 未指定 | `--pipeline cpu` | `--pipeline gpu` |
+|---|---|---|---|
+| PyTorch / TensorRT | `gpu` (default) | `cpu` | `gpu` |
+| ONNX | `cpu` (自動) | `cpu` | **起動エラー** (ONNX Runtime は CPU numpy 入力のため) |
 
 リクエスト例, レスポンス形式, エラーハンドリングの詳細は [docs/api-server.md](docs/api-server.md) を参照してください.
 
@@ -304,6 +316,8 @@ curl http://localhost:8000/api/v1/model-info
 - **TensorRT 推論**: RT-DETR / SSDLite 両対応. `.engine` ファイル指定で自動選択
 - **INT8 Post-Training Quantization**: `INT8Calibrator` によるキャリブレーション付き INT8 エンジンビルド
 - **WebAPI サーバー**: `pochi serve` で FastAPI + uvicorn 起動. `POST /api/v1/detect` で base64 (raw / jpeg) 画像から検出結果を返却. `score_threshold` 指定可, PyTorch / ONNX / TensorRT 3 バックエンドを拡張子で自動選択
+- **GPU preprocess 経路**: `--pipeline cpu/gpu` で起動時切替 (PyTorch / TensorRT は default `gpu`). uint8 H2D + GPU 上 `[0,1]` 化 + 入力バッファ再利用で preprocess を 7-12ms → 3-4ms に短縮. CLI / カメラ / WebAPI 全経路で効果. ONNX backend は CPU 経路のみ対応
+- **CUDA Event 計測 + GPU クロック表示**: `/detect` の inference を CUDA Event で計測し `pipeline_inference_gpu_ms` を返却. INFO ログに pynvml 由来の GPU クロック (`clk=YYYYMHz`) を併記し adaptive clock policy による振動を可視化
 
 ## 注意点
 
