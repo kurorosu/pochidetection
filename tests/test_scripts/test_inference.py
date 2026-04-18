@@ -2,10 +2,13 @@
 
 from pathlib import Path
 
+import pytest
+
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.scripts.common.inference import (
     collect_image_files,
     resolve_model_path,
+    resolve_pipeline_mode,
 )
 
 
@@ -106,3 +109,43 @@ class TestCollectImageFiles:
 
         assert result is not None
         assert len(result) == 2
+
+
+class TestResolvePipelineMode:
+    """resolve_pipeline_mode のテスト."""
+
+    def test_pytorch_default_returns_gpu(self, tmp_path: Path) -> None:
+        """PyTorch backend (default) は requested=None で 'gpu' を返す."""
+        model_path = tmp_path / "model.pt"
+        assert resolve_pipeline_mode(None, model_path) == "gpu"
+
+    def test_tensorrt_default_returns_gpu(self, tmp_path: Path) -> None:
+        """TensorRT backend (.engine) は requested=None で 'gpu' を返す."""
+        model_path = tmp_path / "model.engine"
+        assert resolve_pipeline_mode(None, model_path) == "gpu"
+
+    def test_onnx_default_returns_cpu(self, tmp_path: Path) -> None:
+        """ONNX backend (.onnx) は requested=None で 'cpu' を返す (自動解決)."""
+        model_path = tmp_path / "model.onnx"
+        assert resolve_pipeline_mode(None, model_path) == "cpu"
+
+    def test_explicit_cpu_with_pytorch(self, tmp_path: Path) -> None:
+        """PyTorch + 明示 'cpu' は 'cpu' を返す."""
+        model_path = tmp_path / "model.pt"
+        assert resolve_pipeline_mode("cpu", model_path) == "cpu"
+
+    def test_explicit_gpu_with_tensorrt(self, tmp_path: Path) -> None:
+        """TensorRT + 明示 'gpu' は 'gpu' を返す."""
+        model_path = tmp_path / "model.engine"
+        assert resolve_pipeline_mode("gpu", model_path) == "gpu"
+
+    def test_explicit_cpu_with_onnx(self, tmp_path: Path) -> None:
+        """ONNX + 明示 'cpu' は 'cpu' を返す."""
+        model_path = tmp_path / "model.onnx"
+        assert resolve_pipeline_mode("cpu", model_path) == "cpu"
+
+    def test_explicit_gpu_with_onnx_raises_value_error(self, tmp_path: Path) -> None:
+        """ONNX + 明示 'gpu' は ValueError で起動拒否."""
+        model_path = tmp_path / "model.onnx"
+        with pytest.raises(ValueError, match="ONNX backend は --pipeline cpu のみ対応"):
+            resolve_pipeline_mode("gpu", model_path)
