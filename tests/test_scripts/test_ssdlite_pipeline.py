@@ -1,5 +1,7 @@
 """SsdPipeline のテスト."""
 
+import warnings
+
 import numpy as np
 import pytest
 import torch
@@ -348,3 +350,27 @@ class TestSsdPipelineMode:
 
         assert buf_id_1 == buf_id_2  # 同一インスタンス再利用
         assert out1.shape == out2.shape
+
+    def test_gpu_preprocess_accepts_pil_image_without_warning(self) -> None:
+        """GPU 経路で PIL Image 入力も正常動作し read-only numpy 警告が出ない.
+
+        np.asarray(PIL.Image) は read-only だが np.array() で writable copy を
+        作っているため torch.from_numpy() の警告が抑制される.
+        """
+        pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="gpu",
+        )
+        image = Image.new("RGB", (640, 480), color=(64, 128, 255))
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            pixel_values, orig_w, orig_h = pipeline.preprocess(image)
+
+        assert pixel_values.shape == (1, 3, 320, 320)
+        assert orig_w == 640
+        assert orig_h == 480
+        assert all("not writable" not in str(w.message) for w in caught)

@@ -95,8 +95,11 @@ class SsdPipeline(
             orig_w, orig_h = image.size
 
         if self._pipeline_mode == "gpu":
+            # Why: np.asarray(PIL.Image) は read-only な配列を返し,
+            # torch.from_numpy() で writable tensor を作る際に警告が出る. np.array()
+            # で writable copy を作っておく.
             if isinstance(image, Image.Image):
-                image_np = np.asarray(image)
+                image_np = np.array(image)
             else:
                 image_np = image
             return self._preprocess_gpu(image_np), orig_w, orig_h
