@@ -161,7 +161,7 @@ class SsdPipeline(
         """
         with self._measure("preprocess"):
             pixel_values, orig_w, orig_h = self.preprocess(image)
-        with self._measure("inference"):
+        with self._measure("inference"), self._measure_inference_gpu():
             pred = self.infer(pixel_values)
         with self._measure("postprocess"):
             detections = self.postprocess(pred, orig_w, orig_h)

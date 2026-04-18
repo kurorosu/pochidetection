@@ -168,7 +168,7 @@ class RTDetrPipeline(
 
         with self._measure("preprocess"):
             inputs = self.preprocess(image)
-        with self._measure("inference"):
+        with self._measure("inference"), self._measure_inference_gpu():
             pred_logits, pred_boxes = self.infer(inputs)
         with self._measure("postprocess"):
             detections = self.postprocess(pred_logits, pred_boxes, image_size)

@@ -127,6 +127,9 @@ class IDetectionBackend(ABC):
             フェーズ別所要時間は cvt_color_ms / pipeline_total_ms
             と, pipeline の PhasedTimer から pipeline_preprocess_ms /
             pipeline_inference_ms / pipeline_postprocess_ms を含む.
+            CUDA 利用時は ``pipeline_inference_gpu_ms`` (CUDA Event 計測の
+            GPU 実時間) も追加される. wall-clock との差分が Python 側の
+            待ち時間 (GIL / asyncio / OS scheduler) の指標となる.
         """
         # IDetectionPipeline は RGB を要求するため BGR から変換する.
         t0 = time.perf_counter()
@@ -150,6 +153,9 @@ class IDetectionBackend(ABC):
             phase_times["pipeline_postprocess_ms"] = pt.get_timer(
                 "postprocess"
             ).last_time_ms
+        gpu_ms = self._pipeline.last_inference_gpu_ms
+        if gpu_ms is not None:
+            phase_times["pipeline_inference_gpu_ms"] = gpu_ms
 
         results: list[dict[str, Any]] = []
         for det in raw_detections:

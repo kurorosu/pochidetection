@@ -195,6 +195,20 @@ class TestRTDetrPipelineRun:
 
         assert len(detections) == 1
 
+    def test_run_on_cpu_leaves_gpu_inference_ms_none(self) -> None:
+        """CPU 実行時は last_inference_gpu_ms が None のまま (CUDA Event 不発火)."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+        )
+        image = Image.new("RGB", (64, 64))
+
+        pipeline.run(image)
+
+        assert pipeline.last_inference_gpu_ms is None
+
 
 class TestRTDetrPipelineMethods:
     """RTDetrPipeline の個別メソッドテスト."""
