@@ -26,14 +26,14 @@
   - `SSDLiteModel` / `ssdlite/onnx_backend.py` / `ssdlite/tensorrt_backend.py` の `nms_iou_threshold` default を `0.55` → `0.5` に統一し, [#348](https://github.com/kurorosu/pochidetection/pull/348) 時点で残っていた統一漏れを解消. 通常経路 (`pochi train` / `pochi infer`) は config 経由で 0.5 が渡されるため実害なし.
   - Issue テンプレート (`.github/ISSUE_TEMPLATE/{feature,refactor,test,documentation}_request.md`) の Acceptance Criteria からチェックボックス (`- [ ]`) を撤去. 規約 (`.claude/rules/github-templates.md`) と整合させる.
 - `RTDetrPipeline` / `SsdPipeline` を `pochidetection/pipelines/` 配下に移動. ([#485](https://github.com/kurorosu/pochidetection/pull/485))
-- `scripts/common/` のライブラリ的モジュールを以下へ再配置:
+- `scripts/common/` のライブラリ的モジュールを実態に合わせて再配置. (NA.)
   - `preprocess.py` / `coco_classes.py` / `types.py` → `core/`
   - `saver.py` / `summary.py` / `detection_results_writer.py` / `visualizer.py` → `reporting/` (新設)
   - `inference.py` → `pipelines/builder.py`
   - `training.py` → `training/loop.py` (新設)
   - `video.py` → `utils/video.py`
   - `export_trt.py` → `tensorrt/export.py`
-- pipeline テスト (`test_rtdetr_pipeline.py` / `test_ssdlite_pipeline.py`) を `tests/test_pipelines/` に移動. その他テストも対応ディレクトリ (`tests/test_core/` / `tests/test_reporting/` / `tests/test_training/` 等) に同期. (NA.)
+  - pipeline テスト / 関連テストを対応ディレクトリ (`tests/test_pipelines/` / `tests/test_core/` / `tests/test_reporting/` / `tests/test_training/` 等) に同期移動.
 
 ### Fixed
 - 無し
