@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
-from pochidetection.scripts.common.coco_classes import (
+from pochidetection.core.coco_classes import (
     COCO_CLASS_NAMES,
     COCO_NUM_CLASSES,
     PRETRAINED_CONFIG_PATH,
 )
-from pochidetection.scripts.common.inference import PRETRAINED, resolve_model_path
+from pochidetection.pipelines.builder import PRETRAINED, resolve_model_path
 from pochidetection.utils import ConfigLoader
 
 

@@ -5,7 +5,7 @@ import pytest
 from PIL import Image, ImageFont
 
 from pochidetection.core.detection import Detection
-from pochidetection.scripts.common.visualizer import Visualizer
+from pochidetection.reporting.visualizer import Visualizer
 from pochidetection.visualization import ColorPalette
 
 

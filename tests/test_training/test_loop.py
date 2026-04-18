@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.scripts.common.training import (
+from pochidetection.training.loop import (
     _setup_tensorboard,
     build_early_stopping,
 )

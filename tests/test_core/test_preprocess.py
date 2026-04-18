@@ -1,9 +1,9 @@
-"""`scripts/common/preprocess.py` の単体テスト."""
+"""`pochidetection/core/preprocess.py` の単体テスト."""
 
 import numpy as np
 import torch
 
-from pochidetection.scripts.common.preprocess import gpu_preprocess_tensor
+from pochidetection.core.preprocess import gpu_preprocess_tensor
 
 
 def _sample_image(h: int = 10, w: int = 12) -> np.ndarray:

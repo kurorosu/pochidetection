@@ -1,41 +1,9 @@
-"""学習・推論の共通モジュール."""
+"""DEPRECATED: このパッケージは空です. 各モジュールは以下に移動されました.
 
-from pochidetection.scripts.common.detection_results_writer import (
-    DetectionResultRow,
-    build_detection_results,
-    write_detection_results_csv,
-)
-from pochidetection.scripts.common.saver import InferenceSaver
-from pochidetection.scripts.common.summary import (
-    DetectionSummary,
-    build_detection_summary,
-    write_detection_summary,
-)
-from pochidetection.scripts.common.video import (
-    CompositeSink,
-    DisplaySink,
-    LazyVideoWriter,
-    StreamReader,
-    VideoReader,
-    VideoWriter,
-    process_frames,
-)
-from pochidetection.scripts.common.visualizer import Visualizer
-
-__all__ = [
-    "CompositeSink",
-    "DetectionResultRow",
-    "DetectionSummary",
-    "DisplaySink",
-    "InferenceSaver",
-    "LazyVideoWriter",
-    "StreamReader",
-    "VideoReader",
-    "VideoWriter",
-    "Visualizer",
-    "build_detection_results",
-    "build_detection_summary",
-    "process_frames",
-    "write_detection_results_csv",
-    "write_detection_summary",
-]
+- `preprocess.py` / `coco_classes.py` / `types.py` → `pochidetection.core`
+- `saver.py` / `summary.py` / `detection_results_writer.py` / `visualizer.py` → `pochidetection.reporting`
+- `inference.py` → `pochidetection.pipelines.builder`
+- `training.py` → `pochidetection.training.loop`
+- `video.py` → `pochidetection.utils.video`
+- `export_trt.py` → `pochidetection.tensorrt.export`
+"""

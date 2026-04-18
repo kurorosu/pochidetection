@@ -7,7 +7,7 @@ from typing import cast
 import pytest
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.scripts.common.inference import is_onnx_model
+from pochidetection.pipelines.builder import is_onnx_model
 from pochidetection.scripts.rtdetr.infer import _load_processor
 
 
