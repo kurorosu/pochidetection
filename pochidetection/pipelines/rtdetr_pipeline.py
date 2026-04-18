@@ -10,9 +10,9 @@ from torchvision.transforms import v2
 from transformers import RTDetrImageProcessor
 
 from pochidetection.core.detection import Detection, OutputWrapper
+from pochidetection.core.preprocess import gpu_preprocess_tensor
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
-from pochidetection.scripts.common.preprocess import gpu_preprocess_tensor
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
 

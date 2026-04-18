@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pochidetection.scripts.common.coco_classes import (
+from pochidetection.core.coco_classes import (
     COCO_CLASS_NAMES,
     COCO_NUM_CLASSES,
     PRETRAINED_CONFIG_PATH,

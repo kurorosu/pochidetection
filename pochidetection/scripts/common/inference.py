@@ -14,7 +14,9 @@ from PIL import Image
 
 from pochidetection.cli.registry import resolve_setup_pipeline
 from pochidetection.configs.schemas import DetectionConfigDict
+from pochidetection.core.coco_classes import PRETRAINED_CONFIG_PATH
 from pochidetection.core.detection import Detection
+from pochidetection.core.types import SetupPipelineFn
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
@@ -27,8 +29,6 @@ from pochidetection.scripts.common import (
     write_detection_results_csv,
     write_detection_summary,
 )
-from pochidetection.scripts.common.coco_classes import PRETRAINED_CONFIG_PATH
-from pochidetection.scripts.common.types import SetupPipelineFn
 from pochidetection.utils import (
     BenchmarkResult,
     DetectionMetrics,
