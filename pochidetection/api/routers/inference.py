@@ -1,7 +1,9 @@
 """検出推論エンドポイント `POST /api/v1/detect`.
 
-`e2e_time_ms` は ``time.perf_counter()`` で ``engine.predict()`` 呼び出しの wall clock
-(デコード後の推論 + 後処理 + フィルタ) を計測する.
+`e2e_time_ms` は ``time.perf_counter()`` でリクエスト処理全体の wall clock を計測する.
+レスポンスの ``phase_times_ms`` に base64 decode / imdecode / cvt_color /
+pipeline_preprocess / pipeline_inference / pipeline_postprocess 等の
+内訳 (ms) を付与し, ボトルネック特定の DEBUG 用途にも使える.
 """
 
 import binascii
@@ -42,9 +44,16 @@ async def detect(request: DetectRequest) -> DetectResponse:
             detail="モデルがロードされていません",
         )
 
+    t_start = time.perf_counter()
+
+    t0 = time.perf_counter()
+    data = request.model_dump()
+    t1 = time.perf_counter()
+    model_dump_ms = (t1 - t0) * 1000
+
     try:
         serializer = _get_cached_serializer(request.format)
-        image = serializer.deserialize(request.model_dump())
+        image, deserialize_phases = serializer.deserialize(data)
     except (ValueError, binascii.Error) as e:
         # Why: base64.b64decode は不正入力で binascii.Error を投げる. ValueError と同様に
         # クライアント起因のエラーとして 400 で返す.
@@ -56,23 +65,33 @@ async def detect(request: DetectRequest) -> DetectResponse:
             detail="画像処理中にエラーが発生しました",
         ) from e
 
-    start = time.perf_counter()
     try:
-        detections = engine.predict(image, score_threshold=request.score_threshold)
+        detections, predict_phases = engine.predict(
+            image, score_threshold=request.score_threshold
+        )
     except Exception as e:
         logger.exception("推論エラー")
         raise HTTPException(
             status_code=500,
             detail="推論中にエラーが発生しました",
         ) from e
-    elapsed_ms = (time.perf_counter() - start) * 1000
+
+    elapsed_ms = (time.perf_counter() - t_start) * 1000
+
+    phase_times: dict[str, float] = {
+        "model_dump_ms": round(model_dump_ms, 3),
+        **{k: round(v, 3) for k, v in deserialize_phases.items()},
+        **{k: round(v, 3) for k, v in predict_phases.items()},
+    }
 
     logger.info(
-        f"Detection complete: {len(detections)} objects, e2e={elapsed_ms:.1f}ms"
+        f"Detection complete: {len(detections)} objects, e2e={elapsed_ms:.1f}ms, "
+        f"phases={phase_times}"
     )
 
     return DetectResponse(
         detections=[DetectionDict(**d) for d in detections],
         e2e_time_ms=round(elapsed_ms, 3),
         backend=engine.backend_name,
+        phase_times_ms=phase_times,
     )

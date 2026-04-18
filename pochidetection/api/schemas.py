@@ -130,3 +130,11 @@ class DetectResponse(BaseModel):
     detections: list[DetectionDict] = Field(description="検出結果のリスト")
     e2e_time_ms: float = Field(description="エンドツーエンド処理時間 (ミリ秒)")
     backend: str = Field(description="使用バックエンド")
+    phase_times_ms: dict[str, float] | None = Field(
+        default=None,
+        description=(
+            "フェーズ別タイミング (ms). ボトルネック特定用. "
+            "b64_decode / imdecode / cvt_color / pipeline_preprocess / "
+            "pipeline_inference / pipeline_postprocess 等."
+        ),
+    )

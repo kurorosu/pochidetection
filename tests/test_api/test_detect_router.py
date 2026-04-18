@@ -23,7 +23,7 @@ def _install_engine_returning(detections: list[dict]) -> None:
 
     engine = MagicMock()
     engine.backend_name = "pytorch"
-    engine.predict.return_value = detections
+    engine.predict.return_value = (detections, {})
     app_module._engine = engine
 
 
@@ -50,6 +50,8 @@ def test_detect_returns_200_with_detections() -> None:
         assert body["detections"][0]["class_name"] == "dog"
         assert body["detections"][0]["bbox"] == [1.0, 2.0, 3.0, 4.0]
         assert "e2e_time_ms" in body
+        assert "phase_times_ms" in body
+        assert "b64_decode_ms" in body["phase_times_ms"]
     finally:
         app_module._engine = None
 
@@ -103,7 +105,7 @@ def test_detect_passes_score_threshold_to_engine() -> None:
 
     engine = MagicMock()
     engine.backend_name = "pytorch"
-    engine.predict.return_value = []
+    engine.predict.return_value = ([], {})
     app_module._engine = engine
     try:
         app = create_app(None)
