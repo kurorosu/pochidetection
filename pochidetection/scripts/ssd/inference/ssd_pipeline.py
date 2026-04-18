@@ -74,9 +74,13 @@ class SsdPipeline(
         self._threshold = threshold
         self._use_fp16 = is_fp16_available(use_fp16, device)
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
+        self._gpu_input_buffer: torch.Tensor | None = None
 
     def preprocess(self, image: ImageInput) -> tuple[torch.Tensor, int, int]:
         """画像を前処理し, モデル入力テンソルを返す.
+
+        pipeline_mode='gpu' 時は GPU 経路 (uint8 H2D + GPU 上 float32/255 +
+        バッファ再利用), 'cpu' 時は従来 PIL + torchvision v2 Compose.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
@@ -87,15 +91,63 @@ class SsdPipeline(
         """
         if isinstance(image, np.ndarray):
             orig_h, orig_w = image.shape[:2]
-            image = Image.fromarray(image)
         else:
             orig_w, orig_h = image.size
+
+        if self._pipeline_mode == "gpu":
+            if isinstance(image, Image.Image):
+                image_np = np.asarray(image)
+            else:
+                image_np = image
+            return self._preprocess_gpu(image_np), orig_w, orig_h
+
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
         pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
             pixel_values = pixel_values.half()
 
         return pixel_values, orig_w, orig_h
+
+    def _preprocess_gpu(self, image_np: np.ndarray) -> torch.Tensor:
+        """GPU 経路の前処理.
+
+        numpy RGB uint8 → uint8 tensor CHW → CPU 上で uint8 のまま resize →
+        GPU バッファに ``copy_`` で float32 化 + H2D → ``div_(255)`` で [0,1] 化.
+        バッファは動的サイズに対応し shape mismatch 時のみ再確保.
+
+        Args:
+            image_np: RGB uint8 numpy 配列 (H, W, 3).
+
+        Returns:
+            モデル入力テンソル (1, C, H, W).
+        """
+        target_h, target_w = self._image_size
+
+        tensor_uint8 = torch.from_numpy(image_np).permute(2, 0, 1)  # (C, H, W) uint8
+        if tensor_uint8.shape[1:] != (target_h, target_w):
+            tensor_uint8 = v2.functional.resize(
+                tensor_uint8,
+                [target_h, target_w],
+                interpolation=v2.InterpolationMode.BILINEAR,
+            )
+        tensor_uint8 = tensor_uint8.unsqueeze(0)  # (1, C, H, W) uint8
+
+        buf = self._gpu_input_buffer
+        if buf is None or buf.shape != tensor_uint8.shape:
+            buf = torch.empty(
+                tensor_uint8.shape, dtype=torch.float32, device=self._device
+            )
+            self._gpu_input_buffer = buf
+        # Why: copy_ は dtype 変換兼 H2D. float32 buffer に uint8 を入れることで
+        # uint8→float32 キャストと CPU→GPU 転送を 1 度の CUDA コピーで済ませる.
+        buf.copy_(tensor_uint8)
+        buf.div_(255.0)
+
+        if self._use_fp16:
+            return buf.half()
+        return buf
 
     def infer(self, pixel_values: torch.Tensor) -> dict[str, torch.Tensor]:
         """推論を実行.
