@@ -42,7 +42,7 @@ def _run_trt_export(args: argparse.Namespace, config: DetectionConfigDict) -> No
         )
 
     # Why: TensorRT エクスポートは export サブコマンド時のみ必要.
-    from pochidetection.scripts.common.export_trt import export_trt
+    from pochidetection.tensorrt.export import export_trt
 
     export_trt(
         args.model_path,

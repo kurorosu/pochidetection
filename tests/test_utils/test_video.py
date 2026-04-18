@@ -13,7 +13,7 @@ from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.reporting.visualizer import Visualizer
-from pochidetection.scripts.common.video import (
+from pochidetection.utils.video import (
     CompositeSink,
     DisplaySink,
     FrameProcessingResult,

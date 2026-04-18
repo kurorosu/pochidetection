@@ -16,7 +16,9 @@ from pochidetection.pipelines.builder import (
     ResolvedPipeline,
     resolve_and_setup_pipeline,
 )
-from pochidetection.scripts.common.video import (
+from pochidetection.utils import ConfigLoader
+from pochidetection.utils.config_resolver import resolve_config_path
+from pochidetection.utils.video import (
     CompositeSink,
     DisplaySink,
     FrameProcessingResult,
@@ -26,8 +28,6 @@ from pochidetection.scripts.common.video import (
     VideoWriter,
     process_frames,
 )
-from pochidetection.utils import ConfigLoader
-from pochidetection.utils.config_resolver import resolve_config_path
 
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov"}
 

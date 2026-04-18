@@ -1,21 +1,9 @@
-"""学習・推論の共通モジュール (整理中: reporting/ 等へ段階移行中)."""
+"""DEPRECATED: このパッケージは空です. 各モジュールは以下に移動されました.
 
-from pochidetection.scripts.common.video import (
-    CompositeSink,
-    DisplaySink,
-    LazyVideoWriter,
-    StreamReader,
-    VideoReader,
-    VideoWriter,
-    process_frames,
-)
-
-__all__ = [
-    "CompositeSink",
-    "DisplaySink",
-    "LazyVideoWriter",
-    "StreamReader",
-    "VideoReader",
-    "VideoWriter",
-    "process_frames",
-]
+- `preprocess.py` / `coco_classes.py` / `types.py` → `pochidetection.core`
+- `saver.py` / `summary.py` / `detection_results_writer.py` / `visualizer.py` → `pochidetection.reporting`
+- `inference.py` → `pochidetection.pipelines.builder`
+- `training.py` → `pochidetection.training.loop`
+- `video.py` → `pochidetection.utils.video`
+- `export_trt.py` → `pochidetection.tensorrt.export`
+"""
