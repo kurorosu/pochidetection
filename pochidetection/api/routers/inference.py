@@ -103,7 +103,7 @@ async def detect(request: DetectRequest) -> DetectResponse:
         f"{_format_phase(phase_times, 'pipeline_preprocess_ms', 'pre')} "
         f"{_format_inference(phase_times)} "
         f"{_format_phase(phase_times, 'pipeline_postprocess_ms', 'post')}"
-        f"{clk_str}"
+        f"{clk_str} pipeline={engine.pipeline.pipeline_mode}"
     )
 
     return DetectResponse(
