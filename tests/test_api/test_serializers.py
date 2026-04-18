@@ -17,8 +17,10 @@ def test_raw_serializer_round_trip() -> None:
     image = np.random.randint(0, 255, size=(32, 48, 3), dtype=np.uint8)
     serializer = RawArraySerializer()
     data = serializer.serialize(image)
-    restored = serializer.deserialize(data)
+    restored, phase_times = serializer.deserialize(data)
     np.testing.assert_array_equal(restored, image)
+    assert "b64_decode_ms" in phase_times
+    assert "reshape_ms" in phase_times
 
 
 def test_raw_serializer_rejects_missing_shape() -> None:
@@ -40,9 +42,11 @@ def test_jpeg_serializer_preserves_shape() -> None:
     image = (np.ones((16, 24, 3), dtype=np.uint8) * 128).astype(np.uint8)
     serializer = JpegSerializer()
     data = serializer.serialize(image)
-    restored = serializer.deserialize(data)
+    restored, phase_times = serializer.deserialize(data)
     assert restored.shape == image.shape
     assert restored.dtype == np.uint8
+    assert "b64_decode_ms" in phase_times
+    assert "imdecode_ms" in phase_times
 
 
 def test_jpeg_serializer_rejects_invalid_bytes() -> None:

@@ -3,9 +3,13 @@
 raw / jpeg 形式で base64 エンコードされた画像を numpy 配列に復元する.
 deserialize の戻り値は BGR uint8 (cv2 convention). RGB 要求の推論パイプラインへは
 呼び出し側 (backend) で変換する.
+
+deserialize は ``(image, phase_times_ms)`` のタプルを返す. phase_times_ms には
+b64_decode_ms などの計測値を含める.
 """
 
 import base64
+import time
 from typing import Any, Protocol
 
 import cv2
@@ -28,14 +32,14 @@ class IImageSerializer(Protocol):
         """
         ...
 
-    def deserialize(self, data: dict[str, Any]) -> np.ndarray:
+    def deserialize(self, data: dict[str, Any]) -> tuple[np.ndarray, dict[str, float]]:
         """辞書から numpy 配列を復元する.
 
         Args:
             data: シリアライズされた辞書.
 
         Returns:
-            画像配列 (H, W, 3) uint8 BGR.
+            (画像配列 (H, W, 3) uint8 BGR, フェーズ別所要時間 ms).
         """
         ...
 
@@ -52,8 +56,11 @@ class RawArraySerializer:
             "format": "raw",
         }
 
-    def deserialize(self, data: dict[str, Any]) -> np.ndarray:
+    def deserialize(self, data: dict[str, Any]) -> tuple[np.ndarray, dict[str, float]]:
         """Base64 デコードして numpy 配列を復元する.
+
+        Returns:
+            (画像配列, {"b64_decode_ms": ..., "reshape_ms": ...}).
 
         Raises:
             ValueError: shape が未指定または不正な場合.
@@ -74,9 +81,18 @@ class RawArraySerializer:
                 f"(上限: {MAX_PIXELS} ピクセル)"
             )
 
+        t0 = time.perf_counter()
         raw_bytes = base64.b64decode(data["image_data"])
+        t1 = time.perf_counter()
         dtype = np.dtype(data.get("dtype", "uint8"))
-        return np.frombuffer(raw_bytes, dtype=dtype).reshape(shape)
+        image = np.frombuffer(raw_bytes, dtype=dtype).reshape(shape)
+        t2 = time.perf_counter()
+
+        phase_times = {
+            "b64_decode_ms": (t1 - t0) * 1000,
+            "reshape_ms": (t2 - t1) * 1000,
+        }
+        return image, phase_times
 
 
 class JpegSerializer:
@@ -99,18 +115,28 @@ class JpegSerializer:
             "format": "jpeg",
         }
 
-    def deserialize(self, data: dict[str, Any]) -> np.ndarray:
+    def deserialize(self, data: dict[str, Any]) -> tuple[np.ndarray, dict[str, float]]:
         """Decode base64 JPEG into a numpy BGR array.
+
+        Returns:
+            (画像配列 BGR, {"b64_decode_ms": ..., "imdecode_ms": ...}).
 
         Raises:
             ValueError: JPEG デコードに失敗した場合.
         """
+        t0 = time.perf_counter()
         jpeg_bytes = base64.b64decode(data["image_data"])
+        t1 = time.perf_counter()
         buf = np.frombuffer(jpeg_bytes, dtype=np.uint8)
         image = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        t2 = time.perf_counter()
         if image is None:
             raise ValueError("JPEG デコード失敗: 不正または破損した画像データ")
-        return image
+        phase_times = {
+            "b64_decode_ms": (t1 - t0) * 1000,
+            "imdecode_ms": (t2 - t1) * 1000,
+        }
+        return image, phase_times
 
 
 def create_serializer(fmt: str) -> IImageSerializer:

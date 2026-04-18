@@ -1,6 +1,7 @@
 """検出バックエンド抽象と 3 実装 (PyTorch / ONNX / TensorRT)."""
 
 import importlib.metadata
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
@@ -113,7 +114,7 @@ class IDetectionBackend(ABC):
         image: np.ndarray,
         *,
         score_threshold: float = 0.5,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], dict[str, float]]:
         """Run detection on a BGR uint8 image.
 
         Args:
@@ -121,11 +122,34 @@ class IDetectionBackend(ABC):
             score_threshold: 信頼度の下限しきい値.
 
         Returns:
-            検出結果のリスト. 各要素は class_id / class_name / confidence / bbox を持つ.
+            (検出結果のリスト, フェーズ別所要時間 ms). 検出結果は
+            class_id / class_name / confidence / bbox を持つ辞書.
+            フェーズ別所要時間は cvt_color_ms / pipeline_total_ms
+            と, pipeline の PhasedTimer から pipeline_preprocess_ms /
+            pipeline_inference_ms / pipeline_postprocess_ms を含む.
         """
         # IDetectionPipeline は RGB を要求するため BGR から変換する.
+        t0 = time.perf_counter()
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        t1 = time.perf_counter()
         raw_detections = self._pipeline.run(rgb)
+        t2 = time.perf_counter()
+
+        phase_times: dict[str, float] = {
+            "cvt_color_ms": (t1 - t0) * 1000,
+            "pipeline_total_ms": (t2 - t1) * 1000,
+        }
+        pt = self._pipeline.phased_timer
+        if pt is not None:
+            phase_times["pipeline_preprocess_ms"] = pt.get_timer(
+                "preprocess"
+            ).last_time_ms
+            phase_times["pipeline_inference_ms"] = pt.get_timer(
+                "inference"
+            ).last_time_ms
+            phase_times["pipeline_postprocess_ms"] = pt.get_timer(
+                "postprocess"
+            ).last_time_ms
 
         results: list[dict[str, Any]] = []
         for det in raw_detections:
@@ -145,7 +169,7 @@ class IDetectionBackend(ABC):
                     "bbox": [float(v) for v in det.box],
                 }
             )
-        return results
+        return results, phase_times
 
     @abstractmethod
     def close(self) -> None:
