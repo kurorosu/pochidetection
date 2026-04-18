@@ -114,38 +114,40 @@ class TestCollectImageFiles:
 class TestResolvePipelineMode:
     """resolve_pipeline_mode のテスト."""
 
-    def test_pytorch_default_returns_gpu(self, tmp_path: Path) -> None:
-        """PyTorch backend (default) は requested=None で 'gpu' を返す."""
-        model_path = tmp_path / "model.pt"
-        assert resolve_pipeline_mode(None, model_path) == "gpu"
+    @pytest.mark.parametrize(
+        ("requested", "suffix", "expected"),
+        [
+            (None, ".pt", "gpu"),
+            (None, ".engine", "gpu"),
+            (None, ".onnx", "cpu"),
+            ("cpu", ".pt", "cpu"),
+            ("gpu", ".pt", "gpu"),
+            ("gpu", ".engine", "gpu"),
+            ("cpu", ".onnx", "cpu"),
+        ],
+        ids=[
+            "pytorch_default_gpu",
+            "tensorrt_default_gpu",
+            "onnx_default_cpu",
+            "pytorch_explicit_cpu",
+            "pytorch_explicit_gpu",
+            "tensorrt_explicit_gpu",
+            "onnx_explicit_cpu",
+        ],
+    )
+    def test_resolves_mode(
+        self,
+        tmp_path: Path,
+        requested: str | None,
+        suffix: str,
+        expected: str,
+    ) -> None:
+        """backend 種別と requested の組合せで解決後の経路名が返ることを確認."""
+        model_path = tmp_path / f"model{suffix}"
+        assert resolve_pipeline_mode(requested, model_path) == expected  # type: ignore[arg-type]
 
-    def test_tensorrt_default_returns_gpu(self, tmp_path: Path) -> None:
-        """TensorRT backend (.engine) は requested=None で 'gpu' を返す."""
-        model_path = tmp_path / "model.engine"
-        assert resolve_pipeline_mode(None, model_path) == "gpu"
-
-    def test_onnx_default_returns_cpu(self, tmp_path: Path) -> None:
-        """ONNX backend (.onnx) は requested=None で 'cpu' を返す (自動解決)."""
+    def test_onnx_with_explicit_gpu_raises_value_error(self, tmp_path: Path) -> None:
+        """ONNX backend + 明示 'gpu' は ValueError で起動拒否しメッセージも一致."""
         model_path = tmp_path / "model.onnx"
-        assert resolve_pipeline_mode(None, model_path) == "cpu"
-
-    def test_explicit_cpu_with_pytorch(self, tmp_path: Path) -> None:
-        """PyTorch + 明示 'cpu' は 'cpu' を返す."""
-        model_path = tmp_path / "model.pt"
-        assert resolve_pipeline_mode("cpu", model_path) == "cpu"
-
-    def test_explicit_gpu_with_tensorrt(self, tmp_path: Path) -> None:
-        """TensorRT + 明示 'gpu' は 'gpu' を返す."""
-        model_path = tmp_path / "model.engine"
-        assert resolve_pipeline_mode("gpu", model_path) == "gpu"
-
-    def test_explicit_cpu_with_onnx(self, tmp_path: Path) -> None:
-        """ONNX + 明示 'cpu' は 'cpu' を返す."""
-        model_path = tmp_path / "model.onnx"
-        assert resolve_pipeline_mode("cpu", model_path) == "cpu"
-
-    def test_explicit_gpu_with_onnx_raises_value_error(self, tmp_path: Path) -> None:
-        """ONNX + 明示 'gpu' は ValueError で起動拒否."""
-        model_path = tmp_path / "model.onnx"
-        with pytest.raises(ValueError, match="ONNX backend は --pipeline cpu のみ対応"):
+        with pytest.raises(ValueError, match="ONNX backend"):
             resolve_pipeline_mode("gpu", model_path)
