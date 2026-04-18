@@ -12,7 +12,7 @@
   - 起動時 lifespan で `resolve_and_setup_pipeline` 経由でモデルロード + ダミー画像で warmup 推論を実行.
   - `fastapi>=0.135.0`, `uvicorn[standard]>=0.43.0` を依存に追加.
   - 推論バックエンド抽象 (`IDetectionBackend`) と `/detect` エンドポイントは Issue #436 で追加予定.
-- 検出エンドポイント `POST /api/v1/detect` を追加. base64 エンコードされた画像 (raw / jpeg) を受け取り, 検出結果 (bbox, class, confidence) を返却. (NA.)
+- 検出エンドポイント `POST /api/v1/detect` を追加. base64 エンコードされた画像 (raw / jpeg) を受け取り, 検出結果 (bbox, class, confidence) を返却. ([#440](https://github.com/kurorosu/pochidetection/pull/440))
   - `IDetectionBackend` 抽象と 3 backend (`PyTorchDetectionBackend`, `OnnxDetectionBackend`, `TrtDetectionBackend`) を `api/backends.py` に実装. 既存 `IDetectionPipeline` を内部でラップ.
   - `api/serializers.py` に `RawArraySerializer` / `JpegSerializer` を追加.
   - `DetectRequest` (score_threshold 対応) / `DetectionDict` (bbox `[x1,y1,x2,y2]`) / `DetectResponse` を `api/schemas.py` に追加.
@@ -20,7 +20,10 @@
   - `docs/api-server.md` に raw / jpeg リクエスト例, レスポンス形式, エラーコード一覧, バックエンド自動判定の仕様を追記. README.md にも `pochi serve` の概要とエンドポイント一覧を追加.
 
 ### Changed
-- 無し
+- `POST /api/v1/detect` にフェーズ別タイミング計測を追加. ボトルネック特定用の観測機能. (NA.)
+  - `IImageSerializer.deserialize()` / `IDetectionBackend.predict()` の戻り値を `(result, phase_times)` タプルに変更.
+  - `DetectResponse` に optional な `phase_times_ms: dict[str, float]` フィールドを追加. `b64_decode_ms`, `imdecode_ms` (jpeg のみ), `reshape_ms` (raw のみ), `cvt_color_ms`, `pipeline_preprocess_ms`, `pipeline_inference_ms`, `pipeline_postprocess_ms` を出力.
+  - router 側で `model_dump_ms` を含む各フェーズを `time.perf_counter()` で計測し, ログとレスポンス両方に出力.
 
 ### Fixed
 - 無し
