@@ -2,6 +2,7 @@
 
 RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 ベンチマークサマリーのロジックを提供する.
+
 """
 
 import logging
@@ -48,14 +49,61 @@ from pochidetection.visualization import (
 
 logger = LoggerManager().get_logger(__name__)
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
+__all__ = [
+    "PRETRAINED",
+    "PipelineContext",
+    "ResolvedPipeline",
+    "build_pipeline_context",
+    "create_backend",
+    "infer",
+    "is_onnx_model",
+    "is_tensorrt_model",
+    "resolve_and_setup_pipeline",
+    "resolve_device",
+    "resolve_pipeline_mode",
+    "setup_cudnn_benchmark",
+]
+
+
+# ---------------------------------------------------------------------------
+# 定数
+# ---------------------------------------------------------------------------
 
 PRETRAINED = Path("__pretrained__")
 """プリトレインモデル使用を示すセンチネル値."""
 
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 
-class InferenceContext(Protocol):
-    """推論コンテキストのプロトコル."""
+
+# ---------------------------------------------------------------------------
+# データ構造 (NamedTuple / Protocol)
+# ---------------------------------------------------------------------------
+
+
+class PipelineContext(NamedTuple):
+    """推論パイプラインコンテキスト."""
+
+    pipeline: IDetectionPipeline
+    phased_timer: PhasedTimer
+    visualizer: Visualizer
+    saver: InferenceSaver
+    label_mapper: LabelMapper | None
+    class_names: list[str] | None
+    actual_device: str
+    precision: str
+
+
+class ResolvedPipeline(NamedTuple):
+    """モデル解決・パイプライン構築の結果."""
+
+    ctx: PipelineContext
+    config: DetectionConfigDict
+    config_path: str | None
+    model_path: Path
+
+
+class _InferenceContext(Protocol):
+    """推論コンテキストのプロトコル (内部利用)."""
 
     @property
     def pipeline(self) -> IDetectionPipeline:
@@ -98,7 +146,36 @@ class InferenceContext(Protocol):
         ...
 
 
-def resolve_model_path(
+# ---------------------------------------------------------------------------
+# モデルパス解決
+# ---------------------------------------------------------------------------
+
+
+def is_onnx_model(model_path: Path) -> bool:
+    """モデルパスが ONNX ファイルかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .onnx ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".onnx"
+
+
+def is_tensorrt_model(model_path: Path) -> bool:
+    """モデルパスが TensorRT エンジンかどうかを判定する.
+
+    Args:
+        model_path: モデルのパス.
+
+    Returns:
+        .engine ファイルの場合 True.
+    """
+    return model_path.suffix.lower() == ".engine"
+
+
+def _resolve_model_path(
     config: DetectionConfigDict,
     model_dir: str | None,
 ) -> Path | None:
@@ -139,54 +216,14 @@ def resolve_model_path(
     return model_path
 
 
-def collect_image_files(image_dir: str) -> list[Path] | None:
-    """画像ファイルを収集.
+# ---------------------------------------------------------------------------
+# Backend / Pipeline 構築
+# ---------------------------------------------------------------------------
 
-    Args:
-        image_dir: 画像ディレクトリパス.
-
-    Returns:
-        画像ファイルリスト. エラー時は None.
-    """
-    image_dir_path = Path(image_dir)
-    if not image_dir_path.exists():
-        logger.error(f"Image directory not found: {image_dir}")
-        return None
-
-    image_files = [
-        f for f in image_dir_path.iterdir() if f.suffix.lower() in IMAGE_EXTENSIONS
-    ]
-
-    if not image_files:
-        logger.warning(f"No image files found in {image_dir}")
-        return None
-
-    logger.info(f"Found {len(image_files)} images in {image_dir}")
-    return image_files
-
-
-def is_onnx_model(model_path: Path) -> bool:
-    """モデルパスが ONNX ファイルかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .onnx ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".onnx"
-
-
-def is_tensorrt_model(model_path: Path) -> bool:
-    """モデルパスが TensorRT エンジンかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .engine ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".engine"
+# バックエンドファクトリコールバックの型
+_CreateTrtFn = Callable[[Path], IInferenceBackend[Any]]
+_CreateOnnxFn = Callable[[Path, str], IInferenceBackend[Any]]
+_CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend[Any]]
 
 
 def resolve_pipeline_mode(
@@ -220,18 +257,12 @@ def resolve_pipeline_mode(
     return requested if requested is not None else "gpu"
 
 
-# バックエンドファクトリコールバックの型
-CreateTrtFn = Callable[[Path], IInferenceBackend[Any]]
-CreateOnnxFn = Callable[[Path, str], IInferenceBackend[Any]]
-CreatePytorchFn = Callable[[Path, str, bool], IInferenceBackend[Any]]
-
-
 def create_backend(
     model_path: Path,
     config: DetectionConfigDict,
-    create_trt: CreateTrtFn,
-    create_onnx: CreateOnnxFn,
-    create_pytorch: CreatePytorchFn,
+    create_trt: _CreateTrtFn,
+    create_onnx: _CreateOnnxFn,
+    create_pytorch: _CreatePytorchFn,
     trt_available: bool = False,
 ) -> tuple[IInferenceBackend[Any], str, bool]:
     """モデルパスからバックエンドを生成する.
@@ -278,19 +309,6 @@ def create_backend(
 
     precision = "fp16" if fp16 else "fp32"
     return backend, precision, use_fp16
-
-
-class PipelineContext(NamedTuple):
-    """推論パイプラインコンテキスト."""
-
-    pipeline: IDetectionPipeline
-    phased_timer: PhasedTimer
-    visualizer: Visualizer
-    saver: InferenceSaver
-    label_mapper: LabelMapper | None
-    class_names: list[str] | None
-    actual_device: str
-    precision: str
 
 
 def setup_cudnn_benchmark(config: DetectionConfigDict) -> None:
@@ -381,15 +399,6 @@ def build_pipeline_context(
     )
 
 
-class ResolvedPipeline(NamedTuple):
-    """モデル解決・パイプライン構築の結果."""
-
-    ctx: PipelineContext
-    config: DetectionConfigDict
-    config_path: str | None
-    model_path: Path
-
-
 def resolve_and_setup_pipeline(
     config: DetectionConfigDict,
     model_dir: str | None,
@@ -413,7 +422,7 @@ def resolve_and_setup_pipeline(
     log = logger_instance or logger
 
     if model_dir is not None:
-        model_path = resolve_model_path(config, model_dir)
+        model_path = _resolve_model_path(config, model_dir)
         if model_path is None:
             return None
     else:
@@ -432,6 +441,37 @@ def resolve_and_setup_pipeline(
     return ResolvedPipeline(
         ctx=ctx, config=config, config_path=config_path, model_path=model_path
     )
+
+
+# ---------------------------------------------------------------------------
+# 推論実行
+# ---------------------------------------------------------------------------
+
+
+def _collect_image_files(image_dir: str) -> list[Path] | None:
+    """画像ファイルを収集.
+
+    Args:
+        image_dir: 画像ディレクトリパス.
+
+    Returns:
+        画像ファイルリスト. エラー時は None.
+    """
+    image_dir_path = Path(image_dir)
+    if not image_dir_path.exists():
+        logger.error(f"Image directory not found: {image_dir}")
+        return None
+
+    image_files = [
+        f for f in image_dir_path.iterdir() if f.suffix.lower() in _IMAGE_EXTENSIONS
+    ]
+
+    if not image_files:
+        logger.warning(f"No image files found in {image_dir}")
+        return None
+
+    logger.info(f"Found {len(image_files)} images in {image_dir}")
+    return image_files
 
 
 def infer(
@@ -455,20 +495,20 @@ def infer(
     if resolved is None:
         return
 
-    image_files = collect_image_files(image_dir)
+    image_files = _collect_image_files(image_dir)
     if image_files is None:
         return
 
     ctx, config, config_path, model_path = resolved
     logger.info(f"Results will be saved to {ctx.saver.output_dir}")
 
-    all_predictions = run_inference(image_files, ctx, save_crop=save_crop)
-    write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
+    all_predictions = _run_inference(image_files, ctx, save_crop=save_crop)
+    _write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
 
 
-def run_inference(
+def _run_inference(
     image_files: list[Path],
-    ctx: InferenceContext,
+    ctx: _InferenceContext,
     *,
     save_crop: bool = True,
 ) -> dict[str, list[Detection]]:
@@ -505,11 +545,16 @@ def run_inference(
     return all_predictions
 
 
-def write_reports(
+# ---------------------------------------------------------------------------
+# レポート出力
+# ---------------------------------------------------------------------------
+
+
+def _write_reports(
     config: DetectionConfigDict,
     image_files: list[Path],
     all_predictions: dict[str, list[Detection]],
-    ctx: InferenceContext,
+    ctx: _InferenceContext,
     model_path: Path,
     config_path: str | None = None,
 ) -> None:
@@ -574,11 +619,6 @@ def write_reports(
 
     _log_benchmark_summary(result)
     logger.info(f"Results saved to {ctx.saver.output_dir}")
-
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
 
 
 def _save_config(
