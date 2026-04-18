@@ -1,5 +1,7 @@
 """E2E 推論パイプライン."""
 
+from typing import Literal
+
 import numpy as np
 import torch
 import torchvision
@@ -43,6 +45,7 @@ class RTDetrPipeline(
         nms_iou_threshold: float = 0.5,
         use_fp16: bool = False,
         phased_timer: PhasedTimer | None = None,
+        pipeline_mode: Literal["cpu", "gpu"] = "cpu",
     ) -> None:
         """初期化.
 
@@ -55,6 +58,9 @@ class RTDetrPipeline(
             nms_iou_threshold: NMS の IoU 閾値.
             use_fp16: FP16 推論を使用するか. CUDA デバイスでのみ有効.
             phased_timer: フェーズ別タイマー. None の場合は計測しない.
+            pipeline_mode: preprocess 経路 ('cpu' or 'gpu').
+                'gpu' は uint8 H2D + GPU 上 normalize + 入力バッファ再利用で
+                preprocess を高速化する. resolve_pipeline_mode() で解決済みの値.
 
         Raises:
             ValueError: phased_timer に必須フェーズが含まれていない場合.
@@ -68,6 +74,7 @@ class RTDetrPipeline(
         self._threshold = threshold
         self._nms_iou_threshold = nms_iou_threshold
         self._use_fp16 = is_fp16_available(use_fp16, device)
+        self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
 
     def preprocess(self, image: ImageInput) -> dict[str, torch.Tensor]:
         """画像を前処理し, モデル入力テンソルを返す.

@@ -7,7 +7,7 @@ RT-DETR と SSDLite で共有される推論エントリ, レポート出力,
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, NamedTuple, Protocol
+from typing import Any, Literal, NamedTuple, Protocol
 
 import torch
 from PIL import Image
@@ -187,6 +187,37 @@ def is_tensorrt_model(model_path: Path) -> bool:
         .engine ファイルの場合 True.
     """
     return model_path.suffix.lower() == ".engine"
+
+
+def resolve_pipeline_mode(
+    requested: Literal["cpu", "gpu"] | None,
+    model_path: Path,
+) -> Literal["cpu", "gpu"]:
+    """Preprocess の経路を backend 種別から解決する.
+
+    PyTorch / TensorRT は default 'gpu', ONNX は default 'cpu'.
+    ONNX で 'gpu' を明示指定された場合は ValueError で起動を拒否する
+    (ONNX Runtime は CPU numpy を要求するため GPU preprocess の効果がないため).
+
+    Args:
+        requested: CLI / config で指定された値. None の場合は backend 種別から決定.
+        model_path: モデルのパス (backend 種別判定用).
+
+    Returns:
+        解決後の経路名 ('cpu' or 'gpu').
+
+    Raises:
+        ValueError: ONNX backend で 'gpu' を明示指定された場合.
+    """
+    if is_onnx_model(model_path):
+        if requested == "gpu":
+            raise ValueError(
+                "ONNX backend は --pipeline cpu のみ対応. "
+                "GPU preprocess を使う場合は PyTorch / TensorRT バックエンドを"
+                "使用してください."
+            )
+        return "cpu"
+    return requested if requested is not None else "gpu"
 
 
 # バックエンドファクトリコールバックの型
