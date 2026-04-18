@@ -49,8 +49,10 @@ def test_predict_omits_gpu_ms_key_when_pipeline_reports_none() -> None:
     _, phase_times = backend.predict(image)
 
     assert "pipeline_inference_gpu_ms" not in phase_times
-    assert "cvt_color_ms" in phase_times
-    assert "pipeline_total_ms" in phase_times
+    # phase_times は 4 値 (CUDA 時) / 3 値 (CPU 時) のみで,
+    # cvt_color_ms / pipeline_total_ms 等の breakdown を含まない.
+    assert "cvt_color_ms" not in phase_times
+    assert "pipeline_total_ms" not in phase_times
 
 
 def test_predict_includes_gpu_ms_when_pipeline_reports_value() -> None:

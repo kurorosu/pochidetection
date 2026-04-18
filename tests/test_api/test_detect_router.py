@@ -51,7 +51,11 @@ def test_detect_returns_200_with_detections() -> None:
         assert body["detections"][0]["bbox"] == [1.0, 2.0, 3.0, 4.0]
         assert "e2e_time_ms" in body
         assert "phase_times_ms" in body
-        assert "b64_decode_ms" in body["phase_times_ms"]
+        # MagicMock engine が空 dict を返すため breakdown は出ない.
+        # 旧 b64_decode_ms / cvt_color_ms 等のキーが消えていることを確認.
+        assert "b64_decode_ms" not in body["phase_times_ms"]
+        assert "cvt_color_ms" not in body["phase_times_ms"]
+        assert "gap_since_last_request_ms" not in body["phase_times_ms"]
     finally:
         app_module._engine = None
 
