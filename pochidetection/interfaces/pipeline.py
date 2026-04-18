@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generic, Literal, TypeVar, Union
+from typing import Generic, Literal, TypeAlias, TypeVar
 
 import numpy as np
 import torch
@@ -12,7 +12,7 @@ from PIL import Image
 from pochidetection.core.detection import Detection
 from pochidetection.utils import PhasedTimer
 
-ImageInput = Union[Image.Image, np.ndarray]
+ImageInput: TypeAlias = Image.Image | np.ndarray
 
 TPreprocessed = TypeVar("TPreprocessed")
 TInferred = TypeVar("TInferred")
