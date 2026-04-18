@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 
-from pochidetection.scripts.ssd.validation import restore_bn_states, save_bn_states
+from pochidetection.training.validation import restore_bn_states, save_bn_states
 
 
 class TestSaveBnStates:
