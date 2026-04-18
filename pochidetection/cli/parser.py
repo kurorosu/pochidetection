@@ -112,6 +112,15 @@ def _create_parser() -> argparse.ArgumentParser:
         default=False,
         help="ストリーム推論時に表示と同時に推論フォルダへ録画する",
     )
+    infer_parser.add_argument(
+        "--pipeline",
+        choices=("cpu", "gpu"),
+        default=None,
+        help=(
+            "preprocess の経路. PyTorch / TensorRT は default 'gpu' (uint8 H2D + "
+            "GPU normalize), ONNX は default 'cpu'. ONNX で 'gpu' 明示時は起動エラー"
+        ),
+    )
 
     # WebAPI サーバー起動コマンド
     serve_parser = subparsers.add_parser(
@@ -143,6 +152,15 @@ def _create_parser() -> argparse.ArgumentParser:
         type=int,
         default=8000,
         help="バインドポート (default: 8000)",
+    )
+    serve_parser.add_argument(
+        "--pipeline",
+        choices=("cpu", "gpu"),
+        default=None,
+        help=(
+            "preprocess の経路. PyTorch / TensorRT は default 'gpu' (uint8 H2D + "
+            "GPU normalize), ONNX は default 'cpu'. ONNX で 'gpu' 明示時は起動エラー"
+        ),
     )
 
     # エクスポートコマンド (フォルダ → ONNX, .onnx → TensorRT を自動判定)

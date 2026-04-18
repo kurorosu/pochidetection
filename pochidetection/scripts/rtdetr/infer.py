@@ -31,6 +31,7 @@ from pochidetection.scripts.common.inference import (
     is_onnx_model,
     is_tensorrt_model,
     resolve_device,
+    resolve_pipeline_mode,
     setup_cudnn_benchmark,
 )
 from pochidetection.scripts.rtdetr.inference import (
@@ -113,6 +114,7 @@ def _setup_pipeline(
     )
 
     actual_device, runtime_device = resolve_device(model_path, config, backend)
+    pipeline_mode = resolve_pipeline_mode(config.get("pipeline_mode"), model_path)
 
     phased_timer = PhasedTimer(
         phases=RTDetrPipeline.PHASES,
@@ -127,6 +129,8 @@ def _setup_pipeline(
         nms_iou_threshold=nms_iou_threshold,
         use_fp16=use_fp16,
         phased_timer=phased_timer,
+        pipeline_mode=pipeline_mode,
+        image_size=image_size,
     )
 
     return build_pipeline_context(

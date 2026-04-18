@@ -26,8 +26,12 @@
   - router 側で `model_dump_ms` を含む各フェーズを `time.perf_counter()` で計測し, ログとレスポンス両方に出力.
 - `docs/api_detect_inference_variance_investigation.md` の真因仮説を "PyTorch caching allocator" から "asyncio / uvicorn / Windows timer 領域" に更新. カメラストリームでの 14ms 安定と Web 調査を新エビデンスとして追記. ([#450](https://github.com/kurorosu/pochidetection/pull/450))
 - `POST /api/v1/detect` の inference フェーズに CUDA Event 計測 (`pipeline_inference_gpu_ms`) と リクエスト間隔 (`gap_since_last_request_ms`) を追加. 真因が NVIDIA driver の adaptive clock policy であることを `nvidia-smi --lock-gpu-clocks` 検証で確定. 資料 `docs/api_detect_inference_variance_investigation.md` を最終結論で改訂. ([#452](https://github.com/kurorosu/pochidetection/pull/452))
-- `POST /api/v1/detect` の INFO ログを 1 行サマリに圧縮し可読性を改善. GPU クロック (pynvml 経由, `pochidetection/api/gpu_clock.py` 新設) もログ末尾に併記. (NA.)
+- `POST /api/v1/detect` の INFO ログを 1 行サマリに圧縮し可読性を改善. GPU クロック (pynvml 経由, `pochidetection/api/gpu_clock.py` 新設) もログ末尾に併記. ([#455](https://github.com/kurorosu/pochidetection/pull/455))
   - `DetectResponse.phase_times_ms` を pipeline 内訳 4 値に縮小し, serializer / backend の breakdown 計測を撤去.
+- `RTDetrPipeline` / `SsdPipeline` に GPU 上 preprocess 経路を追加し起動時オプション `--pipeline cpu/gpu` (default: `gpu`) で切替可能化. preprocess 7-12ms → 3-4ms に短縮し CLI / API / カメラ全経路で効果. ONNX backend は CPU 経路のみ対応 (gpu 明示時は起動拒否). ログ末尾に `pipeline=cpu/gpu` を併記. (NA.)
+  - GPU 経路: numpy → uint8 tensor (CHW) → CPU 上で uint8 のまま resize → GPU バッファに `copy_` で float32 化 + H2D → `div_(255)` で `[0,1]` 化. バッファは shape mismatch 時のみ再確保.
+  - `IDetectionPipeline.pipeline_mode` プロパティを追加 (router の INFO ログ出力用).
+  - `DetectionConfigDict` / `DetectionConfig` / `ServerConfig` に `pipeline_mode` (CLI 引数の上書き対象) を追加.
 
 ### Fixed
 - 無し

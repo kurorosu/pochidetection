@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generic, TypeVar, Union
+from typing import Generic, Literal, TypeVar, Union
 
 import numpy as np
 import torch
@@ -130,3 +130,12 @@ class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
     def phased_timer(self) -> PhasedTimer | None:
         """フェーズ別タイマーを取得."""
         return self._phased_timer
+
+    @property
+    def pipeline_mode(self) -> Literal["cpu", "gpu"]:
+        """Resolve 後の preprocess 経路 ('cpu' or 'gpu').
+
+        Subclass の __init__ で ``self._pipeline_mode`` に保存された値を返す.
+        Resolve は ``resolve_pipeline_mode()`` で行い, ONNX backend は常に 'cpu'.
+        """
+        return getattr(self, "_pipeline_mode", "cpu")

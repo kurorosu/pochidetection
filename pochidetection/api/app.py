@@ -40,6 +40,10 @@ def build_engine(server_config: ServerConfig) -> IDetectionBackend:
     logger.info(f"Loading config: {config_path}")
 
     config = ConfigLoader.load(config_path)
+    # Why: CLI --pipeline 指定値で config の pipeline_mode を上書き. None なら触らず
+    # config 値 (or default None) を維持し, 後段の resolve で backend 種別から決定.
+    if server_config.pipeline is not None:
+        config["pipeline_mode"] = server_config.pipeline
     return create_detection_backend(
         model_path=server_config.model_path,
         config=config,

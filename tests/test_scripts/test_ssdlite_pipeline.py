@@ -1,5 +1,8 @@
 """SsdPipeline のテスト."""
 
+import warnings
+
+import numpy as np
 import pytest
 import torch
 from PIL import Image
@@ -258,3 +261,116 @@ class TestSsdPipelineNoNms:
         detections = pipeline.run(image)
 
         assert len(detections) == 3
+
+
+class TestSsdPipelineMode:
+    """SsdPipeline の pipeline_mode (CPU/GPU 経路切替) のテスト."""
+
+    def test_default_pipeline_mode_is_cpu(self) -> None:
+        """pipeline_mode 未指定時は 'cpu' (後方互換)."""
+        pipeline = _make_pipeline()
+        assert pipeline.pipeline_mode == "cpu"
+
+    def test_pipeline_mode_property_returns_gpu(self) -> None:
+        """pipeline_mode='gpu' で初期化すると pipeline_mode プロパティが 'gpu' を返す."""
+        pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="gpu",
+        )
+        assert pipeline.pipeline_mode == "gpu"
+
+    def test_gpu_preprocess_returns_correct_shape_and_range(self) -> None:
+        """GPU 経路 preprocess の出力 shape と [0, 1] 範囲を確認."""
+        pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="gpu",
+        )
+        image = np.random.randint(0, 256, size=(480, 640, 3), dtype=np.uint8)
+
+        pixel_values, orig_w, orig_h = pipeline.preprocess(image)
+
+        assert pixel_values.shape == (1, 3, 320, 320)
+        assert pixel_values.dtype == torch.float32
+        assert pixel_values.min() >= 0.0
+        assert pixel_values.max() <= 1.0
+        assert orig_w == 640
+        assert orig_h == 480
+
+    def test_cpu_gpu_preprocess_numerically_close(self) -> None:
+        """CPU 経路と GPU 経路で preprocess 出力が許容差内で一致する.
+
+        PIL BILINEAR と tensor BILINEAR は完全一致しないため abs=1e-2 程度の差
+        は想定内 (1-2 uint8 値の差 / 255 ≈ 0.008).
+        """
+        image = np.random.randint(0, 256, size=(480, 640, 3), dtype=np.uint8)
+
+        cpu_pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="cpu",
+        )
+        gpu_pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="gpu",
+        )
+
+        cpu_out, _, _ = cpu_pipeline.preprocess(image)
+        gpu_out, _, _ = gpu_pipeline.preprocess(image)
+
+        assert cpu_out.shape == gpu_out.shape
+        # PIL/tensor BILINEAR の差は abs=1e-2 (≈ 2.5/255) 以内に収まる
+        assert torch.allclose(cpu_out, gpu_out, atol=1e-2)
+
+    def test_gpu_buffer_is_reused_across_calls(self) -> None:
+        """同じ shape の入力で GPU buffer が再利用される (再確保しない)."""
+        pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="gpu",
+        )
+        image = np.zeros((480, 640, 3), dtype=np.uint8)
+
+        out1, _, _ = pipeline.preprocess(image)
+        buf_id_1 = id(pipeline._gpu_input_buffer)
+        out2, _, _ = pipeline.preprocess(image)
+        buf_id_2 = id(pipeline._gpu_input_buffer)
+
+        assert buf_id_1 == buf_id_2  # 同一インスタンス再利用
+        assert out1.shape == out2.shape
+
+    def test_gpu_preprocess_accepts_pil_image_without_warning(self) -> None:
+        """GPU 経路で PIL Image 入力も正常動作し read-only numpy 警告が出ない.
+
+        np.asarray(PIL.Image) は read-only だが np.array() で writable copy を
+        作っているため torch.from_numpy() の警告が抑制される.
+        """
+        pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="gpu",
+        )
+        image = Image.new("RGB", (640, 480), color=(64, 128, 255))
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            pixel_values, orig_w, orig_h = pipeline.preprocess(image)
+
+        assert pixel_values.shape == (1, 3, 320, 320)
+        assert orig_w == 640
+        assert orig_h == 480
+        assert all("not writable" not in str(w.message) for w in caught)
