@@ -88,6 +88,8 @@ class DetectionConfigDict(TypedDict, total=False):
 
     work_dir: str
 
+    pipeline_mode: Literal["cpu", "gpu"] | None
+
 
 class AugmentTransformConfig(BaseModel):
     """個別の拡張変換設定.
@@ -169,6 +171,15 @@ class DetectionConfig(BaseModel):
     camera_resolution: list[PositiveInt] | None = None
 
     work_dir: str = Field(default="work_dirs", min_length=1)
+
+    pipeline_mode: Literal["cpu", "gpu"] | None = Field(
+        default=None,
+        description=(
+            "preprocess の経路. None の場合は backend 種別から自動解決 "
+            "(PyTorch / TensorRT は 'gpu', ONNX は 'cpu'). "
+            "CLI --pipeline での明示指定が config 値を上書きする."
+        ),
+    )
 
     @field_validator("camera_resolution", mode="before")
     @classmethod

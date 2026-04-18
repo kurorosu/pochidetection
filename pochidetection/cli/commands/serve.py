@@ -107,6 +107,7 @@ def run_serve(args: argparse.Namespace) -> None:
         config_path=Path(args.config) if args.config else None,
         host=args.host,
         port=args.port,
+        pipeline=args.pipeline,
     )
 
     # uvicorn 起動前にモデルロード + warmup を実行し, 失敗時はトレースバックを

@@ -272,6 +272,10 @@ def run_infer(args: argparse.Namespace) -> None:
     """
     config_path = resolve_config_path(args.config, args.model_dir, DEFAULT_CONFIG)
     config = ConfigLoader.load(config_path)
+    # Why: CLI --pipeline 指定値で config の pipeline_mode を上書き. None なら
+    # config 値 (or default None) を維持し, 後段の resolve で backend 種別から決定.
+    if args.pipeline is not None:
+        config["pipeline_mode"] = args.pipeline
     input_path = args.dir or config.get("infer_image_dir")
     if input_path is None:
         print(
