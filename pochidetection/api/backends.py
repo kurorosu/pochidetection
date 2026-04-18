@@ -1,7 +1,6 @@
 """検出バックエンド抽象と 3 実装 (PyTorch / ONNX / TensorRT)."""
 
 import importlib.metadata
-import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
@@ -124,24 +123,17 @@ class IDetectionBackend(ABC):
         Returns:
             (検出結果のリスト, フェーズ別所要時間 ms). 検出結果は
             class_id / class_name / confidence / bbox を持つ辞書.
-            フェーズ別所要時間は cvt_color_ms / pipeline_total_ms
-            と, pipeline の PhasedTimer から pipeline_preprocess_ms /
-            pipeline_inference_ms / pipeline_postprocess_ms を含む.
-            CUDA 利用時は ``pipeline_inference_gpu_ms`` (CUDA Event 計測の
-            GPU 実時間) も追加される. wall-clock との差分が Python 側の
-            待ち時間 (GIL / asyncio / OS scheduler) の指標となる.
+            フェーズ別所要時間は pipeline の PhasedTimer から
+            pipeline_preprocess_ms / pipeline_inference_ms /
+            pipeline_postprocess_ms を含む. CUDA 利用時は
+            ``pipeline_inference_gpu_ms`` (CUDA Event 計測の GPU 実時間) も
+            追加される. wall-clock との差分が Python 側の待ち時間
+            (GIL / asyncio / OS scheduler) の指標となる.
         """
-        # IDetectionPipeline は RGB を要求するため BGR から変換する.
-        t0 = time.perf_counter()
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        t1 = time.perf_counter()
         raw_detections = self._pipeline.run(rgb)
-        t2 = time.perf_counter()
 
-        phase_times: dict[str, float] = {
-            "cvt_color_ms": (t1 - t0) * 1000,
-            "pipeline_total_ms": (t2 - t1) * 1000,
-        }
+        phase_times: dict[str, float] = {}
         pt = self._pipeline.phased_timer
         if pt is not None:
             phase_times["pipeline_preprocess_ms"] = pt.get_timer(

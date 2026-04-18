@@ -25,7 +25,9 @@
   - `DetectResponse` に optional な `phase_times_ms: dict[str, float]` フィールドを追加. `b64_decode_ms`, `imdecode_ms` (jpeg のみ), `reshape_ms` (raw のみ), `cvt_color_ms`, `pipeline_preprocess_ms`, `pipeline_inference_ms`, `pipeline_postprocess_ms` を出力.
   - router 側で `model_dump_ms` を含む各フェーズを `time.perf_counter()` で計測し, ログとレスポンス両方に出力.
 - `docs/api_detect_inference_variance_investigation.md` の真因仮説を "PyTorch caching allocator" から "asyncio / uvicorn / Windows timer 領域" に更新. カメラストリームでの 14ms 安定と Web 調査を新エビデンスとして追記. ([#450](https://github.com/kurorosu/pochidetection/pull/450))
-- `POST /api/v1/detect` の inference フェーズに CUDA Event 計測 (`pipeline_inference_gpu_ms`) と リクエスト間隔 (`gap_since_last_request_ms`) を追加. 真因が NVIDIA driver の adaptive clock policy であることを `nvidia-smi --lock-gpu-clocks` 検証で確定. 資料 `docs/api_detect_inference_variance_investigation.md` を最終結論で改訂. (NA.)
+- `POST /api/v1/detect` の inference フェーズに CUDA Event 計測 (`pipeline_inference_gpu_ms`) と リクエスト間隔 (`gap_since_last_request_ms`) を追加. 真因が NVIDIA driver の adaptive clock policy であることを `nvidia-smi --lock-gpu-clocks` 検証で確定. 資料 `docs/api_detect_inference_variance_investigation.md` を最終結論で改訂. ([#452](https://github.com/kurorosu/pochidetection/pull/452))
+- `POST /api/v1/detect` の INFO ログを 1 行サマリに圧縮し可読性を改善. GPU クロック (pynvml 経由, `pochidetection/api/gpu_clock.py` 新設) もログ末尾に併記. (NA.)
+  - `DetectResponse.phase_times_ms` を pipeline 内訳 4 値に縮小し, serializer / backend の breakdown 計測を撤去.
 
 ### Fixed
 - 無し
