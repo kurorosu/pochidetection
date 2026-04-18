@@ -20,7 +20,7 @@ labels: documentation
 
 <!-- 完了条件を記述してください. -->
 
-- [ ]
+-
 
 ## Labels
 
