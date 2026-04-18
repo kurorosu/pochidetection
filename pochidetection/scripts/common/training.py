@@ -22,7 +22,7 @@ from pochidetection.datasets.augmentation import build_augmentation
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
-from pochidetection.scripts.common.inference import setup_cudnn_benchmark
+from pochidetection.pipelines.builder import setup_cudnn_benchmark
 from pochidetection.utils import (
     EarlyStopping,
     TrainingHistory,

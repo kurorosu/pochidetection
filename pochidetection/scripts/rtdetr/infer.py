@@ -21,14 +21,14 @@ except ImportError:
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.pipelines import RTDetrPipeline
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines.builder import (
     PRETRAINED,
     PipelineContext,
     build_pipeline_context,
     create_backend,
 )
-from pochidetection.scripts.common.inference import infer as common_infer
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines.builder import infer as common_infer
+from pochidetection.pipelines.builder import (
     is_onnx_model,
     is_tensorrt_model,
     resolve_device,

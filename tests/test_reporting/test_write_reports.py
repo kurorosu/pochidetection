@@ -6,9 +6,9 @@ from pathlib import Path
 
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
+from pochidetection.pipelines.builder import PipelineContext, write_reports
 from pochidetection.reporting.saver import InferenceSaver
 from pochidetection.reporting.visualizer import Visualizer
-from pochidetection.scripts.common.inference import PipelineContext, write_reports
 from pochidetection.utils.phased_timer import PhasedTimer
 from pochidetection.visualization import LabelMapper
 

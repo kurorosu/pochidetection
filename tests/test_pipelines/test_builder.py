@@ -1,11 +1,11 @@
-"""scripts/common/inference.py のテスト."""
+"""pipelines/builder.py のテスト."""
 
 from pathlib import Path
 
 import pytest
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines.builder import (
     collect_image_files,
     resolve_model_path,
     resolve_pipeline_mode,
@@ -35,7 +35,7 @@ class TestResolveModelPath:
 
     def test_returns_pretrained_when_no_workspaces(self, tmp_path: Path) -> None:
         """model_dir=None でワークスペースが無い場合 PRETRAINED を返すことを確認."""
-        from pochidetection.scripts.common.inference import PRETRAINED
+        from pochidetection.pipelines.builder import PRETRAINED
 
         work_dir = tmp_path / "work_dirs"
         work_dir.mkdir()

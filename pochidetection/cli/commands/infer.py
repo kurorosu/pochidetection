@@ -12,7 +12,7 @@ from pochidetection.cli.registry import resolve_infer
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.logging import LoggerManager
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines.builder import (
     ResolvedPipeline,
     resolve_and_setup_pipeline,
 )
