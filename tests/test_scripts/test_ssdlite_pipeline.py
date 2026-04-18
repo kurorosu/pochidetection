@@ -271,6 +271,28 @@ class TestSsdPipelineMode:
         pipeline = _make_pipeline()
         assert pipeline.pipeline_mode == "cpu"
 
+    def test_pipeline_mode_property_reflects_cpu_init_arg(self) -> None:
+        """pipeline_mode='cpu' で初期化すると pipeline_mode プロパティが 'cpu' を返す."""
+        pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="cpu",
+        )
+        assert pipeline.pipeline_mode == "cpu"
+
+    def test_pipeline_mode_property_reflects_gpu_init_arg(self) -> None:
+        """pipeline_mode='gpu' で初期化すると pipeline_mode プロパティが 'gpu' を返す."""
+        pipeline = SsdPipeline(
+            backend=DummyBackend(),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            pipeline_mode="gpu",
+        )
+        assert pipeline.pipeline_mode == "gpu"
+
     def test_pipeline_mode_property_returns_gpu(self) -> None:
         """pipeline_mode='gpu' で初期化すると pipeline_mode プロパティが 'gpu' を返す."""
         pipeline = SsdPipeline(
