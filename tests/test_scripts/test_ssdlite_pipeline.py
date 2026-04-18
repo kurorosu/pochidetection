@@ -11,7 +11,7 @@ from torchvision.transforms import v2
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
-from pochidetection.scripts.ssd.inference.ssd_pipeline import SsdPipeline
+from pochidetection.pipelines.ssd_pipeline import SsdPipeline
 from pochidetection.utils import PhasedTimer
 
 

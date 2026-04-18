@@ -11,9 +11,7 @@ from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces import IInferenceBackend
-from pochidetection.scripts.rtdetr.inference.rtdetr_pipeline import (
-    RTDetrPipeline,
-)
+from pochidetection.pipelines.rtdetr_pipeline import RTDetrPipeline
 from pochidetection.utils import PhasedTimer
 
 DUMMY_IMAGE_SIZE = (64, 64)
