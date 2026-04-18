@@ -16,7 +16,7 @@ import numpy as np
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
-from pochidetection.scripts.common.visualizer import Visualizer
+from pochidetection.reporting.visualizer import Visualizer
 from pochidetection.utils.resource_monitor import (
     format_resource_lines,
     get_resource_usage,

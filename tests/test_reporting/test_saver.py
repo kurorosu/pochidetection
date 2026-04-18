@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image
 
 from pochidetection.core.detection import Detection
-from pochidetection.scripts.common.saver import InferenceSaver
+from pochidetection.reporting.saver import InferenceSaver
 from pochidetection.visualization.label_mapper import LabelMapper
 
 

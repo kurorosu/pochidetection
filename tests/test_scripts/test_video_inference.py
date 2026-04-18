@@ -12,6 +12,7 @@ from pochidetection.core.detection import Detection
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
+from pochidetection.reporting.visualizer import Visualizer
 from pochidetection.scripts.common.video import (
     CompositeSink,
     DisplaySink,
@@ -23,7 +24,6 @@ from pochidetection.scripts.common.video import (
     _draw_overlay_text,
     process_frames,
 )
-from pochidetection.scripts.common.visualizer import Visualizer
 
 
 def _create_test_video(path: Path, num_frames: int = 10) -> None:

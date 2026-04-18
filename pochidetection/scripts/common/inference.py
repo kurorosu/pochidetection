@@ -20,7 +20,7 @@ from pochidetection.core.types import SetupPipelineFn
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
-from pochidetection.scripts.common import (
+from pochidetection.reporting import (
     DetectionSummary,
     InferenceSaver,
     Visualizer,
