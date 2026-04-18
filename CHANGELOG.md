@@ -20,10 +20,11 @@
   - `docs/api-server.md` に raw / jpeg リクエスト例, レスポンス形式, エラーコード一覧, バックエンド自動判定の仕様を追記. README.md にも `pochi serve` の概要とエンドポイント一覧を追加.
 
 ### Changed
-- `POST /api/v1/detect` にフェーズ別タイミング計測を追加. ボトルネック特定用の観測機能. (NA.)
+- `POST /api/v1/detect` にフェーズ別タイミング計測を追加. ボトルネック特定用の観測機能. ([#448](https://github.com/kurorosu/pochidetection/pull/448))
   - `IImageSerializer.deserialize()` / `IDetectionBackend.predict()` の戻り値を `(result, phase_times)` タプルに変更.
   - `DetectResponse` に optional な `phase_times_ms: dict[str, float]` フィールドを追加. `b64_decode_ms`, `imdecode_ms` (jpeg のみ), `reshape_ms` (raw のみ), `cvt_color_ms`, `pipeline_preprocess_ms`, `pipeline_inference_ms`, `pipeline_postprocess_ms` を出力.
   - router 側で `model_dump_ms` を含む各フェーズを `time.perf_counter()` で計測し, ログとレスポンス両方に出力.
+- `docs/api_detect_inference_variance_investigation.md` の真因仮説を "PyTorch caching allocator" から "asyncio / uvicorn / Windows timer 領域" に更新. カメラストリームでの 14ms 安定と Web 調査を新エビデンスとして追記. (NA.)
 
 ### Fixed
 - 無し

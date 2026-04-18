@@ -1,34 +1,54 @@
 # `POST /api/v1/detect` 推論時間の振れ調査
 
-関連 Issue: #446 (フェーズ別計測), #447 (バッファ再利用による解決)
+関連 Issue / PR: #446 (フェーズ別計測, #448 でマージ), #447 (GPU バッファ再利用仮説, PR #449 で効果なく close)
+
+> **Note (2026-04-18 更新)**: 本資料は当初 "PyTorch caching allocator のブロック再編成" を真因として pochitrain PR #440 方式での解決を提示していたが, 実機検証と新エビデンスで **仮説が誤りと確認された**. 真因領域は **asyncio / uvicorn / HTTP serving 経路 (特に Windows)** に絞り込まれた. 本改訂は経緯と最新の仮説を整理する.
 
 ## 概要
 
-`POST /api/v1/detect` の `pipeline_inference_ms` が CLI (`pochi infer`) の **8.4ms 安定** に対して **40ms 〜 100ms で大きく振れる** 問題を調査した. フェーズ別タイミング計測を追加し, スレッド ID, GPU クロック, async/sync, TRT context 紐付け等の主要仮説を 1 つずつ棄却した上で, 姉妹プロジェクト pochitrain の Issue #391 / PR #440 と突き合わせて **PyTorch caching allocator のメモリブロック再編成** が原因と特定した. 解決方針は **GPU 入力バッファの事前確保 + in-place 再利用 + 複数回 warmup** で, 別 Issue #447 として実装する.
+`POST /api/v1/detect` の `pipeline_inference_ms` (TRT execute_async_v3 + stream sync の wall clock) が **38ms / 80ms / 100ms の三段階 bimodal 振動** を示す. 同じ TRT engine を使う CLI / OpenCV カメラストリームでは 8-24ms で安定するため, 問題は HTTP serving 経路に固有と判明した. pochitrain の同名課題 (caching allocator 起因) とは別物であり, 姉妹プロジェクトの既存対策はそのまま適用できない.
 
 ## 検証環境
 
 - OS: Windows 11 Home
 - GPU: NVIDIA GeForce (ノート PC)
 - Python 3.13
-- pochidetection PR #440 (検出エンドポイント) マージ後の dev ブランチ
+- pochidetection dev ブランチ (#448 マージ後)
 - モデル: RT-DETR (TensorRT engine, 640×640)
 - テストデータ: `data/val/JPEGImages/` の 36 枚 (512×512 〜 一般撮影サイズ)
 
-## 1. 現象
+## 観測の全体像
 
-PR #440 のマージ後に実機検証で発見:
+同一 TRT engine について:
 
-| 計測対象 | E2E | 推論本体 (`pipeline_inference_ms`) |
+| 経路 | inference 時間 (ms) | 安定性 | gap |
+|---|---|---|---|
+| Standalone tight loop | 8.0 | 安定 | ~0 |
+| CLI (`pochi infer`) | 8.4 | 安定 | ~0 |
+| **OpenCV カメラ (PyTorch backend)** | 24.77 平均 (244 frames) | 安定 | ~33ms |
+| **OpenCV カメラ (TRT backend)** | **14.17 平均 (182 frames)** | **安定** | ~40ms |
+| API HTTP (FastAPI async def) | 38-150 | **bimodal 振動** | 可変 |
+
+ソース: `work_dirs/pretrained/inference_003/stream_metadata.json` (PyTorch), `work_dirs/20260228_001/best/inference_024/stream_metadata.json` (TRT).
+
+**決定的な事実**:
+- gap 40ms ありの TRT カメラが 14ms 安定 ⇒ 「gap 中の allocator 再編成」仮説は成立しない.
+- 同期 Python ループ (CLI / カメラ) は全て安定. **asyncio runtime を経由する経路だけが振動**.
+
+## 経緯
+
+### 1. 初期現象 (PR #440 マージ後)
+
+| 計測対象 | E2E | 推論本体 |
 |---|---|---|
-| CLI (`pochi infer`) | 12.3ms | **8.4ms 安定** |
-| API (`POST /detect`) | 49 〜 90ms | **38 〜 130ms 振動** |
+| CLI (`pochi infer`) | 12.3ms | 8.4ms 安定 |
+| API (`POST /detect`) | 49-90ms | 38-130ms 振動 |
 
-API は CLI 同等のパスを通っている (TRT engine 同一, 同じ `pipeline.run()`) はずなのに **5 〜 13 倍遅く, 値が安定しない**.
+API は CLI 同等のパス (同一 TRT engine, 同一 `pipeline.run()`) のはずなのに 5-13 倍遅く値が安定しない.
 
-## 2. 計測機能の追加
+### 2. フェーズ別計測の追加 (#446 → PR #448)
 
-支配要因を特定するため, `/detect` の各フェーズを個別計測する仕組みを追加した (PR で実装).
+`/detect` の各処理を個別計測する仕組みを追加し `DetectResponse.phase_times_ms` に格納.
 
 ```
 1. base64.b64decode             (serializers.py)
@@ -37,153 +57,122 @@ API は CLI 同等のパスを通っている (TRT engine 同一, 同じ `pipeli
 4. cv2.cvtColor BGR→RGB         (backends.py)
 5. Image.fromarray              (rtdetr_pipeline.py)
 6. v2.Compose (Resize+ToTensor) (rtdetr_pipeline.py)
-7. inference (TRT execute)      (rtdetr_pipeline.py)
+7. inference (TRT execute)      (rtdetr_pipeline.py)  ← 振動はここに集中
 8. postprocess (HF + NMS)       (rtdetr_pipeline.py)
 ```
 
-`DetectResponse.phase_times_ms` に dict として返却し, 同時に INFO ログにも出力.
+これにより preprocess / postprocess は安定で, 振動は `pipeline.infer()` (TRT execute + stream sync) 内部と判明.
 
-## 3. 仮説の棄却プロセス
+### 3. 仮説 A-D の棄却プロセス (#448 時点)
 
-### 仮説 A: `Image.fromarray` の PIL コピー (numpy → PIL)
+| 仮説 | 検証 | 結果 |
+|---|---|---|
+| A. `Image.fromarray` PIL コピー | preprocess 単独計測 | ❌ 8.5ms で全体振れを説明できず |
+| B. GPU クロック P-state ダウン | standalone + sleep(30ms)×30 | ❌ 8ms 安定 |
+| C. `async def` vs `def` ハンドラ | handler 書き換え | ❌ 両方とも bimodal |
+| D. TRT context のスレッド紐付け | thread ID ログ | ❌ 同一スレッドでも振れ |
 
-**根拠**: CLI は `Image.open()` で PIL 画像を直接 pipeline に渡し fromarray をスキップ. API は numpy → PIL のフル解像度コピーを毎回実行.
+### 4. 暫定真因「caching allocator」と PR #449 (#447) — **後に棄却**
 
-**棄却**: 実測で `pipeline_preprocess_ms` (fromarray 込み) は 8.5ms 程度. 全体差 (~80ms) を説明できない.
+pochitrain Issue #391 / PR #440 と症状が似ているため, **PyTorch caching allocator のブロック再編成が真因** と推定した. 対策として GPU 入力バッファの事前確保 + in-place 再利用 + warmup 3 回化を PR #449 で実装.
 
-### 仮説 B: GPU クロック P-state ダウン
+### 5. PR #449 の実機検証で無効と判明
 
-**根拠**: HTTP リクエスト間の idle gap (10-30ms) で GPU がダウンクロックし, 次リクエストでランプアップ時間がかかる.
+36 枚連続ベンチで:
+- `pipeline_preprocess_ms`: 7-11ms で安定 (buffer 再利用は動作している)
+- `pipeline_inference_ms`: **38-130ms の bimodal 振動は改修前と同等**
 
-**検証**: スタンドアロンスクリプトで `time.sleep(0.030)` を 30 イテレーション挟んで実行.
+dev (改修なし) での再ベンチも同じ振動を示したため, 改修自体がノーオペだったと結論. PR #449 は close, Issue #447 も close.
 
-**棄却**: 8ms 安定のまま. GPU クロック仮説は CLI が連続実行で保たれる事実と整合しない (CLI も画像 I/O で同等の gap がある).
+### 6. カメラ対比で真因領域を asyncio / uvicorn に絞り込み
 
-### 仮説 C: `async def` ハンドラと event loop スレッド
+同一 TRT engine で OpenCV カメラストリーム (同期 Python ループ, capture gap ~40ms) を計測すると **14.17ms 安定** (182 frames). gap の存在が原因なら API と同様に振れるはずだが安定.
 
-**根拠**: FastAPI の async ハンドラは event loop スレッドで実行. CUDA 操作との相性問題?
+⇒ **振動は HTTP serving 経路 (asyncio event loop + uvicorn + Windows timer) に固有**. 姉妹プロジェクトの caching allocator 仮説は本件には適用できない.
 
-**検証**: ハンドラを `def` (sync) に変更 → FastAPI は anyio thread pool worker で実行.
+### 7. `run_in_executor` 単独の throwaway 実験 (部分効果)
 
-**棄却**: 同じく 38-130ms の bimodal 振動. async/sync の差異ではない.
+`engine.predict(...)` を `asyncio.run_in_executor(ThreadPoolExecutor(max_workers=1), ...)` に逃がす最小変更を試した. 結果:
 
-### 仮説 D: TRT IExecutionContext のスレッド紐付け
+| 区間 | inference (ms) | 評価 |
+|---|---|---|
+| Req 1-2 | 7.97 / 8.54 | ✅ 8ms 復活 (dev の 49ms から大幅改善) |
+| Req 3-50 | 37-130 (bimodal) | ❌ 振動は同じ |
+| 末尾 3 件 | 175 → 8.16 → 8.22 → 8.39 | ✅ 突然 8ms に落ちた |
 
-**根拠**: `def` 化で thread pool worker スレッド (tid=16292) で predict が走るが, `build_engine` は main スレッド (tid=6564). TRT context のスレッド紐付けで性能劣化?
+asyncio thread と inference thread の分離は **境界では効いている** が, 中盤の bimodal は解けない. 単独では不十分と判断して破棄.
 
-**検証**: `async def` に戻して thread ID をログ出力.
+## Web 調査からの仮説
 
-**棄却**: `async def` では `build_engine` と `predict` 両方とも tid=23180 (同一 main スレッド). スレッド一致時も振れあり.
+### W1. Windows の monotonic clock 解像度
 
-### 仮説 E: スタンドアロンとの最後の差分
+既定 15.6ms (HPET 有効時 0.5ms). `asyncio.loop.call_later` は最大 1 clock 解像度分早く発火する仕様のため, **Windows では asyncio スケジューリングに ±15.6ms ジッタが常に含まれる**.
+出典: [Python docs: Platform Support (Windows)](https://docs.python.org/3/library/asyncio-platforms.html), [Higher resolution timers on Windows? (discuss.python.org)](https://discuss.python.org/t/higher-resolution-timers-on-windows/16153)
 
-スタンドアロンスクリプト (`build_engine` + tight loop で `predict`) は 8ms 張り付き. つまり **`backends.predict()` のコード自体は正常**.
+### W2. ThreadPool と GIL 競合
 
-```
-=== tight loop: 30 iterations ===
-predict_total_ms          mean=13.40  median=13.56  min=12.00  max=14.62
-pipeline_inference_ms     mean= 8.42  median= 8.40  min= 8.05  max= 8.90
-```
+Luis Sena の実測: `ThreadPoolExecutor(max_workers=1) + run_in_executor` は ML ライブラリ内部スレッドと GIL を奪い合って **4x 悪化**. `ProcessPoolExecutor` が唯一安定 (7-9ms 定常).
+出典: [How to Optimize FastAPI for ML Model Serving (Luis Sena)](https://luis-sena.medium.com/how-to-optimize-fastapi-for-ml-model-serving-6f75fb9e040d)
 
-API でも **最初の 3-4 リクエストは 8ms** で出る. その後急に劣化:
+### W3. GPU 並行で GIL 競合警告
 
-```
-req#  e2e   inference   note
-  1   74.8  7.94       (warmup, postprocess=51ms)
-  2   25.4  8.24       ← CLI 速度!
-  3   60.4  45.32      ← 突然遅くなる
-  ...
- 18   96.0  80.77
- 19  121.4 104.83      ← ピーク
- 25   59.7  45.49      ← 中速モードに復帰
- 31  107.8  91.17      ← 再び遅い
- 34   57.2  42.83      ← 中速
-```
+Jonathan Chang: *"Threading might seem tempting, but it can compete with GPU tasks for GIL and hurt GPU utilization."*
+出典: [Maximizing PyTorch Throughput with FastAPI (Jonathan Chang)](https://jonathanc.net/blog/maximizing_pytorch_throughput)
 
-**「8ms (CLI 速度) → 中速 (40-50ms) ⇔ 低速 (90-100ms)」** の 3 段階遷移. 初期だけ CLI と同速で, 以降は 40ms と 90ms の bimodal を行き来.
+### W4. HN 議論: 真の問題は Web 層の同期推論
 
-## 4. 真因: PyTorch caching allocator のブロック再編成
+Triton / TorchServe / BentoML は **推論を別プロセス (or queue 経由の別 worker) に分離** することでこの問題を避ける. FastAPI 直書きは単機能サービスには使えるが, latency 安定を狙うなら queue ベース設計が基本.
+出典: [Breaking up with Flask and FastAPI (Hacker News)](https://news.ycombinator.com/item?id=31769316)
 
-姉妹プロジェクト pochitrain の Issue [#391](https://github.com/kurorosu/pochitrain/issues/391) と PR [#440](https://github.com/kurorosu/pochitrain/pull/440) で同様の振れが報告されており, **対策としてメモリ事前確保 + in-place 演算で解消** した実績がある.
+## 現時点の仮説
 
-### 振れの仕組み
+**asyncio event loop thread が GPU stream sync と干渉する** — Windows timer 15.6ms の粒度で asyncio poll cycle が wake し, `cudaStreamSynchronize` を待つ thread の GIL 復帰が遅延する. これが 38 / 80 / 100ms の bimodal (15-16ms の整数倍近い) と整合する可能性.
 
-`pipeline.preprocess()` の各リクエストで以下の中間 tensor が生成 → 破棄される:
+**反証材料もあり**: `run_in_executor` で event loop thread から分離しても中盤の振動は消えなかった. 単純な thread 分離では解けない別要因がありそう.
 
-```python
-# rtdetr_pipeline.py:85-88
-pixel_values = self._transform(image).unsqueeze(0).to(self._device)
-```
+## 次の調査軸 (優先度順)
 
-- `_transform(image)` の戻り値: `(3, 640, 640) float32` を新規確保
-- `.unsqueeze(0)`: `(1, 3, 640, 640)` view
-- `.to(self._device)`: GPU 上に新規 `(1, 3, 640, 640) float32` (~3.1MB) を確保
+1. **CUDA Event 化の計測導入** — 現状 `pipeline_inference_ms` は wall-clock. `torch.cuda.Event(enable_timing=True)` で GPU 実時間を計測し wall-clock との差分で「Python 待ち時間」を分離. どこが遅いか確定する最優先手.
+2. **Dedicated worker thread + `queue.Queue`** — FastAPI handler を「queue に投入して結果を待つ」だけにし, 推論は独立 daemon thread で無限ループ. asyncio と GPU を完全に切り離す.
+3. **ProcessPoolExecutor 案** — Luis Sena 実績. ただし TRT engine のファイル (数百 MB) を per-process ロードするため起動コストが重い. 採用は CUDA Event 結果次第.
+4. **Windows timer hack** — `ctypes.windll.winmm.timeBeginPeriod(1)` を app.py の lifespan で呼び, timer 解像度を 1ms に強制. 仮説 W1 の検証.
+5. **`sys.setswitchinterval(0.001)`** — GIL 切替を 5ms → 1ms に短縮. 仮説 W2 の検証.
 
-これがリクエスト毎に発生するため, PyTorch の caching allocator が **ある頻度で内部ブロックを再配置** する. 再配置時に数 ms 〜 10ms 超のスパイクが入り, それが累積して 40-100ms の振動になる.
-
-**スタンドアロンが速い理由**: tight loop の中で同じパターンの確保/解放を高速に繰り返すため, allocator の内部キャッシュがすぐ「定常状態」に到達してブロック再配置がほぼ起きない. 一方 API は HTTP 応答送信や Pydantic 検証で間に CPU 処理が挟まり, allocator のヒューリスティックが「リクエスト間で再編成すべき」と判断する瞬間が発生する.
-
-### CLI が速い理由
-
-CLI (`pochi infer`) は `pipeline.run()` を tight loop で連続実行する (画像保存なども CPU 主体で短時間). スタンドアロンと同様に caching allocator が定常化する.
-
-## 5. 解決策: pochitrain #440 方式
-
-```python
-# IDetectionBackend.predict() 内の擬似コード
-tensor = torch.from_numpy(rgb).permute(2, 0, 1).unsqueeze(0)
-if self._input_buf is None or self._input_buf.shape != tensor.shape:
-    self._input_buf = torch.empty(
-        tensor.shape, dtype=torch.float32, device=self._device
-    )
-# 起動後初回だけ allocator に確保要求, 以降は再利用
-self._input_buf.copy_(tensor)               # uint8→float32 dtype 変換も兼ねる
-self._input_buf.sub_(self._mean_255).div_(self._std_255)  # in-place 正規化
-```
-
-**効果 (pochitrain 実績)**:
-- 振れ範囲: 0.5 〜 16ms → **p99 < 5ms** に収束
-- ピーク最速値はやや悪化 (allocator スパイクの代わりに in-place 演算オーバーヘッド)
-- 平均と p99 が大幅に改善, 運用上の安定性が向上
-
-**追加対策**:
-- `_WARMUP_ITERATIONS = 3` (現状 1 回) で起動時に 3 回 dummy 推論. TRT autotuner / cuDNN JIT を確実に warm-up.
-- `np.zeros` → `np.random.randint` で warmup. 実データに近い分布でカーネル選択.
-
-詳細は **Issue #447** で別途実装.
-
-## 6. 棄却された仮説の整理
+## 棄却された仮説の整理
 
 | 仮説 | 検証方法 | 結果 |
 |---|---|---|
-| `Image.fromarray` PIL コピー | preprocess フェーズ単独計測 | ❌ 8.5ms で全体振れを説明できず |
-| GPU クロック P-state | standalone + `sleep(0.030)` × 30 | ❌ 8ms 安定維持 |
-| async vs sync def (event loop) | ハンドラ書き換え + 再ベンチ | ❌ どちらも bimodal |
-| TRT context スレッド紐付け | `threading.get_ident()` ログ | ❌ async は同一スレッド |
-| **caching allocator 再編成** | pochitrain #391/#440 と突合 | ✅ 原因確定 |
+| A. `Image.fromarray` PIL コピー | preprocess フェーズ単独計測 | ❌ 8.5ms で全体振れを説明できず |
+| B. GPU クロック P-state | standalone + `sleep(0.030)` × 30 | ❌ 8ms 安定維持 |
+| C. async def vs sync def (event loop) | ハンドラ書き換え + 再ベンチ | ❌ どちらも bimodal |
+| D. TRT context スレッド紐付け | `threading.get_ident()` ログ | ❌ async は同一スレッド |
+| **E. PyTorch caching allocator 再編成** (pochitrain 流用) | PR #449 で実装 → 36 枚ベンチ | ❌ preprocess 側は安定したが inference 振動は同等. dev 比較でも差なし |
+| F. 「gap 中の allocator 再配置」 | カメラ (gap 40ms) で 14ms 安定を確認 | ❌ gap 自体は振動の原因ではない |
 
-## 7. 教訓と再発防止
+## 教訓と再発防止
 
-### Caching allocator の振れは tight loop では再現しない
+### 姉妹プロジェクトの流用は仮説として扱う
 
-ベンチを「ループでひたすら呼ぶ」だけだと allocator が定常化して問題が消える. 実運用に近い **「リクエスト間に CPU 処理 (HTTP 応答 / serialize / 別タスク) が挟まる」状況** で初めて観測される.
+pochitrain Issue #391 / PR #440 の解決策が pochidetection にも効くと思い込み, `run_in_executor` や CUDA Event 計測の前に実装に進んでしまった. **pochitrain は PyTorch backend 中心, pochidetection は FastAPI + TRT の組み合わせ** という差を軽視した. 次回は最低でも `torch.cuda.Event` による GPU 実時間計測を事前に入れて, 真因が GPU 側か Python 側かを切り分ける.
 
-### フェーズ別計測の重要性
+### Tight loop ベンチだけに頼らない
 
-`e2e_time_ms` だけ見ていた段階では「preprocess が遅い」「PIL コピーが原因」と誤った仮説に走った. **PhasedTimer + 後段のフェーズ別ログ** を入れて初めて「preprocess は問題なく, inference 本体が振れている」と特定できた. PR #440 マージ時点で `phase_times_ms` を入れておけば, ここまでの調査時間が短縮できた.
+スタンドアロンが 8ms で安定したことを「動作の正常性の証明」として扱ったが, **本番経路 (HTTP + asyncio) で再現しない実験は意味が薄い**. ベンチ設計に「gap + 別スレッドから呼ぶ」シナリオを含めるべきだった. 現在はカメラストリームが代替ベンチとして機能している.
 
-### 姉妹プロジェクトの過去事例を先に当たる
+### 計測の wall-clock と GPU 時間を常に分離
 
-pochitrain の Issue #391 / PR #440 を先に確認していれば, 仮説 A-D の検証は不要だった. 同じ pochi_series 系プロジェクト間で **共通の API 設計上の落とし穴** は再発しやすい. 今後の API 系新機能では pochitrain 側の対応 PR / Issue を最初に確認するワークフローを推奨.
+`time.perf_counter()` は CPU 側の待ち時間を含む. `torch.cuda.Event` と比較するだけで仮説空間が一気に狭まる. 今後 GPU 関連のレイテンシ調査では最初から両者を並記する.
 
-### 案 B/C/pochitrain 方式の選択
+## 関連リンク
 
-事前検討では 3 案 (案 B: pipeline numpy バイパス / 案 C: serializer の PIL 化 / pochitrain GPU 方式) を並列に評価していたが, **真因が caching allocator にあると判明した時点で答えは pochitrain 方式一択**. 案 B/C は preprocess の PIL コピーを削るだけで, 真の振れ要因 (GPU メモリ確保) は解消しない.
-
-## 8. 関連リンク
-
-- pochidetection PR #440: 検出エンドポイント `/detect` 追加
-- pochidetection Issue #446: フェーズ別計測の追加
-- pochidetection Issue #447: GPU 入力バッファ再利用 (本問題の解決)
-- pochitrain Issue #391: 同問題の原因分析 (https://github.com/kurorosu/pochitrain/issues/391)
-- pochitrain PR #440: warmup + GPU 入力バッファ事前確保 (https://github.com/kurorosu/pochitrain/pull/440)
+- [pochidetection PR #448](https://github.com/kurorosu/pochidetection/pull/448): `/detect` フェーズ別計測追加 (本資料の初版).
+- [pochidetection PR #449](https://github.com/kurorosu/pochidetection/pull/449): GPU 入力バッファ再利用案 (close 済み, 訂正コメント付き).
+- [pochidetection Issue #446](https://github.com/kurorosu/pochidetection/issues/446): フェーズ別計測の追加 (close 済み).
+- [pochidetection Issue #447](https://github.com/kurorosu/pochidetection/issues/447): caching allocator 仮説 (棄却済みで close, 棄却根拠コメント付き).
+- [pochitrain Issue #391](https://github.com/kurorosu/pochitrain/issues/391): 姉妹プロジェクトの同名課題 (原因が異なると判明).
+- [pochitrain PR #440](https://github.com/kurorosu/pochitrain/pull/440): 姉妹プロジェクトの対策 (pochidetection には不適用).
+- [Python docs: Platform Support (Windows)](https://docs.python.org/3/library/asyncio-platforms.html)
+- [Higher resolution timers on Windows? (discuss.python.org)](https://discuss.python.org/t/higher-resolution-timers-on-windows/16153)
+- [How to Optimize FastAPI for ML Model Serving (Luis Sena)](https://luis-sena.medium.com/how-to-optimize-fastapi-for-ml-model-serving-6f75fb9e040d)
+- [Maximizing PyTorch Throughput with FastAPI (Jonathan Chang)](https://jonathanc.net/blog/maximizing_pytorch_throughput)
+- [Breaking up with Flask and FastAPI (Hacker News)](https://news.ycombinator.com/item?id=31769316)
