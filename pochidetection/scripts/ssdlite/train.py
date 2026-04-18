@@ -11,12 +11,12 @@ from pochidetection.datasets import SsdCocoDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
-from pochidetection.scripts.ssd.validation import ssd_validate
 from pochidetection.training.loop import (
     TrainingContext,
     TrainingLoop,
     setup_training,
 )
+from pochidetection.training.validation import ssd_validate
 
 
 def train(config: DetectionConfigDict, config_path: str) -> None:
