@@ -10,7 +10,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-from pochidetection.scripts.common.training import TrainingContext
+from pochidetection.training.loop import TrainingContext
 
 
 def ssd_validate(
