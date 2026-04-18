@@ -13,7 +13,8 @@
 - `IDetectionBackend` の `get_model_info` / `set_class_names` / `warmup` / `close` / `backend_name` の動作テストを追加. 既存 phase_times テストも class 単位で整理. ([#473](https://github.com/kurorosu/pochidetection/pull/473))
 - `IDetectionPipeline.pipeline_mode` プロパティの cpu / gpu 反映を RTDetr / SSD 両方で検証するテストを追加. ([#471](https://github.com/kurorosu/pochidetection/pull/471))
 - `resolve_pipeline_mode()` の入力組合せを `@pytest.mark.parametrize` で網羅. ONNX + gpu 拒否時の `ValueError` メッセージも検証. ([#472](https://github.com/kurorosu/pochidetection/pull/472))
-- `pochidetection/interfaces/pipeline.py` の `typing.Union` を Python 3.12+ の `X | Y` 記法に置換. `ImageInput` 型エイリアスを PEP 695 の `type` 文に書き換え. (NA.)
+- `pochidetection/interfaces/pipeline.py` の `typing.Union` を Python 3.12+ の `X | Y` 記法に置換. `ImageInput` 型エイリアスを PEP 695 の `type` 文に書き換え. ([#475](https://github.com/kurorosu/pochidetection/pull/475))
+- WebAPI テスト (`tests/test_api/`) のグローバル `_engine` 直接書き換えを `conftest.py` の autouse fixture で隔離. 各テストの try/finally 手動リセットを削除し, pytest-xdist 並列実行時の state 残留を防止. (NA.)
 
 ### Fixed
 - 無し
