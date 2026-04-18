@@ -20,6 +20,10 @@ from pochidetection.scripts.common.inference import (
 
 logger = LoggerManager().get_logger(__name__)
 
+# Why: 1 回だけだと TRT autotuner / cuDNN JIT が定常状態に到達せず, 初期リクエストで
+# レイテンシ振動が起きる. pochitrain PR #440 と同じく 3 回に揃える.
+_WARMUP_ITERATIONS = 3
+
 
 def _safe_version(package: str) -> str | None:
     """Return installed package version or None if missing."""
@@ -103,11 +107,18 @@ class IDetectionBackend(ABC):
         }
 
     def warmup(self) -> None:
-        """Run a single dummy inference to warm up the pipeline."""
+        """Run dummy inferences to warm up the pipeline.
+
+        Why: zeros 画像では TRT autotuner / cuDNN が実データの分布に届かず,
+        初期リクエストで kernel 選択や allocator 配置が走り直してレイテンシが
+        振動する. 実画像に近い乱数で複数回走らせて定常化させる.
+        """
         image_size = self._config["image_size"]
         height, width = image_size["height"], image_size["width"]
-        dummy = np.zeros((height, width, 3), dtype=np.uint8)
-        self._pipeline.run(dummy)
+        rng = np.random.default_rng(0)
+        for _ in range(_WARMUP_ITERATIONS):
+            dummy = rng.integers(0, 256, (height, width, 3), dtype=np.uint8)
+            self._pipeline.run(dummy)
 
     def predict(
         self,

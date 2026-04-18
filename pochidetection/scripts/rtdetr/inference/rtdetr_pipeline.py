@@ -31,6 +31,8 @@ class RTDetrPipeline(
         _nms_iou_threshold: NMS の IoU 閾値.
         _use_fp16: FP16 推論を使用するか.
         _phased_timer: フェーズ別タイマー.
+        _input_buffer: 事前確保した GPU 入力テンソル. preprocess の毎回新規確保を
+            避けて caching allocator のブロック再編成を抑制する.
     """
 
     def __init__(
@@ -68,11 +70,15 @@ class RTDetrPipeline(
         self._threshold = threshold
         self._nms_iou_threshold = nms_iou_threshold
         self._use_fp16 = is_fp16_available(use_fp16, device)
+        self._input_buffer: torch.Tensor | None = None
 
     def preprocess(self, image: ImageInput) -> dict[str, torch.Tensor]:
         """画像を前処理し, モデル入力テンソルを返す.
 
         numpy 配列は Transform チェーンとの互換性のため内部で PIL に変換する.
+        GPU 入力テンソルは初回呼び出し時に事前確保し, 以降は ``copy_`` で
+        in-place 再利用する. これによりリクエスト毎の GPU 新規確保を回避し,
+        PyTorch caching allocator のブロック再編成によるレイテンシ振動を抑える.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
@@ -82,12 +88,22 @@ class RTDetrPipeline(
         """
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
-        pixel_values = self._transform(image).unsqueeze(0).to(self._device)
-
+        cpu_tensor = self._transform(image).unsqueeze(0)
         if self._use_fp16:
-            pixel_values = pixel_values.half()
+            cpu_tensor = cpu_tensor.half()
 
-        return {"pixel_values": pixel_values}
+        # Why: shape mismatch (動的解像度) 時のみ再確保する safety net.
+        if (
+            self._input_buffer is None
+            or self._input_buffer.shape != cpu_tensor.shape
+            or self._input_buffer.dtype != cpu_tensor.dtype
+        ):
+            self._input_buffer = torch.empty(
+                cpu_tensor.shape, dtype=cpu_tensor.dtype, device=self._device
+            )
+        self._input_buffer.copy_(cpu_tensor, non_blocking=True)
+
+        return {"pixel_values": self._input_buffer}
 
     def infer(
         self, inputs: dict[str, torch.Tensor]

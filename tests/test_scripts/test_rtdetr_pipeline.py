@@ -280,6 +280,72 @@ class TestRTDetrPipelineMethods:
         assert isinstance(detections[0], Detection)
 
 
+class TestRTDetrPipelineInputBuffer:
+    """preprocess() の GPU 入力バッファ再利用テスト."""
+
+    def test_input_buffer_is_reused_across_calls(self) -> None:
+        """2 回目以降の preprocess() が同一バッファを返す."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+        )
+        image = Image.new("RGB", (64, 64))
+
+        first = pipeline.preprocess(image)["pixel_values"]
+        second = pipeline.preprocess(image)["pixel_values"]
+
+        assert first is second
+
+    def test_input_buffer_reflects_latest_image(self) -> None:
+        """同一バッファでも値は毎回更新される."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+        )
+        red = Image.new("RGB", (64, 64), color=(255, 0, 0))
+        blue = Image.new("RGB", (64, 64), color=(0, 0, 255))
+
+        red_first = pipeline.preprocess(red)["pixel_values"].clone()
+        blue_after = pipeline.preprocess(blue)["pixel_values"]
+
+        assert not torch.allclose(red_first, blue_after)
+
+    def test_input_buffer_reallocates_on_shape_mismatch(self) -> None:
+        """shape が変わったら再確保される."""
+        transform_64 = v2.Compose(
+            [
+                v2.Resize((64, 64), interpolation=v2.InterpolationMode.BILINEAR),
+                v2.ToImage(),
+                v2.ToDtype(torch.float32, scale=True),
+            ]
+        )
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=transform_64,
+            device="cpu",
+        )
+        image = Image.new("RGB", (64, 64))
+
+        first = pipeline.preprocess(image)["pixel_values"]
+        # transform を差し替えて出力 shape を強制的に変える.
+        pipeline._transform = v2.Compose(
+            [
+                v2.Resize((128, 128), interpolation=v2.InterpolationMode.BILINEAR),
+                v2.ToImage(),
+                v2.ToDtype(torch.float32, scale=True),
+            ]
+        )
+        second = pipeline.preprocess(image)["pixel_values"]
+
+        assert first is not second
+        assert second.shape == (1, 3, 128, 128)
+
+
 class TestRTDetrPipelineNms:
     """RTDetrPipeline の NMS テスト."""
 

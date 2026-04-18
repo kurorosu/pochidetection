@@ -20,10 +20,14 @@
   - `docs/api-server.md` に raw / jpeg リクエスト例, レスポンス形式, エラーコード一覧, バックエンド自動判定の仕様を追記. README.md にも `pochi serve` の概要とエンドポイント一覧を追加.
 
 ### Changed
-- `POST /api/v1/detect` にフェーズ別タイミング計測を追加. ボトルネック特定用の観測機能. (NA.)
+- `POST /api/v1/detect` にフェーズ別タイミング計測を追加. ボトルネック特定用の観測機能. ([#448](https://github.com/kurorosu/pochidetection/pull/448))
   - `IImageSerializer.deserialize()` / `IDetectionBackend.predict()` の戻り値を `(result, phase_times)` タプルに変更.
   - `DetectResponse` に optional な `phase_times_ms: dict[str, float]` フィールドを追加. `b64_decode_ms`, `imdecode_ms` (jpeg のみ), `reshape_ms` (raw のみ), `cvt_color_ms`, `pipeline_preprocess_ms`, `pipeline_inference_ms`, `pipeline_postprocess_ms` を出力.
   - router 側で `model_dump_ms` を含む各フェーズを `time.perf_counter()` で計測し, ログとレスポンス両方に出力.
+- `POST /api/v1/detect` の `pipeline_inference_ms` 振動 (40-100ms の bimodal) を解消. pochitrain PR #440 方式の移植. (NA.)
+  - `RTDetrPipeline.preprocess()` に GPU 入力テンソルの事前確保を追加. 初回のみ `torch.empty(...)` で確保し, 以降は `copy_(non_blocking=True)` で in-place 再利用することで PyTorch caching allocator のブロック再編成を抑制.
+  - shape / dtype mismatch 時のみ再確保する safety net を併設. FP16 経路にも対応.
+  - `IDetectionBackend.warmup()` の起動時推論を 1 回 → 3 回 (`_WARMUP_ITERATIONS=3`) に増やし, ダミー画像を `np.zeros` から `np.random.default_rng(0).integers(0, 256, ...)` に変更. TRT autotuner / cuDNN JIT が実データ分布で定常化するようにする.
 
 ### Fixed
 - 無し
