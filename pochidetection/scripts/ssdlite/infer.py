@@ -158,6 +158,7 @@ def _setup_pipeline(
         use_fp16=use_fp16,
         phased_timer=phased_timer,
         pipeline_mode=pipeline_mode,
+        letterbox=config.get("letterbox", True),
     )
 
     return build_pipeline_context(

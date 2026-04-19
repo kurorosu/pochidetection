@@ -216,6 +216,97 @@ class TestSsdCocoDataset:
         with pytest.raises(FileNotFoundError):
             SsdCocoDataset(tmp_path, image_size)
 
+    def test_letterbox_landscape_image_pads_bbox_vertically(
+        self, tmp_path: Path, image_size: ImageSizeDict
+    ) -> None:
+        """横長画像 + letterbox=True で bbox が scale + pad_top 加算される.
+
+        1280x720 画像を 320x320 にリサイズする場合, scale=0.25, new=320x180,
+        pad_top=70 (上下 70 ずつ). 元 bbox [200, 100, 200, 200] (xywh) は
+        xyxy に直すと [200, 100, 400, 300]. letterbox 後は
+        [200*0.25, 100*0.25 + 70, 400*0.25, 300*0.25 + 70] = [50, 95, 100, 145].
+        """
+        images_dir = tmp_path / "JPEGImages"
+        images_dir.mkdir()
+        img = Image.new("RGB", (1280, 720), color=(100, 100, 100))
+        img.save(images_dir / "landscape.jpg")
+
+        annotations = {
+            "images": [
+                {
+                    "id": 1,
+                    "file_name": "JPEGImages/landscape.jpg",
+                    "width": 1280,
+                    "height": 720,
+                },
+            ],
+            "annotations": [
+                {
+                    "id": 1,
+                    "image_id": 1,
+                    "category_id": 1,
+                    "bbox": [200, 100, 200, 200],
+                },
+            ],
+            "categories": [{"id": 1, "name": "cat"}],
+        }
+        with open(tmp_path / "annotations.json", "w") as f:
+            json.dump(annotations, f)
+
+        dataset = SsdCocoDataset(tmp_path, image_size, letterbox=True)
+        sample = dataset[0]
+
+        assert sample["pixel_values"].shape == (3, 320, 320)
+        boxes = sample["labels"]["boxes"]
+        assert boxes.shape == (1, 4)
+        expected = torch.tensor([[50.0, 95.0, 100.0, 145.0]])
+        torch.testing.assert_close(boxes, expected, atol=1.0, rtol=0.0)
+
+    def test_letterbox_false_falls_back_to_simple_resize(
+        self, tmp_path: Path, image_size: ImageSizeDict
+    ) -> None:
+        """letterbox=False で従来の v2.Resize (単純リサイズ) に戻る.
+
+        1280x720 → 320x320 の単純リサイズは独立スケール (x: 0.25, y: 320/720).
+        元 bbox [200, 100, 400, 300] (xyxy) → [50, 44.44, 100, 133.33].
+        """
+        images_dir = tmp_path / "JPEGImages"
+        images_dir.mkdir()
+        img = Image.new("RGB", (1280, 720), color=(100, 100, 100))
+        img.save(images_dir / "landscape.jpg")
+
+        annotations = {
+            "images": [
+                {
+                    "id": 1,
+                    "file_name": "JPEGImages/landscape.jpg",
+                    "width": 1280,
+                    "height": 720,
+                },
+            ],
+            "annotations": [
+                {
+                    "id": 1,
+                    "image_id": 1,
+                    "category_id": 1,
+                    "bbox": [200, 100, 200, 200],
+                },
+            ],
+            "categories": [{"id": 1, "name": "cat"}],
+        }
+        with open(tmp_path / "annotations.json", "w") as f:
+            json.dump(annotations, f)
+
+        dataset = SsdCocoDataset(tmp_path, image_size, letterbox=False)
+        sample = dataset[0]
+
+        assert sample["pixel_values"].shape == (3, 320, 320)
+        boxes = sample["labels"]["boxes"]
+        scale_y = 320 / 720
+        expected = torch.tensor([[50.0, 100.0 * scale_y, 100.0, 300.0 * scale_y]])
+        # v2.Resize は非等比スケールの際に rounding が入るため ~0.5 pixel の誤差を許容.
+        torch.testing.assert_close(boxes, expected, atol=1.0, rtol=0.0)
+
     def test_zero_size_bbox_is_skipped(
         self, tmp_path: Path, image_size: ImageSizeDict
     ) -> None:

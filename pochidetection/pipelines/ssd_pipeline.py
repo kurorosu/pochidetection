@@ -8,6 +8,11 @@ from PIL import Image
 from torchvision.transforms import v2
 
 from pochidetection.core.detection import Detection
+from pochidetection.core.letterbox import (
+    LetterboxParams,
+    apply_letterbox,
+    compute_letterbox_params,
+)
 from pochidetection.core.preprocess import gpu_preprocess_tensor
 from pochidetection.interfaces import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
@@ -50,6 +55,7 @@ class SsdPipeline(
         use_fp16: bool = False,
         phased_timer: PhasedTimer | None = None,
         pipeline_mode: Literal["cpu", "gpu"] = "cpu",
+        letterbox: bool = False,
     ) -> None:
         """初期化.
 
@@ -64,6 +70,10 @@ class SsdPipeline(
             pipeline_mode: preprocess 経路 ('cpu' or 'gpu').
                 'gpu' は uint8 H2D + GPU 上 normalize + 入力バッファ再利用で
                 preprocess を高速化する. resolve_pipeline_mode() で解決済みの値.
+            letterbox: True で preprocess / postprocess に letterbox (アスペクト比
+                維持 + padding) を適用し, 学習時前処理と分布を揃える. False (既定)
+                で従来の単純 resize + (orig_w/target_w, orig_h/target_h) スケーリング
+                に戻る.
 
         Raises:
             ValueError: phased_timer に必須フェーズが含まれていない場合.
@@ -78,6 +88,8 @@ class SsdPipeline(
         self._threshold = threshold
         self._use_fp16 = is_fp16_available(use_fp16, device)
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
+        self._letterbox = letterbox
+        self._last_letterbox_params: LetterboxParams | None = None
         self._gpu_input_buffer: torch.Tensor | None = None
         self._init_cuda_events(device)
 
@@ -86,6 +98,9 @@ class SsdPipeline(
 
         pipeline_mode='gpu' 時は GPU 経路 (uint8 H2D + GPU 上 float32/255 +
         バッファ再利用), 'cpu' 時は従来 PIL + torchvision v2 Compose.
+        ``letterbox=True`` の場合は両経路とも ``apply_letterbox`` で
+        アスペクト比維持 + padding を施し, ``_last_letterbox_params`` に
+        幾何パラメータを保持して postprocess の逆変換に利用する.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
@@ -100,6 +115,13 @@ class SsdPipeline(
         else:
             orig_w, orig_h = image.size
 
+        if self._letterbox:
+            self._last_letterbox_params = compute_letterbox_params(
+                (orig_h, orig_w), self._image_size
+            )
+        else:
+            self._last_letterbox_params = None
+
         if self._pipeline_mode == "gpu":
             # Why: np.asarray(PIL.Image) は read-only な配列を返し,
             # torch.from_numpy() で writable tensor を作る際に警告が出る. np.array()
@@ -112,6 +134,8 @@ class SsdPipeline(
 
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
+        if self._last_letterbox_params is not None:
+            image = apply_letterbox(image, self._last_letterbox_params, pad_value=0)
         pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
@@ -124,7 +148,9 @@ class SsdPipeline(
 
         ``gpu_preprocess_tensor`` ヘルパーに委譲する. ヘルパー内部で uint8 →
         float32 キャスト + H2D 転送 + ``/255`` で ``[0, 1]`` 正規化を行う.
-        バッファ再利用の state は本クラスが保持する.
+        バッファ再利用の state は本クラスが保持する. ``letterbox=True`` 時は
+        ``_last_letterbox_params`` を ``gpu_preprocess_tensor`` に渡して
+        アスペクト比維持 + padding を適用する.
 
         Args:
             image_np: RGB uint8 numpy 配列, 形状 (H, W, 3), dtype ``uint8``,
@@ -142,6 +168,7 @@ class SsdPipeline(
             device=self._device,
             input_buffer=self._gpu_input_buffer,
             use_fp16=self._use_fp16,
+            letterbox_params=self._last_letterbox_params,
         )
         return pixel_values
 
@@ -165,6 +192,7 @@ class SsdPipeline(
         pred: dict[str, torch.Tensor],
         orig_w: int,
         orig_h: int,
+        threshold: float | None = None,
     ) -> list[Detection]:
         """後処理. スコア閾値フィルタと座標リスケールを行う.
 
@@ -172,26 +200,42 @@ class SsdPipeline(
             NMS は backend 側で適用済みのため,
             ここではスコア閾値フィルタと座標リスケールのみ行う.
 
+        letterbox 有効時は ``_last_letterbox_params`` で逆変換
+        (``(box - pad) / scale``) を適用し, 元画像座標に戻す. 無効時は従来の
+        ``(orig_w/target_w, orig_h/target_h)`` での単純スケーリング.
+
         Args:
             pred: モデル出力 (boxes, scores, labels).
             orig_w: 元画像の幅.
             orig_h: 元画像の高さ.
+            threshold: スコア閾値を request 単位で上書きする値. ``None`` の場合は
+                ``__init__`` で渡された ``self._threshold`` を使用する.
 
         Returns:
-            検出結果のリスト.
+            元画像座標系での検出結果のリスト.
         """
-        mask = pred["scores"] >= self._threshold
+        effective_threshold = self._threshold if threshold is None else threshold
+        mask = pred["scores"] >= effective_threshold
         boxes = pred["boxes"][mask]
         scores = pred["scores"][mask]
         labels = pred["labels"][mask]
 
-        target_h, target_w = self._image_size
-        scale_x = orig_w / target_w
-        scale_y = orig_h / target_h
-        boxes[:, 0] *= scale_x
-        boxes[:, 2] *= scale_x
-        boxes[:, 1] *= scale_y
-        boxes[:, 3] *= scale_y
+        params = self._last_letterbox_params
+        if params is not None:
+            pad = torch.tensor(
+                [params.pad_left, params.pad_top, params.pad_left, params.pad_top],
+                dtype=boxes.dtype,
+                device=boxes.device,
+            )
+            boxes = (boxes - pad) / params.scale
+        else:
+            target_h, target_w = self._image_size
+            scale_x = orig_w / target_w
+            scale_y = orig_h / target_h
+            boxes[:, 0] *= scale_x
+            boxes[:, 2] *= scale_x
+            boxes[:, 1] *= scale_y
+            boxes[:, 3] *= scale_y
 
         return [
             Detection(
@@ -202,13 +246,17 @@ class SsdPipeline(
             for box, score, label in zip(boxes, scores, labels)
         ]
 
-    def run(self, image: ImageInput) -> list[Detection]:
+    def run(
+        self, image: ImageInput, *, threshold: float | None = None
+    ) -> list[Detection]:
         """E2E 実行. preprocess → infer → postprocess を順に実行する.
 
         PhasedTimer が設定されている場合, 各フェーズを個別に計測する.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
+            threshold: 検出信頼度の下限しきい値. ``None`` の場合は ``__init__``
+                で渡された値を使用する.
 
         Returns:
             検出結果のリスト.
@@ -218,6 +266,6 @@ class SsdPipeline(
         with self._measure("inference"), self._measure_inference_gpu():
             pred = self.infer(inputs)
         with self._measure("postprocess"):
-            detections = self.postprocess(pred, orig_w, orig_h)
+            detections = self.postprocess(pred, orig_w, orig_h, threshold=threshold)
 
         return detections

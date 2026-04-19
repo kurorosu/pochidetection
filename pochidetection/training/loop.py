@@ -62,31 +62,46 @@ ModelFactory = Callable[[DetectionConfigDict], IDetectionModel]
 def _apply_augmentation_to_dataset(
     dataset: Dataset[dict[str, Any]],
     augmentation: v2.Compose,
-    debug_save_count: int = 0,
-    debug_save_dir: Path | None = None,
-    logger: logging.Logger | None = None,
 ) -> None:
-    """データセットに augmentation とデバッグ保存設定を適用する.
+    """データセットに augmentation を適用する.
 
     Args:
         dataset: 対象データセット.
         augmentation: 構築済みの augmentation パイプライン.
-        debug_save_count: デバッグ画像保存枚数 (0 で無効).
-        debug_save_dir: デバッグ画像の保存先ディレクトリ.
-        logger: ロガー (None の場合はログ出力なし).
     """
     if not isinstance(dataset, BaseCocoDataset):
         return
 
     dataset._augmentation = augmentation
-    if debug_save_count > 0 and debug_save_dir is not None:
-        dataset.debug_save_count = debug_save_count
-        dataset.debug_save_dir = debug_save_dir
-        if logger is not None:
-            logger.info(
-                f"Augmentation debug: saving first {debug_save_count} "
-                f"images to {debug_save_dir}"
-            )
+
+
+def _apply_debug_save_to_dataset(
+    dataset: Dataset[dict[str, Any]],
+    debug_save_count: int,
+    debug_save_dir: Path,
+    logger: logging.Logger | None = None,
+) -> None:
+    """データセットに学習画像デバッグ保存設定を適用する.
+
+    augmentation の有無に関わらず, 1 エポック目の先頭 ``debug_save_count`` 枚を
+    bbox 付きで保存する. letterbox / preprocess の silent bug を目視検知する目的.
+
+    Args:
+        dataset: 対象データセット.
+        debug_save_count: 保存枚数 (> 0).
+        debug_save_dir: 保存先ディレクトリ.
+        logger: ロガー (None の場合はログ出力なし).
+    """
+    if not isinstance(dataset, BaseCocoDataset):
+        return
+
+    dataset.debug_save_count = debug_save_count
+    dataset.debug_save_dir = debug_save_dir
+    if logger is not None:
+        logger.info(
+            f"Train debug: saving first {debug_save_count} "
+            f"images to {debug_save_dir}"
+        )
 
 
 def setup_training(
@@ -134,24 +149,25 @@ def setup_training(
     # augmentation 構築 (学習データのみに適用)
     aug_config = config.get("augmentation")
     augmentation = None
-    debug_save_count = 0
-    debug_save_dir: Path | None = None
     if aug_config is not None:
         parsed = AugmentationConfig.model_validate(aug_config)
         augmentation = build_augmentation(parsed)
-        debug_save_count = parsed.debug_save
-        if debug_save_count > 0:
-            debug_save_dir = workspace / "augmentation_debug"
+
+    # デバッグ画像保存 (augmentation の有無と独立)
+    debug_save_count = config.get("debug_save_count", 0)
 
     train_loader, val_loader = build_data_loaders(config, dataset_factory, logger)
 
     # augmentation は学習データのみに適用
     if augmentation is not None:
-        _apply_augmentation_to_dataset(
+        _apply_augmentation_to_dataset(train_loader.dataset, augmentation)
+
+    # デバッグ画像保存も学習データのみに適用
+    if debug_save_count > 0:
+        _apply_debug_save_to_dataset(
             train_loader.dataset,
-            augmentation,
             debug_save_count=debug_save_count,
-            debug_save_dir=debug_save_dir,
+            debug_save_dir=workspace / "train_debug",
             logger=logger,
         )
 

@@ -68,7 +68,11 @@ def _setup_training(
     logger.info("Architecture: SSD300 VGG16")
 
     image_size = config["image_size"]
-    dataset_factory = partial(SsdCocoDataset, image_size=image_size)
+    dataset_factory = partial(
+        SsdCocoDataset,
+        image_size=image_size,
+        letterbox=config.get("letterbox", True),
+    )
 
     return setup_training(
         config=config,

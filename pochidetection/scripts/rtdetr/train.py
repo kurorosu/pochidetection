@@ -66,7 +66,13 @@ def _setup_training(
         return model
 
     def dataset_factory(path: Any) -> Any:
-        return CocoDetectionDataset(path, processor=processor_holder[0])
+        image_size = config["image_size"]
+        return CocoDetectionDataset(
+            path,
+            processor=processor_holder[0],
+            letterbox=config.get("letterbox", True),
+            image_size=(image_size["height"], image_size["width"]),
+        )
 
     return setup_training(
         config=config,

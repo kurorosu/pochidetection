@@ -336,7 +336,12 @@ class _DummyPipeline(IDetectionPipeline[np.ndarray, list[Detection]]):
     def postprocess(self, outputs: list[Detection]) -> list[Detection]:
         return outputs
 
-    def run(self, image: np.ndarray | None = None) -> list[Detection]:
+    def run(
+        self,
+        image: np.ndarray | None = None,
+        *,
+        threshold: float | None = None,
+    ) -> list[Detection]:
         return self._detections
 
 
