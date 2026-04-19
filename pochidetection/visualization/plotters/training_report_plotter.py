@@ -6,7 +6,10 @@ import plotly.graph_objects as go
 from plotly.io import to_html
 
 from pochidetection.interfaces import IReportPlotter, ITrainingCurvePlotter
-from pochidetection.visualization.plotters.constants import LEGEND_CONFIG
+from pochidetection.visualization.plotters.constants import (
+    LEGEND_CONFIG,
+    render_side_by_side_html,
+)
 
 
 class TrainingReportPlotter(IReportPlotter):
@@ -54,24 +57,9 @@ class TrainingReportPlotter(IReportPlotter):
         # グラフを横並びで HTML に出力
         graphs_html = "\n".join(f"<div>{html}</div>" for html in html_parts)
 
-        html_content = f"""<!DOCTYPE html>
-<html>
-<head>
-    <title>Training Report</title>
-    <style>
-        .container {{
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }}
-    </style>
-</head>
-<body>
-    <h1 style="text-align: center;">Training Report</h1>
-    <div class="container">
-        {graphs_html}
-    </div>
-</body>
-</html>
-"""
+        html_content = render_side_by_side_html(
+            title="Training Report",
+            heading="Training Report",
+            body=graphs_html,
+        )
         output_path.write_text(html_content, encoding="utf-8")

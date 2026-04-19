@@ -7,7 +7,10 @@ import torch
 from plotly.io import to_html
 
 from pochidetection.interfaces import IReportPlotter
-from pochidetection.visualization.plotters.constants import LEGEND_CONFIG
+from pochidetection.visualization.plotters.constants import (
+    LEGEND_CONFIG,
+    render_side_by_side_html,
+)
 
 
 class PRCurvePlotter(IReportPlotter):
@@ -66,27 +69,12 @@ class PRCurvePlotter(IReportPlotter):
         )
         per_class_html = to_html(per_class_fig, full_html=False, include_plotlyjs=False)
 
-        html_content = f"""<!DOCTYPE html>
-<html>
-<head>
-    <title>PR Curve</title>
-    <style>
-        .container {{
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }}
-    </style>
-</head>
-<body>
-    <h1 style="text-align: center;">Precision-Recall Curve</h1>
-    <div class="container">
-        <div>{all_classes_html}</div>
-        <div>{per_class_html}</div>
-    </div>
-</body>
-</html>
-"""
+        body = f"<div>{all_classes_html}</div>\n        <div>{per_class_html}</div>"
+        html_content = render_side_by_side_html(
+            title="PR Curve",
+            heading="Precision-Recall Curve",
+            body=body,
+        )
         output_path.write_text(html_content, encoding="utf-8")
 
     def _create_all_classes_figure(self) -> go.Figure:
