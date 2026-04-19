@@ -11,7 +11,7 @@ from typing import Any, Protocol
 import cv2
 import numpy as np
 
-from pochidetection.api.schemas import MAX_PIXELS
+from pochidetection.api.constants import MAX_PIXELS
 
 
 class IImageSerializer(Protocol):
