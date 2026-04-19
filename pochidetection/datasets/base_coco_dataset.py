@@ -270,3 +270,88 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
             カテゴリ名のリスト (連続インデックス順).
         """
         return [cat["name"] for cat in self._categories]
+
+    @property
+    def debug_save_count(self) -> int:
+        """デバッグ画像の保存上限枚数.
+
+        Returns:
+            1 エポック目に保存するデバッグ画像の上限枚数 (0 で無効).
+        """
+        return self._debug_save_count
+
+    @debug_save_count.setter
+    def debug_save_count(self, value: int) -> None:
+        """デバッグ画像の保存上限枚数を設定する.
+
+        Args:
+            value: 保存上限枚数 (0 以上).
+
+        Raises:
+            TypeError: value が int でない場合.
+            ValueError: value が負の場合.
+        """
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(
+                f"debug_save_count は int でなければなりません: {type(value).__name__}"
+            )
+        if value < 0:
+            raise ValueError(f"debug_save_count は 0 以上でなければなりません: {value}")
+        self._debug_save_count = value
+
+    @property
+    def debug_save_dir(self) -> Path | None:
+        """デバッグ画像の保存先ディレクトリ.
+
+        Returns:
+            保存先ディレクトリ. None の場合はデバッグ保存無効.
+        """
+        return self._debug_save_dir
+
+    @debug_save_dir.setter
+    def debug_save_dir(self, value: str | Path | None) -> None:
+        """デバッグ画像の保存先ディレクトリを設定する.
+
+        Args:
+            value: 保存先ディレクトリ (str または Path). None で無効.
+
+        Raises:
+            TypeError: value が str / Path / None のいずれでもない場合.
+        """
+        if value is None:
+            self._debug_save_dir = None
+            return
+        if not isinstance(value, (str, Path)):
+            raise TypeError(
+                f"debug_save_dir は str, Path, None のいずれかでなければなりません: "
+                f"{type(value).__name__}"
+            )
+        self._debug_save_dir = Path(value)
+
+    @property
+    def debug_saved(self) -> int:
+        """これまでに保存したデバッグ画像の枚数.
+
+        Returns:
+            保存済み枚数.
+        """
+        return self._debug_saved
+
+    @debug_saved.setter
+    def debug_saved(self, value: int) -> None:
+        """保存済み枚数を設定する (主にリセット用途).
+
+        Args:
+            value: 保存済み枚数 (0 以上).
+
+        Raises:
+            TypeError: value が int でない場合.
+            ValueError: value が負の場合.
+        """
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(
+                f"debug_saved は int でなければなりません: {type(value).__name__}"
+            )
+        if value < 0:
+            raise ValueError(f"debug_saved は 0 以上でなければなりません: {value}")
+        self._debug_saved = value
