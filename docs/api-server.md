@@ -288,7 +288,8 @@ pochidetection 本体と, インストール済みの推論バックエンドの
 
 > **Note**: `score_threshold` はパイプライン側の config (`infer_score_threshold`) と二段フィルタになります. リクエスト値が config 値より低い場合, 実際には config 値が下限として適用されるため, API レスポンスで得られる検出の最小 confidence は `max(request.score_threshold, config.infer_score_threshold)` となります.
 
-- 最大画像サイズ: 4096 × 4096 ピクセル
+- 最大画像サイズ: 4096 × 4096 ピクセル (`MAX_PIXELS`)
+- 最大 HTTP body サイズ: 64 MB (`MAX_BODY_SIZE`). 環境変数 `POCHI_MAX_BODY_SIZE` (bytes) で上書き可能
 - raw / jpeg のいずれも入力画像は **BGR** (cv2 convention) 前提. 内部で RGB に変換してパイプラインへ渡します
 - dtype は `uint8` のみ対応 (float32 はセキュリティおよびパイプライン側の前処理仕様上未対応)
 
@@ -297,6 +298,7 @@ pochidetection 本体と, インストール済みの推論バックエンドの
 | ステータス | 発生条件 |
 |---|---|
 | `400` | 画像デシリアライズ失敗 (不正な base64, shape 不整合, JPEG デコード失敗 等) |
+| `413` | HTTP body サイズが `MAX_BODY_SIZE` (default 64 MB) を超えた / 不正な `Content-Length` ヘッダ |
 | `422` | リクエストスキーマバリデーションエラー (raw 形式で `shape` 欠落, `dtype` が `uint8` 以外, `score_threshold` 範囲外 等) |
 | `500` | 推論中の予期しないエラー |
 | `503` | モデル未ロード (warmup 中やシャットダウン中) |
