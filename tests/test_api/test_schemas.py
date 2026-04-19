@@ -5,7 +5,8 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from pochidetection.api.schemas import MAX_PIXELS, DetectionDict, DetectRequest
+from pochidetection.api.constants import MAX_PIXELS
+from pochidetection.api.schemas import DetectionDict, DetectRequest
 
 
 def test_detect_request_raw_requires_shape() -> None:
