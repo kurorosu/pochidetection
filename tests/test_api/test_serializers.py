@@ -53,14 +53,25 @@ def test_jpeg_serializer_rejects_invalid_bytes() -> None:
         serializer.deserialize({"image_data": bad})
 
 
-def test_create_serializer_raw() -> None:
-    assert isinstance(create_serializer("raw"), RawArraySerializer)
+@pytest.mark.parametrize(
+    "fmt, expected_cls",
+    [
+        ("raw", RawArraySerializer),
+        ("jpeg", JpegSerializer),
+    ],
+    ids=["raw", "jpeg"],
+)
+def test_create_serializer_returns_expected_class(fmt: str, expected_cls: type) -> None:
+    """`create_serializer` が format に応じた実装クラスを返す."""
+    assert isinstance(create_serializer(fmt), expected_cls)
 
 
-def test_create_serializer_jpeg() -> None:
-    assert isinstance(create_serializer("jpeg"), JpegSerializer)
-
-
-def test_create_serializer_unknown() -> None:
+@pytest.mark.parametrize(
+    "fmt",
+    ["png", "webp", "", "RAW"],
+    ids=["png", "webp", "empty", "upper_case_raw"],
+)
+def test_create_serializer_rejects_unknown_format(fmt: str) -> None:
+    """サポート外 format は ValueError."""
     with pytest.raises(ValueError, match="サポートされていない形式"):
-        create_serializer("png")
+        create_serializer(fmt)
