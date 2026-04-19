@@ -13,7 +13,11 @@ from pochidetection.api import app as app_module
 from pochidetection.api.app import build_engine, create_app
 from pochidetection.api.config import ServerConfig
 from pochidetection.logging import LoggerManager
-from pochidetection.logging.logger_manager import COLORLOG_AVAILABLE
+from pochidetection.logging.logger_manager import (
+    COLORLOG_AVAILABLE,
+    LOG_COLORS,
+    LOG_DATE_FORMAT,
+)
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -25,14 +29,6 @@ _UVICORN_COLOR_FORMAT = (
 _UVICORN_PLAIN_FORMAT = (
     "%(asctime)s|%(levelname)-5.5s|%(name)-18s|%(lineno)03d| %(message)s"
 )
-_LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-_LOG_COLORS = {
-    "DEBUG": "cyan",
-    "INFO": "green",
-    "WARNING": "yellow",
-    "ERROR": "red",
-    "CRITICAL": "red,bg_white",
-}
 
 
 def _build_uvicorn_log_config(log_level: str) -> dict[str, Any]:
@@ -41,13 +37,13 @@ def _build_uvicorn_log_config(log_level: str) -> dict[str, Any]:
         formatter_config: dict[str, Any] = {
             "()": "colorlog.ColoredFormatter",
             "format": _UVICORN_COLOR_FORMAT,
-            "datefmt": _LOG_DATE_FORMAT,
-            "log_colors": _LOG_COLORS,
+            "datefmt": LOG_DATE_FORMAT,
+            "log_colors": LOG_COLORS,
         }
     else:
         formatter_config = {
             "format": _UVICORN_PLAIN_FORMAT,
-            "datefmt": _LOG_DATE_FORMAT,
+            "datefmt": LOG_DATE_FORMAT,
         }
 
     return {
