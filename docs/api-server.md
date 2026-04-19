@@ -286,7 +286,7 @@ pochidetection 本体と, インストール済みの推論バックエンドの
 | `dtype` | `str` | (default `"uint8"`) | numpy 配列の dtype (`uint8` のみ) |
 | `score_threshold` | `float` (0-1) | (default `0.5`) | 検出信頼度の下限しきい値 |
 
-> **Note**: `score_threshold` はパイプライン側の config (`infer_score_threshold`) と二段フィルタになります. リクエスト値が config 値より低い場合, 実際には config 値が下限として適用されるため, API レスポンスで得られる検出の最小 confidence は `max(request.score_threshold, config.infer_score_threshold)` となります.
+> **Note**: `score_threshold` はそのまま下限として適用されます. 未指定時は config の `infer_score_threshold` がデフォルト値として使われ, リクエストで値を渡すと config より緩い値も厳しい値も上書きできます.
 
 - 最大画像サイズ: 4096 × 4096 ピクセル (`MAX_PIXELS`)
 - 最大 HTTP body サイズ: 64 MB (`MAX_BODY_SIZE`). 環境変数 `POCHI_MAX_BODY_SIZE` (bytes) で上書き可能

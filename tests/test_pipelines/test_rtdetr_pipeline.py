@@ -293,6 +293,74 @@ class TestRTDetrPipelineMethods:
         assert len(detections) == 1
         assert isinstance(detections[0], Detection)
 
+    def test_postprocess_threshold_override_is_passed_to_processor(self) -> None:
+        """postprocess() の threshold 引数が HF processor に渡される."""
+
+        class ThresholdCapturingProcessor:
+            def __init__(self) -> None:
+                self.last_threshold: float | None = None
+
+            def post_process_object_detection(
+                self, outputs: Any, target_sizes: Any, threshold: float
+            ) -> list[dict[str, Any]]:
+                self.last_threshold = threshold
+                return [
+                    {
+                        "scores": torch.tensor([0.9]),
+                        "labels": torch.tensor([1]),
+                        "boxes": torch.tensor([[10.0, 20.0, 30.0, 40.0]]),
+                    }
+                ]
+
+        processor = ThresholdCapturingProcessor()
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=processor,
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            threshold=0.5,
+        )
+        pred_logits = torch.zeros((1, 100, 2))
+        pred_boxes = torch.zeros((1, 100, 4))
+
+        pipeline.postprocess(pred_logits, pred_boxes, (64, 64), threshold=0.1)
+        assert processor.last_threshold == pytest.approx(0.1)
+
+        pipeline.postprocess(pred_logits, pred_boxes, (64, 64), threshold=None)
+        assert processor.last_threshold == pytest.approx(0.5)
+
+    def test_run_threshold_override_passes_to_processor(self) -> None:
+        """run() の threshold 引数が postprocess 経由で processor に届く."""
+
+        class ThresholdCapturingProcessor:
+            def __init__(self) -> None:
+                self.last_threshold: float | None = None
+
+            def post_process_object_detection(
+                self, outputs: Any, target_sizes: Any, threshold: float
+            ) -> list[dict[str, Any]]:
+                self.last_threshold = threshold
+                return [
+                    {
+                        "scores": torch.tensor([0.9]),
+                        "labels": torch.tensor([1]),
+                        "boxes": torch.tensor([[10.0, 20.0, 30.0, 40.0]]),
+                    }
+                ]
+
+        processor = ThresholdCapturingProcessor()
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=processor,
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            threshold=0.5,
+        )
+        image = Image.new("RGB", (64, 64))
+
+        pipeline.run(image, threshold=0.2)
+        assert processor.last_threshold == pytest.approx(0.2)
+
 
 class TestRTDetrPipelineNms:
     """RTDetrPipeline の NMS テスト."""

@@ -155,11 +155,18 @@ class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
         return getattr(self, "_last_inference_gpu_ms", None)
 
     @abstractmethod
-    def run(self, image: ImageInput) -> list[Detection]:
+    def run(
+        self, image: ImageInput, *, threshold: float | None = None
+    ) -> list[Detection]:
         """E2E 推論を実行する.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
+            threshold: 検出信頼度の下限しきい値. ``None`` の場合は ``__init__``
+                で渡された値 (config の ``infer_score_threshold``) を使用する.
+                値を渡すと postprocess のスコアフィルタを request 単位で
+                上書きできる. WebAPI の ``/detect`` でリクエスト毎の
+                ``score_threshold`` をそのまま下限として効かせるための引数.
 
         Returns:
             検出結果のリスト.

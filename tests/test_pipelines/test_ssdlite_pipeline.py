@@ -238,6 +238,65 @@ class TestSsdPipelineMethods:
 
         assert detections == []
 
+    def test_postprocess_threshold_override_loose(self) -> None:
+        """postprocess() の threshold 引数で init 値より緩い下限に上書きできる."""
+        pipeline = _make_pipeline(threshold=0.5, image_size=(320, 320))
+        pred = {
+            "boxes": torch.tensor(
+                [[10.0, 20.0, 50.0, 60.0], [100.0, 100.0, 200.0, 200.0]]
+            ),
+            "scores": torch.tensor([0.9, 0.3]),
+            "labels": torch.tensor([0, 1]),
+        }
+
+        detections = pipeline.postprocess(pred, orig_w=320, orig_h=320, threshold=0.0)
+
+        # init=0.5 なら 0.3 はフィルタされるが, override=0.0 で両方残る.
+        assert len(detections) == 2
+
+    def test_postprocess_threshold_override_strict(self) -> None:
+        """postprocess() の threshold 引数で init 値より厳しい下限に上書きできる."""
+        pipeline = _make_pipeline(threshold=0.0, image_size=(320, 320))
+        pred = {
+            "boxes": torch.tensor(
+                [[10.0, 20.0, 50.0, 60.0], [100.0, 100.0, 200.0, 200.0]]
+            ),
+            "scores": torch.tensor([0.9, 0.3]),
+            "labels": torch.tensor([0, 1]),
+        }
+
+        detections = pipeline.postprocess(pred, orig_w=320, orig_h=320, threshold=0.8)
+
+        # init=0.0 なら両方残るが, override=0.8 で 0.9 のみ残る.
+        assert len(detections) == 1
+        assert detections[0].score == pytest.approx(0.9, rel=1e-3)
+
+    def test_postprocess_threshold_none_uses_init(self) -> None:
+        """postprocess() に threshold=None を渡すと init 値が使われる (後方互換)."""
+        pipeline = _make_pipeline(threshold=0.5, image_size=(320, 320))
+        pred = {
+            "boxes": torch.tensor(
+                [[10.0, 20.0, 50.0, 60.0], [100.0, 100.0, 200.0, 200.0]]
+            ),
+            "scores": torch.tensor([0.9, 0.3]),
+            "labels": torch.tensor([0, 1]),
+        }
+
+        detections = pipeline.postprocess(pred, orig_w=320, orig_h=320, threshold=None)
+
+        assert len(detections) == 1
+
+    def test_run_threshold_override(self) -> None:
+        """run() の threshold 引数で postprocess の下限を request 単位に上書きできる."""
+        backend = DummyBackend()
+        pipeline = _make_pipeline(backend=backend, threshold=0.5)
+        image = Image.new("RGB", (640, 480))
+
+        # init=0.5 なら 0.3 はフィルタされるが, override=0.0 で両方残る.
+        detections = pipeline.run(image, threshold=0.0)
+
+        assert len(detections) == 2
+
 
 class TestSsdPipelineNoNms:
     """SsdPipeline が外部 NMS を適用しないことのテスト."""

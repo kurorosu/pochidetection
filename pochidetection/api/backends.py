@@ -146,7 +146,9 @@ class IDetectionBackend(ABC):
 
         Args:
             image: 入力画像 (H, W, 3) uint8 BGR (cv2 convention).
-            score_threshold: 信頼度の下限しきい値.
+            score_threshold: 信頼度の下限しきい値. ``pipeline.run`` の
+                ``threshold`` 引数にそのまま渡され, config の
+                ``infer_score_threshold`` を request 単位で上書きする.
 
         Returns:
             (検出結果のリスト, フェーズ別所要時間 ms). 検出結果は
@@ -159,7 +161,7 @@ class IDetectionBackend(ABC):
             (GIL / asyncio / OS scheduler) の指標となる.
         """
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        raw_detections = self._pipeline.run(rgb)
+        raw_detections = self._pipeline.run(rgb, threshold=score_threshold)
 
         phase_times: dict[str, float] = {}
         pt = self._pipeline.phased_timer
@@ -179,8 +181,6 @@ class IDetectionBackend(ABC):
 
         results: list[dict[str, Any]] = []
         for det in raw_detections:
-            if det.score < score_threshold:
-                continue
             class_id = int(det.label)
             class_name = (
                 self._class_names[class_id]

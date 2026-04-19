@@ -173,6 +173,7 @@ class RTDetrPipeline(
         pred_logits: torch.Tensor,
         pred_boxes: torch.Tensor,
         image_size: tuple[int, int],
+        threshold: float | None = None,
     ) -> list[Detection]:
         """後処理. モデル出力を検出結果に変換する.
 
@@ -181,6 +182,8 @@ class RTDetrPipeline(
             pred_boxes: 予測ボックス.
             image_size: (width, height). PIL Image.size 形式.
                 内部で (height, width) に変換して HF に渡す.
+            threshold: スコア閾値を request 単位で上書きする値. ``None`` の場合は
+                ``__init__`` で渡された ``self._threshold`` を使用する.
 
         Returns:
             検出結果のリスト.
@@ -190,10 +193,11 @@ class RTDetrPipeline(
         # image_size は (width, height) なので (height, width) に変換
         target_sizes = torch.tensor([image_size[::-1]])
 
+        effective_threshold = self._threshold if threshold is None else threshold
         results = self._processor.post_process_object_detection(
             outputs,
             target_sizes=target_sizes,
-            threshold=self._threshold,
+            threshold=effective_threshold,
         )[0]
 
         keep = torchvision.ops.nms(
@@ -212,13 +216,17 @@ class RTDetrPipeline(
             )
         ]
 
-    def run(self, image: ImageInput) -> list[Detection]:
+    def run(
+        self, image: ImageInput, *, threshold: float | None = None
+    ) -> list[Detection]:
         """E2E 実行. preprocess → infer → postprocess を順に実行する.
 
         PhasedTimer が設定されている場合, 各フェーズを個別に計測する.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
+            threshold: 検出信頼度の下限しきい値. ``None`` の場合は ``__init__``
+                で渡された値を使用する.
 
         Returns:
             検出結果のリスト.
@@ -233,6 +241,8 @@ class RTDetrPipeline(
         with self._measure("inference"), self._measure_inference_gpu():
             pred_logits, pred_boxes = self.infer(inputs)
         with self._measure("postprocess"):
-            detections = self.postprocess(pred_logits, pred_boxes, image_size)
+            detections = self.postprocess(
+                pred_logits, pred_boxes, image_size, threshold=threshold
+            )
 
         return detections

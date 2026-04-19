@@ -19,20 +19,37 @@ from pochidetection.models import RTDetrModel
 
 
 class _StubPipeline(IDetectionPipeline[Any, Any]):
-    """run() の戻り値を固定し, GPU event 計測値も設定可能なスタブ."""
+    """run() の戻り値を固定し, GPU event 計測値も設定可能なスタブ.
 
-    def __init__(self, *, gpu_inference_ms: float | None = None) -> None:
+    ``run_thresholds`` に呼び出しごとの threshold 引数を記録し, backend から
+    pipeline への threshold 伝搬を classical に検証できるようにする.
+    ``stub_detections`` を渡すと, ``score_threshold`` に応じたフィルタを
+    行わずそのまま返却する (2 段フィルタが backend 側で走らないことを
+    検証するため).
+    """
+
+    def __init__(
+        self,
+        *,
+        gpu_inference_ms: float | None = None,
+        stub_detections: list[Detection] | None = None,
+    ) -> None:
         """phased_timer なし, last_inference_gpu_ms を初期化する."""
         super().__init__()
         self._validate_phased_timer(None)
         self._last_inference_gpu_ms = gpu_inference_ms
         self.run_calls: list[np.ndarray] = []
+        self.run_thresholds: list[float | None] = []
+        self._stub_detections = stub_detections or []
 
-    def run(self, image: ImageInput) -> list[Detection]:
-        """画像を記録し空の検出リストを返す."""
+    def run(
+        self, image: ImageInput, *, threshold: float | None = None
+    ) -> list[Detection]:
+        """画像と threshold を記録し, 固定の検出リストを返す."""
         assert isinstance(image, np.ndarray)
         self.run_calls.append(image.copy())
-        return []
+        self.run_thresholds.append(threshold)
+        return list(self._stub_detections)
 
 
 def _make_config(
@@ -92,6 +109,46 @@ class TestPredictPhaseTimes:
         _, phase_times = backend.predict(image)
 
         assert phase_times["pipeline_inference_gpu_ms"] == 7.42
+
+
+class TestPredictThresholdForwarding:
+    """predict() の score_threshold が pipeline.run にそのまま渡ることを検証."""
+
+    def test_predict_forwards_score_threshold_to_pipeline_run(self) -> None:
+        """backend.predict(score_threshold=X) → pipeline.run(threshold=X)."""
+        pipeline = _StubPipeline()
+        backend = _make_backend(pipeline)
+        image = np.zeros((32, 32, 3), dtype=np.uint8)
+
+        backend.predict(image, score_threshold=0.3)
+        backend.predict(image, score_threshold=0.9)
+
+        assert pipeline.run_thresholds == [0.3, 0.9]
+
+    def test_predict_no_second_stage_filter_returns_pipeline_output_verbatim(
+        self,
+    ) -> None:
+        """pipeline が返した検出を backend が score でフィルタし直さない.
+
+        2 段フィルタ構造 (#444 の解消前) では backend 側で
+        ``det.score < score_threshold`` を再適用していたため, pipeline が
+        しきい値未満の検出を返した場合にサイレントに落とされていた.
+        本テストは pipeline 出力がそのまま predict の結果に反映されることを保証する.
+        """
+        stub = [
+            Detection(box=[0.0, 0.0, 1.0, 1.0], score=0.2, label=0),
+            Detection(box=[2.0, 2.0, 3.0, 3.0], score=0.9, label=0),
+        ]
+        pipeline = _StubPipeline(stub_detections=stub)
+        backend = _make_backend(pipeline)
+        image = np.zeros((32, 32, 3), dtype=np.uint8)
+
+        results, _ = backend.predict(image, score_threshold=0.8)
+
+        # pipeline 側で threshold=0.8 を適用するのが本来の経路だが,
+        # _StubPipeline は thresholding をしないため pipeline 出力がそのまま返る.
+        # これにより backend 側での 2 段フィルタが無いことが classical に確認できる.
+        assert [round(r["confidence"], 2) for r in results] == [0.2, 0.9]
 
 
 class TestGetModelInfo:
