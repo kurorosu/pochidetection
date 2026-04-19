@@ -109,6 +109,7 @@ class DetectionConfigDict(TypedDict, total=False):
     augmentation: AugmentationDict | None
 
     debug_save_count: int
+    letterbox: bool
 
     camera_fps: int | None
     camera_resolution: list[int] | None
@@ -213,6 +214,16 @@ class DetectionConfig(BaseModel):
             "bbox 付きで保存する. 保存先は ``{work_dir}/{run}/train_debug/``. "
             "letterbox / preprocess の silent bug (padding 色 / アスペクト比 / "
             "label 座標のズレ) を目視で早期検知する目的. 0 で無効."
+        ),
+    )
+
+    letterbox: bool = Field(
+        default=True,
+        description=(
+            "学習 / 推論 preprocess に letterbox (アスペクト比維持 + padding) "
+            "リサイズを適用するかどうか. True (既定) で学習 / 推論とも letterbox, "
+            "False で従来の単純 resize に戻る. train/infer のミスマッチを避けるため "
+            "単一フラグで両方を制御する."
         ),
     )
 

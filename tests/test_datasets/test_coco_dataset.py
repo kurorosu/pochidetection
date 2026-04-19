@@ -329,6 +329,82 @@ class TestCocoDetectionDataset:
 
         assert list(save_dir.glob("train_*.jpg")) == []
 
+    def test_letterbox_landscape_image_produces_target_size_and_adjusted_bbox(
+        self, tmp_path: Path, processor: RTDetrImageProcessor
+    ) -> None:
+        """letterbox=True で pixel_values は target サイズ, bbox (cxcywh) は
+        letterbox 後座標を target 基準で正規化した値になる.
+
+        1280x720 → (320, 320) (image_size 引数で明示):
+        scale = 0.25, new = (180, 320), pad_top = 70.
+        元 bbox [200, 100, 200, 200] (xywh) → letterbox 後 pixel xywh:
+        [50, 95, 50, 50]. target_w=target_h=320 で正規化:
+        cx=(50+25)/320=0.234, cy=(95+25)/320=0.375, nw=50/320=0.156, nh=50/320=0.156.
+        """
+        images_dir = tmp_path / "JPEGImages"
+        images_dir.mkdir()
+        img = Image.new("RGB", (1280, 720), color=(80, 80, 80))
+        img.save(images_dir / "landscape.jpg")
+
+        annotations = {
+            "images": [
+                {
+                    "id": 1,
+                    "file_name": "JPEGImages/landscape.jpg",
+                    "width": 1280,
+                    "height": 720,
+                },
+            ],
+            "annotations": [
+                {
+                    "id": 1,
+                    "image_id": 1,
+                    "category_id": 1,
+                    "bbox": [200, 100, 200, 200],
+                },
+            ],
+            "categories": [{"id": 1, "name": "cat"}],
+        }
+        with open(tmp_path / "annotations.json", "w") as f:
+            json.dump(annotations, f)
+
+        dataset = CocoDetectionDataset(
+            tmp_path, processor, letterbox=True, image_size=(320, 320)
+        )
+        sample = dataset[0]
+
+        assert sample["pixel_values"].shape == (3, 320, 320)
+        boxes = sample["labels"]["boxes"]
+        assert boxes.shape == (1, 4)
+        expected_cxcywh = torch.tensor(
+            [
+                [
+                    (50.0 + 25.0) / 320.0,
+                    (95.0 + 25.0) / 320.0,
+                    50.0 / 320.0,
+                    50.0 / 320.0,
+                ]
+            ],
+            dtype=torch.float32,
+        )
+        torch.testing.assert_close(boxes, expected_cxcywh, atol=1e-3, rtol=0.0)
+
+    def test_letterbox_false_uses_legacy_processor_path(
+        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor
+    ) -> None:
+        """letterbox=False で従来経路 (processor 内部 resize + 元画像基準 cxcywh).
+
+        従来の挙動: 元 100x100 画像の bbox [10, 10, 30, 30] (xywh) を元画像基準で
+        cxcywh 正規化 → cx=0.25, cy=0.25, w=0.3, h=0.3 (既存テストと同じ期待値).
+        """
+        dataset = CocoDetectionDataset(sample_dataset_dir, processor, letterbox=False)
+        sample = dataset[0]
+
+        boxes = sample["labels"]["boxes"]
+        assert boxes.shape == (2, 4)
+        expected_first = torch.tensor([0.25, 0.25, 0.3, 0.3], dtype=torch.float32)
+        torch.testing.assert_close(boxes[0], expected_first)
+
     def test_zero_size_bbox_is_skipped(self, tmp_path: Path) -> None:
         """w=0 または h=0 の bbox がスキップされることを確認."""
         images_dir = tmp_path / "JPEGImages"

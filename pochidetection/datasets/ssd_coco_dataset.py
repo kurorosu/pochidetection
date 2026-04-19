@@ -10,6 +10,7 @@ from torchvision.transforms import v2
 
 from pochidetection.configs.schemas import ImageSizeDict
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
+from pochidetection.datasets.transforms import LetterboxTransform
 from pochidetection.interfaces.dataset import DatasetSampleDict
 
 
@@ -34,6 +35,7 @@ class SsdCocoDataset(BaseCocoDataset):
         image_size: ImageSizeDict,
         annotation_file: str | None = None,
         augmentation: v2.Compose | None = None,
+        letterbox: bool = True,
     ) -> None:
         """初期化.
 
@@ -43,14 +45,21 @@ class SsdCocoDataset(BaseCocoDataset):
             annotation_file: アノテーションファイル名.
                 指定しない場合, annotations.json または instances_*.json を自動検索.
             augmentation: 学習時に適用する augmentation パイプライン.
+            letterbox: True (既定) で ``LetterboxTransform`` (アスペクト比維持 +
+                padding) を使い, False で従来の ``v2.Resize`` (単純リサイズ) を使う.
 
         Raises:
             FileNotFoundError: アノテーションファイルが見つからない場合.
         """
         self._image_size = (image_size["height"], image_size["width"])
+        resize_op: v2.Transform = (
+            LetterboxTransform(self._image_size)
+            if letterbox
+            else v2.Resize(self._image_size)
+        )
         self._transform = v2.Compose(
             [
-                v2.Resize(self._image_size),
+                resize_op,
                 v2.ToImage(),
                 v2.ToDtype(torch.float32, scale=True),
             ]
