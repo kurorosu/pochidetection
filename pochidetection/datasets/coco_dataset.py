@@ -87,7 +87,7 @@ class CocoDetectionDataset(BaseCocoDataset):
             "boxes": (
                 torch.tensor(boxes, dtype=torch.float32)
                 if boxes
-                else torch.zeros((0, 4))
+                else torch.zeros((0, 4), dtype=torch.float32)
             ),
             "class_labels": (
                 torch.tensor(labels, dtype=torch.int64)
