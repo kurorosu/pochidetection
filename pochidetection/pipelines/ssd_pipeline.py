@@ -68,6 +68,7 @@ class SsdPipeline(
         Raises:
             ValueError: phased_timer に必須フェーズが含まれていない場合.
         """
+        super().__init__()
         self._validate_phased_timer(phased_timer)
 
         self._backend = backend

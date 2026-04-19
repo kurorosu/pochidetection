@@ -323,6 +323,7 @@ class _DummyPipeline(IDetectionPipeline[np.ndarray, list[Detection]]):
     """テスト用のパイプライン. 固定の検出結果を返す."""
 
     def __init__(self, detections: list[Detection] | None = None) -> None:
+        super().__init__()
         self._validate_phased_timer(None)
         self._detections = detections or []
 

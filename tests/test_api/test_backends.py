@@ -23,6 +23,7 @@ class _StubPipeline(IDetectionPipeline[Any, Any]):
 
     def __init__(self, *, gpu_inference_ms: float | None = None) -> None:
         """phased_timer なし, last_inference_gpu_ms を初期化する."""
+        super().__init__()
         self._validate_phased_timer(None)
         self._last_inference_gpu_ms = gpu_inference_ms
         self.run_calls: list[np.ndarray] = []
