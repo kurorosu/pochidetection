@@ -40,7 +40,7 @@ class IImageSerializer(Protocol):
         ...
 
 
-class RawArraySerializer:
+class RawArraySerializer(IImageSerializer):
     """Raw numpy 配列の base64 エンコード. ローカル・開発用."""
 
     def serialize(self, image: np.ndarray) -> dict[str, Any]:
@@ -82,7 +82,7 @@ class RawArraySerializer:
         return np.frombuffer(raw_bytes, dtype=dtype).reshape(shape)
 
 
-class JpegSerializer:
+class JpegSerializer(IImageSerializer):
     """JPEG 圧縮. ネットワーク転送用."""
 
     def __init__(self, quality: int = 90) -> None:
