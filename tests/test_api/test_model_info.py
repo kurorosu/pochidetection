@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-from pochidetection.api import app as app_module
 from pochidetection.api.app import create_app
+from pochidetection.api.state import set_engine
 
 
 def _make_engine() -> MagicMock:
@@ -24,7 +24,7 @@ def _make_engine() -> MagicMock:
 
 def test_model_info_returns_engine_metadata() -> None:
     """Engine セット時, /model-info が architecture / num_classes / class_names を返す."""
-    app_module._engine = _make_engine()
+    set_engine(_make_engine())
     app = create_app(None)
     with TestClient(app) as client:
         res = client.get("/api/v1/model-info")
@@ -39,7 +39,7 @@ def test_model_info_returns_engine_metadata() -> None:
 
 def test_health_returns_healthy_when_engine_set() -> None:
     """Engine セット時, /health が healthy + architecture を返す."""
-    app_module._engine = _make_engine()
+    set_engine(_make_engine())
     app = create_app(None)
     with TestClient(app) as client:
         res = client.get("/api/v1/health")
@@ -52,7 +52,7 @@ def test_health_returns_healthy_when_engine_set() -> None:
 
 def test_backends_current_reflects_engine() -> None:
     """Engine セット時, /backends.current が engine.backend_name を返す."""
-    app_module._engine = _make_engine()
+    set_engine(_make_engine())
     app = create_app(None)
     with TestClient(app) as client:
         res = client.get("/api/v1/backends")

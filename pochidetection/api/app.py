@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from pochidetection.api.backends import IDetectionBackend, create_detection_backend
 from pochidetection.api.config import ServerConfig
 from pochidetection.api.routers import health, inference
+from pochidetection.api.state import get_engine, set_engine
 from pochidetection.logging import LoggerManager
 from pochidetection.utils.config_loader import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
@@ -15,19 +16,6 @@ from pochidetection.utils.config_resolver import resolve_config_path
 logger = LoggerManager().get_logger(__name__)
 
 DEFAULT_CONFIG = "configs/rtdetr_coco.py"
-
-_engine: IDetectionBackend | None = None
-
-
-def get_engine() -> IDetectionBackend:
-    """Return the global detection backend.
-
-    Raises:
-        RuntimeError: バックエンドが初期化されていない場合.
-    """
-    if _engine is None:
-        raise RuntimeError("モデルが初期化されていません")
-    return _engine
 
 
 def build_engine(server_config: ServerConfig) -> IDetectionBackend:
@@ -64,24 +52,27 @@ def _create_lifespan(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        global _engine
-
-        _engine = build_engine(server_config)
-        info = _engine.get_model_info()
+        engine = build_engine(server_config)
+        set_engine(engine)
+        info = engine.get_model_info()
         logger.info(
             f"Model loaded: architecture={info['architecture']}, "
-            f"backend={_engine.backend_name}, num_classes={info['num_classes']}"
+            f"backend={engine.backend_name}, num_classes={info['num_classes']}"
         )
 
         logger.info("Running warmup inference...")
-        _engine.warmup()
+        engine.warmup()
         logger.info("Warmup complete")
 
         yield
 
-        if _engine is not None:
-            _engine.close()
-        _engine = None
+        try:
+            current = get_engine()
+        except RuntimeError:
+            current = None
+        if current is not None:
+            current.close()
+        set_engine(None)
         logger.info("Server shutdown complete")
 
     return lifespan
