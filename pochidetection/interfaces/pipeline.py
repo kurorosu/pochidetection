@@ -55,6 +55,34 @@ class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
                 )
         self._phased_timer = phased_timer
 
+    def _init_cuda_events(self, device: str) -> None:
+        """CUDA Event を 1 度だけ生成してインスタンスにキャッシュする.
+
+        Why: 推論毎に ``torch.cuda.Event(enable_timing=True)`` を新規生成すると
+        アロケーション / GC コストが積み重なるため, ``__init__`` で 1 回だけ
+        生成し ``record()`` で再利用する. 同一 Event への複数回 ``record()`` は
+        PyTorch で許容されている.
+
+        CUDA 利用不可 (CPU デバイス, CUDA 未利用環境) の場合は ``None`` を保持し,
+        ``_measure_inference_gpu`` は ``time.perf_counter()`` 側の CPU 経路に退避する.
+
+        Args:
+            device: 実行デバイス文字列 (``"cuda"`` / ``"cuda:0"`` / ``"cpu"`` 等).
+        """
+        use_cuda = (
+            isinstance(device, str) and "cuda" in device and torch.cuda.is_available()
+        )
+        if use_cuda:
+            self._cuda_event_start: torch.cuda.Event | None = torch.cuda.Event(
+                enable_timing=True
+            )
+            self._cuda_event_end: torch.cuda.Event | None = torch.cuda.Event(
+                enable_timing=True
+            )
+        else:
+            self._cuda_event_start = None
+            self._cuda_event_end = None
+
     @contextmanager
     def _measure(self, phase: str) -> Generator[None]:
         """フェーズ計測のコンテキストマネージャ.
@@ -85,20 +113,21 @@ class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
         ``self._device`` が cuda かつ CUDA 利用可能な場合のみ計測.
         それ以外は None を保持し yield して素通りする.
 
+        CUDA Event は ``__init__`` で生成済みのインスタンス変数
+        ``self._cuda_event_start`` / ``self._cuda_event_end`` を再利用する.
+        同一 Event への複数回 ``record()`` は PyTorch で許容されており,
+        毎回の ``torch.cuda.Event()`` 新規生成によるアロケーション / GC コストを回避する.
+
         Yields:
             None.
         """
-        device = getattr(self, "_device", "cpu")
-        use_cuda = (
-            isinstance(device, str) and "cuda" in device and torch.cuda.is_available()
-        )
-        if not use_cuda:
+        start = getattr(self, "_cuda_event_start", None)
+        end = getattr(self, "_cuda_event_end", None)
+        if start is None or end is None:
             self._last_inference_gpu_ms = None
             yield
             return
 
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
         start.record()
         try:
             yield
