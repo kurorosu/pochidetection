@@ -38,7 +38,7 @@
   - `scripts/ssd/validation.py` → `training/validation.py` に移動 (ライブラリのため).
   - 空ディレクトリ (`scripts/common/` / `scripts/ssd/` / `scripts/rtdetr/inference/` / `scripts/ssd/inference/`) を撤去.
 - `pipelines/builder.py` の public / private API を明確化. `__all__` を宣言し, 外部参照の無い関数 (`_run_inference` / `_write_reports` / `_resolve_model_path` / `_collect_image_files` / `_InferenceContext` 等) を `_` prefix に変更. public を上に private を下に配置する構成に並び替え. ([#489](https://github.com/kurorosu/pochidetection/pull/489))
-- RTDetr / SSD の `_preprocess_gpu` と `forward` の docstring に tensor の shape / dtype / device / 値域を明記. ((NA.))
+- RTDetr / SSD の `_preprocess_gpu` と `forward` の docstring に tensor の shape / dtype / device / 値域を明記. (NA.)
 
 ### Fixed
 - 無し
