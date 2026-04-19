@@ -36,4 +36,4 @@ labels: enhancement
 
 ## Branch
 
-`feature/`
+`feat/`
