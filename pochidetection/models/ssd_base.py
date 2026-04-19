@@ -79,17 +79,29 @@ class SSDModelBase(IDetectionModel):
         """順伝播.
 
         Args:
-            pixel_values: 入力画像テンソル, 形状は (B, C, H, W).
+            pixel_values: 入力画像テンソル, 形状 ``(B, 3, H, W)``, dtype
+                ``float32`` (fp16 経路でも torchvision SSD 内部で float32 に
+                揃う), 値域 ``[0, 1]``. device はモデルと同じ
+                (``cuda`` / ``cpu``).
             labels: 学習時のターゲット. 各要素は以下のキーを含む辞書:
-                - boxes: バウンディングボックス (N, 4), xyxy ピクセル座標
-                - class_labels: クラスラベル (N,), 0-indexed
+                - ``boxes``: バウンディングボックス, 形状 ``(N, 4)``,
+                  dtype ``float32``, ``xyxy`` ピクセル座標.
+                - ``class_labels``: クラスラベル, 形状 ``(N,)``, dtype
+                  ``int64``, 0-indexed (内部で +1 して 1-indexed に変換し
+                  torchvision に渡す).
 
         Returns:
-            以下のキーを含む辞書:
-            - loss: 学習時の損失 (labels が指定された場合)
-            - predictions: 推論時の検出結果 (labels が None の場合).
-                list[dict] で各要素は boxes (M, 4), scores (M,),
-                labels (M,) を含む (0-indexed).
+            以下のキーを含む辞書 (全 tensor は pixel_values と同一 device):
+                - ``loss``: 学習時の損失. スカラー ``float32``
+                  (labels 指定時のみ).
+                - ``predictions``: 推論時の検出結果 (labels が None の場合).
+                  ``list[dict]`` で長さ ``B``. 各要素は以下のキーを持つ:
+                    - ``boxes``: 形状 ``(M, 4)``, dtype ``float32``,
+                      ``xyxy`` ピクセル座標.
+                    - ``scores``: 形状 ``(M,)``, dtype ``float32``,
+                      値域 ``[0, 1]``.
+                    - ``labels``: 形状 ``(M,)``, dtype ``int64``,
+                      0-indexed (torchvision 出力の 1-indexed から -1 済).
         """
         images = list(pixel_values.unbind(0))
 

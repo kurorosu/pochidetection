@@ -123,13 +123,21 @@ class RTDetrPipeline(
         """GPU 経路の前処理.
 
         ``gpu_preprocess_tensor`` ヘルパーに委譲し, 戻り値を HF 入力形式の
-        dict でラップする. バッファ再利用の state は本クラスが保持する.
+        dict でラップする. ヘルパー内部で uint8 → float32 キャスト + H2D 転送 +
+        ``/255`` で ``[0, 1]`` 正規化を行う. バッファ再利用の state は本クラスが
+        保持する.
 
         Args:
-            image_np: RGB uint8 numpy 配列 (H, W, 3).
+            image_np: RGB uint8 numpy 配列, 形状 (H, W, 3), dtype ``uint8``,
+                値域 ``[0, 255]``.
 
         Returns:
-            モデル入力テンソルの辞書.
+            HF モデル入力の辞書. キーと値は以下:
+                - ``pixel_values``: 推論入力テンソル, 形状 ``(1, 3, H, W)``,
+                  device は ``self._device`` (``cuda`` / ``cpu``),
+                  dtype は ``use_fp16=True`` なら ``float16``, それ以外は
+                  ``float32``, 値域 ``[0, 1]``. ``H``, ``W`` は
+                  ``self._target_hw`` (``__init__`` で渡された ``image_size``).
         """
         assert self._target_hw is not None  # __init__ で検証済み
         pixel_values, self._gpu_input_buffer = gpu_preprocess_tensor(
