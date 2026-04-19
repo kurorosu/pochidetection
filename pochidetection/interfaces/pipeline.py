@@ -37,6 +37,16 @@ class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
 
     PHASES = ["preprocess", "inference", "postprocess"]
 
+    def __init__(self) -> None:
+        """共通状態を初期化する.
+
+        サブクラスは独自の ``__init__`` 冒頭で ``super().__init__()`` を呼び,
+        ``self._pipeline_mode`` を Literal["cpu", "gpu"] で上書きする責務を負う.
+        本基底で ``None`` を明示設定することで, ``pipeline_mode`` property の
+        ``getattr`` fallback を撤廃し, 未初期化のサブクラスを早期に検出可能にする.
+        """
+        self._pipeline_mode: Literal["cpu", "gpu"] | None = None
+
     def _validate_phased_timer(self, phased_timer: PhasedTimer | None) -> None:
         """phased_timer のフェーズ構成を検証し, インスタンスに保持する.
 
@@ -161,10 +171,13 @@ class IDetectionPipeline(ABC, Generic[TPreprocessed, TInferred]):
         return self._phased_timer
 
     @property
-    def pipeline_mode(self) -> Literal["cpu", "gpu"]:
+    def pipeline_mode(self) -> Literal["cpu", "gpu"] | None:
         """Resolve 後の preprocess 経路 ('cpu' or 'gpu').
 
         Subclass の __init__ で ``self._pipeline_mode`` に保存された値を返す.
+        基底 ``__init__`` が初期値として ``None`` を設定するため,
+        ``super().__init__()`` を呼ばないサブクラスは ``AttributeError`` を送出し,
+        未初期化を静かに 'cpu' に倒す挙動 (旧 ``getattr`` fallback) を防ぐ.
         Resolve は ``resolve_pipeline_mode()`` で行い, ONNX backend は常に 'cpu'.
         """
-        return getattr(self, "_pipeline_mode", "cpu")
+        return self._pipeline_mode

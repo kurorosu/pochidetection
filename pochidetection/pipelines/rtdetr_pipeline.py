@@ -70,6 +70,7 @@ class RTDetrPipeline(
             ValueError: phased_timer に必須フェーズが含まれていない場合,
                 または pipeline_mode='gpu' で image_size が None の場合.
         """
+        super().__init__()
         self._validate_phased_timer(phased_timer)
 
         if pipeline_mode == "gpu" and image_size is None:
