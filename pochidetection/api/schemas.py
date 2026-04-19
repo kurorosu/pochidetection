@@ -44,16 +44,12 @@ class BackendsResponse(BaseModel):
 
 
 class DetectRequest(BaseModel):
-    """検出リクエスト.
-
-    cv2 / PIL でキャプチャした numpy 配列を base64 エンコードして送信する.
-    format で raw (生配列) / jpeg (圧縮) を切り替える.
-    """
+    """検出リクエスト. numpy 配列を base64 エンコードして送信する."""
 
     image_data: str = Field(description="base64 エンコードされた画像データ")
     format: Literal["raw", "jpeg"] = Field(
         default="raw",
-        description="画像データ形式",
+        description="画像データ形式 (raw: 生配列 / jpeg: 圧縮)",
     )
     shape: list[int] | None = Field(
         default=None,
