@@ -80,8 +80,8 @@ def _apply_augmentation_to_dataset(
 
     dataset._augmentation = augmentation
     if debug_save_count > 0 and debug_save_dir is not None:
-        dataset._debug_save_count = debug_save_count
-        dataset._debug_save_dir = debug_save_dir
+        dataset.debug_save_count = debug_save_count
+        dataset.debug_save_dir = debug_save_dir
         if logger is not None:
             logger.info(
                 f"Augmentation debug: saving first {debug_save_count} "
