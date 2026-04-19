@@ -162,13 +162,16 @@ class TestSsdPipelineRun:
 class TestSsdPipelineMethods:
     """SsdPipeline の個別メソッドテスト."""
 
-    def test_preprocess_returns_tensor_and_original_size(self) -> None:
-        """preprocess() がテンソルと元画像サイズを返すことを確認."""
+    def test_preprocess_returns_inputs_dict_and_original_size(self) -> None:
+        """preprocess() が入力辞書と元画像サイズを返すことを確認."""
         pipeline = _make_pipeline(image_size=(320, 320))
         image = Image.new("RGB", (640, 480))
 
-        pixel_values, orig_w, orig_h = pipeline.preprocess(image)
+        inputs, orig_w, orig_h = pipeline.preprocess(image)
 
+        assert isinstance(inputs, dict)
+        assert "pixel_values" in inputs
+        pixel_values = inputs["pixel_values"]
         assert isinstance(pixel_values, torch.Tensor)
         assert pixel_values.shape == (1, 3, 320, 320)
         assert orig_w == 640
@@ -178,9 +181,9 @@ class TestSsdPipelineMethods:
         """infer() がバックエンドを呼び出すことを確認."""
         backend = DummyBackend()
         pipeline = _make_pipeline(backend=backend)
-        pixel_values = torch.zeros((1, 3, 320, 320))
+        inputs = {"pixel_values": torch.zeros((1, 3, 320, 320))}
 
-        pred = pipeline.infer(pixel_values)
+        pred = pipeline.infer(inputs)
 
         assert backend.call_count == 1
         assert "boxes" in pred
@@ -280,7 +283,8 @@ class TestSsdPipelineMode:
         )
         image = np.random.randint(0, 256, size=(480, 640, 3), dtype=np.uint8)
 
-        pixel_values, orig_w, orig_h = pipeline.preprocess(image)
+        inputs, orig_w, orig_h = pipeline.preprocess(image)
+        pixel_values = inputs["pixel_values"]
 
         assert pixel_values.shape == (1, 3, 320, 320)
         assert pixel_values.dtype == torch.float32
@@ -314,10 +318,12 @@ class TestSsdPipelineMode:
 
         cpu_out, _, _ = cpu_pipeline.preprocess(image)
         gpu_out, _, _ = gpu_pipeline.preprocess(image)
+        cpu_tensor = cpu_out["pixel_values"]
+        gpu_tensor = gpu_out["pixel_values"]
 
-        assert cpu_out.shape == gpu_out.shape
+        assert cpu_tensor.shape == gpu_tensor.shape
         # PIL/tensor BILINEAR の差は abs=1e-2 (≈ 2.5/255) 以内に収まる
-        assert torch.allclose(cpu_out, gpu_out, atol=1e-2)
+        assert torch.allclose(cpu_tensor, gpu_tensor, atol=1e-2)
 
     def test_gpu_buffer_is_reused_across_calls(self) -> None:
         """同じ shape の入力で GPU buffer が再利用される (再確保しない)."""
@@ -336,7 +342,7 @@ class TestSsdPipelineMode:
         buf_id_2 = id(pipeline._gpu_input_buffer)
 
         assert buf_id_1 == buf_id_2  # 同一インスタンス再利用
-        assert out1.shape == out2.shape
+        assert out1["pixel_values"].shape == out2["pixel_values"].shape
 
     def test_gpu_preprocess_accepts_pil_image_without_warning(self) -> None:
         """GPU 経路で PIL Image 入力も正常動作し read-only numpy 警告が出ない.
@@ -355,9 +361,9 @@ class TestSsdPipelineMode:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            pixel_values, orig_w, orig_h = pipeline.preprocess(image)
+            inputs, orig_w, orig_h = pipeline.preprocess(image)
 
-        assert pixel_values.shape == (1, 3, 320, 320)
+        assert inputs["pixel_values"].shape == (1, 3, 320, 320)
         assert orig_w == 640
         assert orig_h == 480
         assert all("not writable" not in str(w.message) for w in caught)
