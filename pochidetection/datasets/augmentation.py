@@ -14,6 +14,7 @@ from torchvision.transforms import v2
 
 from pochidetection.configs.schemas import AugmentationConfig
 from pochidetection.logging import LoggerManager
+from pochidetection.visualization.color_palette import ColorPalette
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -153,21 +154,8 @@ def save_debug_image(
     debug_image = image.copy()
     draw = ImageDraw.Draw(debug_image)
 
-    # ラベルごとに異なる色を割り当て
-    colors = [
-        "#FF0000",
-        "#00FF00",
-        "#0000FF",
-        "#FFFF00",
-        "#FF00FF",
-        "#00FFFF",
-        "#FF8000",
-        "#8000FF",
-        "#00FF80",
-        "#FF0080",
-        "#80FF00",
-        "#0080FF",
-    ]
+    # ラベルごとに異なる色を割り当て (ColorPalette のデフォルトパレットを共有)
+    colors = ColorPalette.DEFAULT_COLORS
 
     for i in range(len(boxes)):
         x, y, w, h = boxes[i].tolist()

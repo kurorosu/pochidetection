@@ -16,7 +16,9 @@ from pochidetection.utils.device import is_fp16_available
 
 
 class SsdPipeline(
-    IDetectionPipeline[tuple[torch.Tensor, int, int], dict[str, torch.Tensor]]
+    IDetectionPipeline[
+        tuple[dict[str, torch.Tensor], int, int], dict[str, torch.Tensor]
+    ]
 ):
     """SSD 共通 E2E 推論パイプライン.
 
@@ -77,8 +79,8 @@ class SsdPipeline(
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
         self._gpu_input_buffer: torch.Tensor | None = None
 
-    def preprocess(self, image: ImageInput) -> tuple[torch.Tensor, int, int]:
-        """画像を前処理し, モデル入力テンソルを返す.
+    def preprocess(self, image: ImageInput) -> tuple[dict[str, torch.Tensor], int, int]:
+        """画像を前処理し, モデル入力辞書と元画像サイズを返す.
 
         pipeline_mode='gpu' 時は GPU 経路 (uint8 H2D + GPU 上 float32/255 +
         バッファ再利用), 'cpu' 時は従来 PIL + torchvision v2 Compose.
@@ -87,8 +89,9 @@ class SsdPipeline(
             image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
-            (pixel_values, orig_w, orig_h) のタプル.
-            pixel_values は (1, C, H, W) 形状のテンソル.
+            (inputs, orig_w, orig_h) のタプル.
+            inputs は ``{"pixel_values": (1, C, H, W)}`` 形式の辞書で,
+            RTDetr と統一された backend 入力形式.
         """
         if isinstance(image, np.ndarray):
             orig_h, orig_w = image.shape[:2]
@@ -103,7 +106,7 @@ class SsdPipeline(
                 image_np = np.array(image)
             else:
                 image_np = image
-            return self._preprocess_gpu(image_np), orig_w, orig_h
+            return {"pixel_values": self._preprocess_gpu(image_np)}, orig_w, orig_h
 
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
@@ -112,7 +115,7 @@ class SsdPipeline(
         if self._use_fp16:
             pixel_values = pixel_values.half()
 
-        return pixel_values, orig_w, orig_h
+        return {"pixel_values": pixel_values}, orig_w, orig_h
 
     def _preprocess_gpu(self, image_np: np.ndarray) -> torch.Tensor:
         """GPU 経路の前処理.
@@ -140,20 +143,19 @@ class SsdPipeline(
         )
         return pixel_values
 
-    def infer(self, pixel_values: torch.Tensor) -> dict[str, torch.Tensor]:
+    def infer(self, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """推論を実行.
 
-        backend.infer() を呼び出し, 必要に応じて同期を行う.
+        torch.no_grad() コンテキストで backend.infer() を呼び出す.
 
         Args:
-            pixel_values: 前処理済みの入力テンソル (1, C, H, W).
+            inputs: 前処理済みのモデル入力辞書 (``{"pixel_values": (1, C, H, W)}``).
 
         Returns:
             モデル出力の予測辞書 (boxes, scores, labels).
         """
-        pred: dict[str, torch.Tensor] = self._backend.infer(
-            {"pixel_values": pixel_values}
-        )
+        with torch.no_grad():
+            pred: dict[str, torch.Tensor] = self._backend.infer(inputs)
         return pred
 
     def postprocess(
@@ -210,9 +212,9 @@ class SsdPipeline(
             検出結果のリスト.
         """
         with self._measure("preprocess"):
-            pixel_values, orig_w, orig_h = self.preprocess(image)
+            inputs, orig_w, orig_h = self.preprocess(image)
         with self._measure("inference"), self._measure_inference_gpu():
-            pred = self.infer(pixel_values)
+            pred = self.infer(inputs)
         with self._measure("postprocess"):
             detections = self.postprocess(pred, orig_w, orig_h)
 

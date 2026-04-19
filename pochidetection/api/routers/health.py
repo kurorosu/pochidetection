@@ -1,12 +1,10 @@
 """health, version, model-info, backends エンドポイント."""
 
-import importlib.metadata
-
 from fastapi import APIRouter, HTTPException
 
 from pochidetection import __version__
 from pochidetection.api import app as app_module
-from pochidetection.api.backends import get_available_backends
+from pochidetection.api.backends import _safe_version, get_available_backends
 from pochidetection.api.schemas import (
     BackendsResponse,
     HealthResponse,
@@ -17,14 +15,6 @@ from pochidetection.api.schemas import (
 router = APIRouter(prefix="/api/v1")
 
 API_VERSION = "v1"
-
-
-def _safe_version(package: str) -> str | None:
-    """Return installed package version or None if missing."""
-    try:
-        return importlib.metadata.version(package)
-    except importlib.metadata.PackageNotFoundError:
-        return None
 
 
 @router.get("/health", response_model=HealthResponse)
