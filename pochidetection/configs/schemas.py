@@ -108,6 +108,8 @@ class DetectionConfigDict(TypedDict, total=False):
 
     augmentation: AugmentationDict | None
 
+    debug_save_count: int
+
     camera_fps: int | None
     camera_resolution: list[int] | None
 
@@ -136,12 +138,10 @@ class AugmentationConfig(BaseModel):
     Attributes:
         enabled: True の場合, 学習時にデータ拡張を適用する.
         transforms: 適用する変換のリスト.
-        debug_save: 1 エポック目に保存するデバッグ画像数 (0 で無効).
     """
 
     enabled: bool = True
     transforms: list[AugmentTransformConfig] = Field(default_factory=list)
-    debug_save: int = Field(default=0, ge=0)
 
 
 class ImageSizeConfig(BaseModel):
@@ -201,6 +201,18 @@ class DetectionConfig(BaseModel):
     infer_image_dir: str | None = None
 
     augmentation: AugmentationConfig | None = None
+
+    debug_save_count: int = Field(
+        default=10,
+        ge=0,
+        description=(
+            "1 エポック目に保存するデバッグ画像枚数. augmentation の有無に関わらず "
+            "学習画像 (augmentation 適用後, preprocess 前) を先頭から N 枚まで "
+            "bbox 付きで保存する. 保存先は ``{work_dir}/{run}/train_debug/``. "
+            "letterbox / preprocess の silent bug (padding 色 / アスペクト比 / "
+            "label 座標のズレ) を目視で早期検知する目的. 0 で無効."
+        ),
+    )
 
     camera_fps: PositiveInt | None = None
     camera_resolution: list[PositiveInt] | None = None

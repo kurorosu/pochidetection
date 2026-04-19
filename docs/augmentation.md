@@ -126,19 +126,17 @@ augmentation = {
 
 ## デバッグ可視化
 
-augmentation 適用後の画像と bbox を保存して, 変換が正しく動作しているか確認できる.
+学習データを bbox 付きで保存して, augmentation や preprocess (letterbox 等) が正しく動作しているか確認できる. **augmentation の有無に関わらず保存**されるため, letterbox 追加時の silent bug (padding 色 / アスペクト比 / label 座標のズレ) を目視で早期検知できる.
+
+設定は top-level の `debug_save_count` (config 既定値: `10`).
 
 ```python
-augmentation = {
-    "enabled": True,
-    "debug_save": 5,  # 1 エポック目の最初の 5 枚を保存 (0 で無効)
-    "transforms": [...],
-}
+debug_save_count = 5  # 1 エポック目の先頭 5 枚を保存 (0 で無効)
 ```
 
-保存先: `work_dirs/YYYYMMDD_XXX/augmentation_debug/aug_0000.jpg` ~ `aug_0004.jpg`
+保存先: `work_dirs/YYYYMMDD_XXX/train_debug/train_0000.jpg` ~ `train_0004.jpg`
 
-画像には augmentation 適用後の bbox がラベル付きで描画される. 確認後は `debug_save` を `0` に戻して学習を再開する.
+画像には augmentation 適用後 (未適用時は元画像) の bbox がラベル付きで描画される. 確認後は `debug_save_count = 0` を設定して保存を止められる.
 
 ## 注意事項
 

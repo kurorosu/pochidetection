@@ -203,24 +203,32 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
                 self._augmentation, image, boxes, labels
             )
 
-            # デバッグ画像保存 (1 エポック目の最初の N 枚)
-            if (
-                self._debug_save_dir is not None
-                and self._debug_saved < self._debug_save_count
-            ):
-                save_debug_image(
-                    image,
-                    boxes,
-                    labels,
-                    self._debug_save_dir / f"aug_{self._debug_saved:04d}.jpg",
-                )
-                self._debug_saved += 1
-
             # augmentation 後のアノテーションを再構築
             annotations = [
                 {"bbox": boxes[i].tolist(), "category_id": labels[i].item()}
                 for i in range(len(labels))
             ]
+
+        # デバッグ画像保存 (1 エポック目の先頭 N 枚, augmentation の有無問わず).
+        # preprocess 直前の画像 + bbox を目視確認するための共通フック.
+        if (
+            self._debug_save_dir is not None
+            and self._debug_saved < self._debug_save_count
+            and annotations
+        ):
+            debug_boxes = torch.tensor(
+                [ann["bbox"] for ann in annotations], dtype=torch.float32
+            )
+            debug_labels = torch.tensor(
+                [ann["category_id"] for ann in annotations], dtype=torch.int64
+            )
+            save_debug_image(
+                image,
+                debug_boxes,
+                debug_labels,
+                self._debug_save_dir / f"train_{self._debug_saved:04d}.jpg",
+            )
+            self._debug_saved += 1
 
         orig_w, orig_h = image.size
 
