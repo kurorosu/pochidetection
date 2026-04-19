@@ -10,6 +10,11 @@ from torchvision.transforms import v2
 from transformers import RTDetrImageProcessor
 
 from pochidetection.core.detection import Detection, OutputWrapper
+from pochidetection.core.letterbox import (
+    LetterboxParams,
+    apply_letterbox,
+    compute_letterbox_params,
+)
 from pochidetection.core.preprocess import gpu_preprocess_tensor
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
@@ -48,6 +53,7 @@ class RTDetrPipeline(
         phased_timer: PhasedTimer | None = None,
         pipeline_mode: Literal["cpu", "gpu"] = "cpu",
         image_size: tuple[int, int] | None = None,
+        letterbox: bool = False,
     ) -> None:
         """初期化.
 
@@ -63,12 +69,18 @@ class RTDetrPipeline(
             pipeline_mode: preprocess 経路 ('cpu' or 'gpu').
                 'gpu' は uint8 H2D + GPU 上 float32/255 + 入力バッファ再利用で
                 preprocess を高速化する. resolve_pipeline_mode() で解決済みの値.
-            image_size: GPU 経路用のリサイズ先 (height, width).
-                pipeline_mode='gpu' の場合に必須. 'cpu' 時は未使用.
+            image_size: リサイズ先の (height, width).
+                ``pipeline_mode='gpu'`` または ``letterbox=True`` の場合に必須.
+                それ以外では未使用.
+            letterbox: True で preprocess / postprocess に letterbox (アスペクト比
+                維持 + padding) を適用し, 学習時前処理と分布を揃える. ``image_size``
+                が必須. False (既定) で従来の単純 resize + 元画像サイズでの bbox
+                スケーリングに戻る.
 
         Raises:
             ValueError: phased_timer に必須フェーズが含まれていない場合,
-                または pipeline_mode='gpu' で image_size が None の場合.
+                または pipeline_mode='gpu' / letterbox=True で image_size が None
+                の場合.
         """
         super().__init__()
         self._validate_phased_timer(phased_timer)
@@ -77,6 +89,8 @@ class RTDetrPipeline(
             raise ValueError(
                 "pipeline_mode='gpu' requires image_size=(H, W) to be provided"
             )
+        if letterbox and image_size is None:
+            raise ValueError("letterbox=True requires image_size=(H, W) to be provided")
 
         self._backend = backend
         self._processor = processor
@@ -87,6 +101,8 @@ class RTDetrPipeline(
         self._use_fp16 = is_fp16_available(use_fp16, device)
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
         self._target_hw: tuple[int, int] | None = image_size
+        self._letterbox = letterbox
+        self._last_letterbox_params: LetterboxParams | None = None
         self._gpu_input_buffer: torch.Tensor | None = None
         self._init_cuda_events(device)
 
@@ -95,6 +111,9 @@ class RTDetrPipeline(
 
         pipeline_mode='gpu' 時は GPU 経路 (uint8 H2D + GPU 上 float32/255 +
         バッファ再利用), 'cpu' 時は従来 PIL + torchvision v2 Compose.
+        ``letterbox=True`` の場合は両経路とも ``apply_letterbox`` で
+        アスペクト比維持 + padding を施し, 内部属性 ``_last_letterbox_params``
+        に幾何パラメータを保持して postprocess の逆変換に利用する.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
@@ -102,6 +121,18 @@ class RTDetrPipeline(
         Returns:
             モデル入力テンソルの辞書.
         """
+        # letterbox 用の幾何パラメータを事前計算 (元画像サイズ必要).
+        if self._letterbox and self._target_hw is not None:
+            if isinstance(image, np.ndarray):
+                src_h, src_w = image.shape[:2]
+            else:
+                src_w, src_h = image.size
+            self._last_letterbox_params = compute_letterbox_params(
+                (src_h, src_w), self._target_hw
+            )
+        else:
+            self._last_letterbox_params = None
+
         if self._pipeline_mode == "gpu":
             # Why: np.asarray(PIL.Image) は read-only な配列を返し,
             # torch.from_numpy() で writable tensor を作る際に警告が出る. np.array()
@@ -114,6 +145,8 @@ class RTDetrPipeline(
 
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
+        if self._last_letterbox_params is not None:
+            image = apply_letterbox(image, self._last_letterbox_params, pad_value=0)
         pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
@@ -127,7 +160,8 @@ class RTDetrPipeline(
         ``gpu_preprocess_tensor`` ヘルパーに委譲し, 戻り値を HF 入力形式の
         dict でラップする. ヘルパー内部で uint8 → float32 キャスト + H2D 転送 +
         ``/255`` で ``[0, 1]`` 正規化を行う. バッファ再利用の state は本クラスが
-        保持する.
+        保持する. ``letterbox=True`` 時は ``_last_letterbox_params`` を
+        ``gpu_preprocess_tensor`` に渡してアスペクト比維持 + padding を適用する.
 
         Args:
             image_np: RGB uint8 numpy 配列, 形状 (H, W, 3), dtype ``uint8``,
@@ -148,6 +182,7 @@ class RTDetrPipeline(
             device=self._device,
             input_buffer=self._gpu_input_buffer,
             use_fp16=self._use_fp16,
+            letterbox_params=self._last_letterbox_params,
         )
         return {"pixel_values": pixel_values}
 
@@ -177,21 +212,32 @@ class RTDetrPipeline(
     ) -> list[Detection]:
         """後処理. モデル出力を検出結果に変換する.
 
+        letterbox 有効時は ``target_sizes`` を letterbox 後の入力サイズ
+        (``self._target_hw``) にして HF から letterbox pixel 座標の bbox を取得し,
+        ``_last_letterbox_params`` を使って元画像座標に逆変換する
+        (``(box - pad) / scale``). letterbox 無効時は ``target_sizes`` を元画像
+        サイズにして HF に直接スケーリングさせる (従来挙動).
+
         Args:
             pred_logits: 予測ロジット.
             pred_boxes: 予測ボックス.
-            image_size: (width, height). PIL Image.size 形式.
-                内部で (height, width) に変換して HF に渡す.
+            image_size: 元画像の (width, height). PIL Image.size 形式.
+                letterbox 逆変換後の出力座標系はこのサイズ基準になる.
             threshold: スコア閾値を request 単位で上書きする値. ``None`` の場合は
                 ``__init__`` で渡された ``self._threshold`` を使用する.
 
         Returns:
-            検出結果のリスト.
+            元画像座標系での検出結果のリスト (xyxy ピクセル).
         """
         outputs = OutputWrapper(logits=pred_logits, pred_boxes=pred_boxes)
 
-        # image_size は (width, height) なので (height, width) に変換
-        target_sizes = torch.tensor([image_size[::-1]])
+        params = self._last_letterbox_params
+        if params is not None and self._target_hw is not None:
+            target_h, target_w = self._target_hw
+            target_sizes = torch.tensor([[target_h, target_w]])
+        else:
+            # image_size は (width, height) なので (height, width) に変換
+            target_sizes = torch.tensor([image_size[::-1]])
 
         effective_threshold = self._threshold if threshold is None else threshold
         results = self._processor.post_process_object_detection(
@@ -205,15 +251,24 @@ class RTDetrPipeline(
         )
         results = {k: v[keep] for k, v in results.items()}
 
+        boxes = results["boxes"]
+        if params is not None:
+            # letterbox pixel 座標 → 元画像座標へ逆変換.
+            # box - (pad_left, pad_top, pad_left, pad_top) then / scale.
+            pad = torch.tensor(
+                [params.pad_left, params.pad_top, params.pad_left, params.pad_top],
+                dtype=boxes.dtype,
+                device=boxes.device,
+            )
+            boxes = (boxes - pad) / params.scale
+
         return [
             Detection(
                 box=box.tolist(),
                 score=score.item(),
                 label=label.item(),
             )
-            for score, label, box in zip(
-                results["scores"], results["labels"], results["boxes"]
-            )
+            for score, label, box in zip(results["scores"], results["labels"], boxes)
         ]
 
     def run(

@@ -426,3 +426,90 @@ class TestSsdPipelineMode:
         assert orig_w == 640
         assert orig_h == 480
         assert all("not writable" not in str(w.message) for w in caught)
+
+
+class TestSsdPipelineLetterbox:
+    """letterbox=True 経路の preprocess / postprocess 動作を検証."""
+
+    def test_preprocess_stores_letterbox_params(self) -> None:
+        """letterbox=True で preprocess 後に _last_letterbox_params が保持される."""
+        # 横長 640x480 → 320x320: scale = min(320/480, 320/640) = 0.5,
+        # new=(240,320), pad_vertical=80 → pad_top=40, pad_bottom=40
+        pipeline = _make_pipeline(image_size=(320, 320))
+        pipeline._letterbox = True  # _make_pipeline は letterbox 引数を持たないため
+        image = Image.new("RGB", (640, 480))
+
+        pipeline.preprocess(image)
+
+        params = pipeline._last_letterbox_params
+        assert params is not None
+        assert params.scale == pytest.approx(0.5)
+        assert (params.new_h, params.new_w) == (240, 320)
+        assert (params.pad_top, params.pad_bottom) == (40, 40)
+
+    def test_postprocess_reverses_letterbox_transform(self) -> None:
+        """letterbox 有効時に backend 出力 (letterbox pixel 座標) が元画像座標に逆変換される.
+
+        backend は letterbox 後 pixel 座標 [[50, 40, 100, 80]] を返す想定.
+        params: scale=0.5, pad_top=40, pad_left=0 (横長 640x480 → 320x320).
+        逆変換後: [(50-0)/0.5, (40-40)/0.5, (100-0)/0.5, (80-40)/0.5]
+               = [100, 0, 200, 80].
+        """
+        pipeline = SsdPipeline(
+            backend=DummyBackend(
+                predictions=[
+                    {
+                        "boxes": torch.tensor([[50.0, 40.0, 100.0, 80.0]]),
+                        "scores": torch.tensor([0.9]),
+                        "labels": torch.tensor([0]),
+                    }
+                ]
+            ),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            threshold=0.0,
+            letterbox=True,
+        )
+        image = Image.new("RGB", (640, 480))
+        detections = pipeline.run(image)
+
+        assert len(detections) == 1
+        box = detections[0].box
+        assert box[0] == pytest.approx(100.0, abs=1e-3)
+        assert box[1] == pytest.approx(0.0, abs=1e-3)
+        assert box[2] == pytest.approx(200.0, abs=1e-3)
+        assert box[3] == pytest.approx(80.0, abs=1e-3)
+
+    def test_letterbox_false_keeps_legacy_scaling(self) -> None:
+        """letterbox=False は従来の (orig/target) スケーリング (回帰テスト).
+
+        backend 出力 [[50, 50, 100, 100]] (target 320x320 基準).
+        orig 640x480 → scale_x=2.0, scale_y=1.5.
+        期待: [100, 75, 200, 150].
+        """
+        pipeline = SsdPipeline(
+            backend=DummyBackend(
+                predictions=[
+                    {
+                        "boxes": torch.tensor([[50.0, 50.0, 100.0, 100.0]]),
+                        "scores": torch.tensor([0.9]),
+                        "labels": torch.tensor([0]),
+                    }
+                ]
+            ),
+            transform=_make_transform((320, 320)),
+            image_size=(320, 320),
+            device="cpu",
+            threshold=0.0,
+            letterbox=False,
+        )
+        image = Image.new("RGB", (640, 480))
+        detections = pipeline.run(image)
+
+        assert len(detections) == 1
+        box = detections[0].box
+        assert box[0] == pytest.approx(100.0, abs=1e-3)
+        assert box[1] == pytest.approx(75.0, abs=1e-3)
+        assert box[2] == pytest.approx(200.0, abs=1e-3)
+        assert box[3] == pytest.approx(150.0, abs=1e-3)

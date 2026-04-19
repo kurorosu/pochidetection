@@ -129,6 +129,7 @@ def _setup_pipeline(
         phased_timer=phased_timer,
         pipeline_mode=pipeline_mode,
         image_size=image_size,
+        letterbox=config.get("letterbox", True),
     )
 
     return build_pipeline_context(
