@@ -27,14 +27,6 @@ def rtdetr_onnx_path(
 
 
 @pytest.fixture(scope="session")
-def ssdlite_model() -> SSDLiteModel:
-    """テスト用の軽量 SSDLiteModel."""
-    model = SSDLiteModel(num_classes=SSDLITE_NUM_CLASSES, pretrained=False)
-    model.eval()
-    return model
-
-
-@pytest.fixture(scope="session")
 def ssdlite_onnx_path(
     ssdlite_model: SSDLiteModel, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
