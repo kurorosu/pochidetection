@@ -16,6 +16,20 @@ except ImportError:
     COLORLOG_AVAILABLE = False
 
 
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+"""ログ出力の日付フォーマット. LoggerManager / uvicorn 共通."""
+
+LOG_COLORS: dict[str, str] = {
+    "DEBUG": "cyan",
+    "INFO": "green",
+    "WARN": "yellow",
+    "WARNING": "yellow",
+    "ERROR": "red",
+    "CRITICAL": "red,bg_white",
+}
+"""colorlog 用のレベル別色設定. LoggerManager / uvicorn 共通."""
+
+
 class LogLevel(Enum):
     """ログレベル列挙型."""
 
@@ -58,15 +72,8 @@ class LoggerManager:
         self._plain_format_string = (
             "%(asctime)s|%(levelname)-5.5s|" "%(module)-18s|%(lineno)03d| %(message)s"
         )
-        self._date_format = "%Y-%m-%d %H:%M:%S"
-        self._log_colors = {
-            "DEBUG": "cyan",
-            "INFO": "green",
-            "WARN": "yellow",
-            "WARNING": "yellow",
-            "ERROR": "red",
-            "CRITICAL": "red,bg_white",
-        }
+        self._date_format = LOG_DATE_FORMAT
+        self._log_colors = LOG_COLORS
         self._initialized = True
 
     def get_logger(self, name: str, level: LogLevel | None = None) -> logging.Logger:
