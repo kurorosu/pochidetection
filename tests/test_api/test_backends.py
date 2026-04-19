@@ -4,15 +4,18 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 
 from pochidetection.api.backends import (
     OnnxDetectionBackend,
     PyTorchDetectionBackend,
     TrtDetectionBackend,
+    create_detection_backend,
 )
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
+from pochidetection.models import RTDetrModel
 
 
 class _StubPipeline(IDetectionPipeline[Any, Any]):
@@ -195,3 +198,133 @@ class TestBackendName:
             pipeline=pipeline, config=_make_config(), model_path=Path("dummy.engine")
         )
         assert backend.backend_name == "tensorrt"
+
+
+def _build_rtdetr_e2e_config(class_names: list[str]) -> DetectionConfigDict:
+    """`rtdetr_model` fixture を load できる最小 DetectionConfigDict."""
+    return DetectionConfigDict(
+        architecture="RTDetr",
+        model_name="PekingU/rtdetr_r18vd",
+        num_classes=len(class_names),
+        class_names=class_names,
+        image_size={"height": 64, "width": 64},
+        device="cpu",
+        use_fp16=False,
+        cudnn_benchmark=False,
+        infer_score_threshold=0.0,
+        nms_iou_threshold=0.5,
+        pipeline_mode="cpu",
+    )
+
+
+@pytest.mark.slow
+class TestPyTorchDetectionBackendE2E:
+    """実 RT-DETR モデルを使った `PyTorchDetectionBackend` の E2E 検証.
+
+    `rtdetr_model` fixture (`pretrained=False`, `num_classes=2`) を
+    `save_pretrained` 形式で tmp_path に保存し, `create_detection_backend()`
+    で PyTorch backend を構築してから warmup / predict / メタ情報を検証する.
+    MagicMock を使わず実モデル経路を通す (`.claude/rules/testing.md` の
+    classical test 方針).
+    """
+
+    @pytest.fixture
+    def saved_model_dir(self, rtdetr_model: RTDetrModel, tmp_path: Path) -> Path:
+        """fixture モデルを `save_pretrained` 形式で tmp_path に保存し, そのパスを返す."""
+        save_dir = tmp_path / "rtdetr_e2e_model"
+        rtdetr_model.save(save_dir)
+        return save_dir
+
+    def test_warmup_runs_without_raising(self, saved_model_dir: Path) -> None:
+        """`create_detection_backend()` で構築した backend の warmup が例外なく完了する."""
+        config = _build_rtdetr_e2e_config(["cat", "dog"])
+
+        backend = create_detection_backend(saved_model_dir, config)
+        try:
+            assert isinstance(backend, PyTorchDetectionBackend)
+            backend.warmup()
+        finally:
+            backend.close()
+
+    def test_predict_returns_schema_compliant_detections(
+        self, saved_model_dir: Path
+    ) -> None:
+        """`predict()` が list[dict] を返し, 各要素が必須フィールドを持つ."""
+        config = _build_rtdetr_e2e_config(["cat", "dog"])
+
+        backend = create_detection_backend(saved_model_dir, config)
+        try:
+            backend.warmup()
+            image = np.zeros((64, 64, 3), dtype=np.uint8)
+
+            detections, phase_times = backend.predict(image, score_threshold=0.0)
+        finally:
+            backend.close()
+
+        assert isinstance(detections, list)
+        for det in detections:
+            assert set(det.keys()) >= {"class_id", "class_name", "confidence", "bbox"}
+            assert isinstance(det["class_id"], int)
+            assert isinstance(det["class_name"], str)
+            assert 0.0 <= det["confidence"] <= 1.0
+            assert len(det["bbox"]) == 4
+        # phase_times に pipeline 内訳が含まれる.
+        assert "pipeline_preprocess_ms" in phase_times
+        assert "pipeline_inference_ms" in phase_times
+        assert "pipeline_postprocess_ms" in phase_times
+
+    def test_predict_with_score_threshold_one_returns_empty(
+        self, saved_model_dir: Path
+    ) -> None:
+        """`score_threshold=1.0` で confidence 閾値超過の検出はなく空リスト."""
+        config = _build_rtdetr_e2e_config(["cat", "dog"])
+
+        backend = create_detection_backend(saved_model_dir, config)
+        try:
+            backend.warmup()
+            image = np.zeros((64, 64, 3), dtype=np.uint8)
+
+            detections, _ = backend.predict(image, score_threshold=1.0)
+        finally:
+            backend.close()
+
+        assert detections == []
+
+    def test_set_class_names_reflected_in_predict_output(
+        self, saved_model_dir: Path
+    ) -> None:
+        """`set_class_names()` 後の predict で class_name が新しい名前を反映する."""
+        config = _build_rtdetr_e2e_config(["orig_a", "orig_b"])
+
+        backend = create_detection_backend(saved_model_dir, config)
+        try:
+            backend.warmup()
+            backend.set_class_names(["alpha", "beta"])
+            image = np.zeros((64, 64, 3), dtype=np.uint8)
+
+            detections, _ = backend.predict(image, score_threshold=0.0)
+        finally:
+            backend.close()
+
+        # 検出が発生した場合, class_name は新しい名前セットに属する.
+        for det in detections:
+            assert det["class_name"] in {"alpha", "beta", str(det["class_id"])}
+
+    def test_get_model_info_returns_expected_fields(
+        self, saved_model_dir: Path
+    ) -> None:
+        """`get_model_info()` が architecture / num_classes / input_size / backend を返す."""
+        config = _build_rtdetr_e2e_config(["cat", "dog"])
+
+        backend = create_detection_backend(saved_model_dir, config)
+        try:
+            info = backend.get_model_info()
+        finally:
+            backend.close()
+
+        assert info["architecture"] == "RTDetr"
+        assert info["num_classes"] == 2
+        assert info["class_names"] == ["cat", "dog"]
+        assert info["input_size"] == (64, 64)
+        assert info["backend"] == "pytorch"
+        assert info["model_path"] == str(saved_model_dir)

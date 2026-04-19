@@ -9,7 +9,8 @@
 - 無し
 
 ### Changed
-- `RTDetrModel.forward` の `pred_boxes` が `[0, 1]` 正規化に収まることの値域テストを追加. `DetectRequest.score_threshold` / `DetectionDict.confidence` の `ge=0.0, le=1.0` 境界値 (0.0 / 1.0 / -0.01 / 1.01 等) を parametrize で網羅. `MAX_PIXELS` (4096×4096) のちょうど / 1 pixel 超 / 大幅超過の 3 ケースを追加. (NA.)
+- `pred_boxes` の `[0, 1]` 値域テストと, `score_threshold` / `confidence` / `MAX_PIXELS` の境界値テストを parametrize で追加. ([#509](https://github.com/kurorosu/pochidetection/pull/509))
+- `PyTorchDetectionBackend` の実モデル E2E テストを `@pytest.mark.slow` で追加 (warmup / predict / set_class_names / get_model_info). MagicMock を使わない classical test. (NA.)
 
 ### Fixed
 - 無し
