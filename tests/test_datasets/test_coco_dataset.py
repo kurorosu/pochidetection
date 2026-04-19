@@ -213,6 +213,122 @@ class TestCocoDetectionDataset:
         )
         assert len(dataset) == 3
 
+    def test_debug_save_without_augmentation(
+        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor, tmp_path: Path
+    ) -> None:
+        """augmentation 無効でも debug_save_count > 0 で画像が保存される.
+
+        Issue #563: letterbox 等の preprocess 追加を見越して, augmentation の
+        有無に関わらず学習画像のデバッグ保存を発火させる.
+        """
+        save_dir = tmp_path / "debug_out"
+        save_dir.mkdir()
+
+        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
+        dataset.debug_save_count = 5
+        dataset.debug_save_dir = save_dir
+
+        # annotations 付きの image_0 / image_1 を引く.
+        dataset[0]
+        dataset[1]
+
+        saved = sorted(save_dir.glob("train_*.jpg"))
+        assert len(saved) == 2
+        assert saved[0].name == "train_0000.jpg"
+        assert saved[1].name == "train_0001.jpg"
+
+    def test_debug_save_caps_at_count(
+        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor, tmp_path: Path
+    ) -> None:
+        """debug_save_count を超えて保存しない."""
+        save_dir = tmp_path / "debug_out"
+        save_dir.mkdir()
+
+        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
+        dataset.debug_save_count = 1
+        dataset.debug_save_dir = save_dir
+
+        dataset[0]
+        dataset[1]
+
+        saved = list(save_dir.glob("train_*.jpg"))
+        assert len(saved) == 1
+
+    def test_debug_save_skipped_when_no_annotations(
+        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor, tmp_path: Path
+    ) -> None:
+        """annotations が空の image は debug save 対象外 (カウントも進まない)."""
+        save_dir = tmp_path / "debug_out"
+        save_dir.mkdir()
+
+        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
+        dataset.debug_save_count = 5
+        dataset.debug_save_dir = save_dir
+
+        # image_2 はアノテーション無し → skip, count 進まず
+        dataset[2]
+        assert list(save_dir.glob("train_*.jpg")) == []
+        assert dataset.debug_saved == 0
+
+        # 続けて annotations 付きを引けば 0000 から保存される
+        dataset[0]
+        saved = list(save_dir.glob("train_*.jpg"))
+        assert [p.name for p in saved] == ["train_0000.jpg"]
+
+    def test_debug_save_with_augmentation_reflects_augmented_image(
+        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor, tmp_path: Path
+    ) -> None:
+        """augmentation あり経路でも debug save が発火し, 保存画像が反映される.
+
+        HorizontalFlip (p=1.0) を適用し, 保存された bbox 座標が反転されていることで
+        「augmentation 後の annotations を経由して保存されている」ことを確認する.
+        """
+        from pochidetection.configs.schemas import AugmentationConfig
+        from pochidetection.datasets.augmentation import build_augmentation
+
+        save_dir = tmp_path / "debug_out"
+        save_dir.mkdir()
+
+        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
+        dataset._augmentation = build_augmentation(
+            AugmentationConfig.model_validate(
+                {
+                    "enabled": True,
+                    "transforms": [{"name": "RandomHorizontalFlip", "p": 1.0}],
+                }
+            )
+        )
+        dataset.debug_save_count = 5
+        dataset.debug_save_dir = save_dir
+
+        # image_0 の元 bbox: [10, 10, 30, 30] (xywh) → flip 後は x = 100 - 10 - 30 = 60.
+        dataset[0]
+
+        saved = list(save_dir.glob("train_*.jpg"))
+        assert len(saved) == 1
+        # 返却された sample が flip 後であることも併せて確認 (debug save 経路が
+        # augmentation 適用ステップを通っている証左).
+        sample = dataset[0]
+        first_box = sample["labels"]["boxes"][0]
+        # cxcywh 正規化済み. x_center = (60 + 15) / 100 = 0.75.
+        assert first_box[0].item() == pytest.approx(0.75, abs=1e-3)
+
+    def test_debug_save_disabled_when_count_is_zero(
+        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor, tmp_path: Path
+    ) -> None:
+        """debug_save_count=0 なら dir が設定されていても保存しない."""
+        save_dir = tmp_path / "debug_out"
+        save_dir.mkdir()
+
+        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
+        dataset.debug_save_count = 0
+        dataset.debug_save_dir = save_dir
+
+        dataset[0]
+        dataset[1]
+
+        assert list(save_dir.glob("train_*.jpg")) == []
+
     def test_zero_size_bbox_is_skipped(self, tmp_path: Path) -> None:
         """w=0 または h=0 の bbox がスキップされることを確認."""
         images_dir = tmp_path / "JPEGImages"

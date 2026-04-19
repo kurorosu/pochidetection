@@ -9,7 +9,8 @@
 - 無し
 
 ### Changed
-- `IDetectionPipeline.run()` に `threshold` 引数を追加し, WebAPI `POST /api/v1/detect` のリクエスト毎 `score_threshold` がそのまま下限として効くように変更. backend 側の 2 段フィルタを撤廃. ((NA.))
+- `IDetectionPipeline.run()` に `threshold` 引数を追加し, WebAPI `POST /api/v1/detect` のリクエスト毎 `score_threshold` がそのまま下限として効くように変更. backend 側の 2 段フィルタを撤廃. ([#564](https://github.com/kurorosu/pochidetection/pull/564))
+- 学習画像のデバッグ保存を top-level `debug_save_count` (既定値 `10`) に昇格. augmentation の有無に関わらず発火し, 保存先は `{work_dir}/{run}/train_debug/train_XXXX.jpg`. letterbox / preprocess の silent bug 目視検知用. ((NA.))
 
 ### Fixed
 - 無し
