@@ -171,7 +171,13 @@ class IDetectionBackend(ABC):
 
     @abstractmethod
     def close(self) -> None:
-        """Release backend-specific resources."""
+        """Release resources held by the backend.
+
+        Implementations may return immediately if they hold no releasable
+        state (e.g., PyTorch backend relies on GC and can be a no-op).
+        Backends with explicit resource ownership (TensorRT engine/context,
+        ONNX session with CUDA providers, etc.) should release them here.
+        """
 
 
 class _ConcreteBackend(IDetectionBackend):
@@ -216,7 +222,7 @@ def create_detection_backend(
     Args:
         model_path: モデルファイルまたはディレクトリ.
         config: ロード済みの設定辞書.
-        config_path: 設定ファイルパス (推論結果ディレクトリへのコピー用, 未使用可).
+        config_path: 設定ファイルパス. 指定時は推論結果ディレクトリへコピーされる.
 
     Returns:
         構築済みのバックエンド.
