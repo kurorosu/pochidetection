@@ -9,7 +9,7 @@
 - 無し
 
 ### Changed
-- 無し
+- `RTDetrModel.forward` の `pred_boxes` が `[0, 1]` 正規化に収まることの値域テストを追加. `DetectRequest.score_threshold` / `DetectionDict.confidence` の `ge=0.0, le=1.0` 境界値 (0.0 / 1.0 / -0.01 / 1.01 等) を parametrize で網羅. `MAX_PIXELS` (4096×4096) のちょうど / 1 pixel 超 / 大幅超過の 3 ケースを追加. (NA.)
 
 ### Fixed
 - 無し

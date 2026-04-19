@@ -39,6 +39,21 @@ class TestRTDetrModel:
         assert outputs["pred_boxes"].shape[0] == batch_size
         assert outputs["pred_boxes"].shape[2] == 4  # [cx, cy, w, h]
 
+    def test_pred_boxes_in_unit_interval(self, rtdetr_model: RTDetrModel) -> None:
+        """pred_boxes が正規化座標 [0, 1] に収まることを確認.
+
+        RT-DETR の出力は [cx, cy, w, h] の正規化座標. 任意の入力に対して
+        sigmoid 出力のため厳密に [0, 1] に収束する.
+        """
+        pixel_values = torch.randn(1, 3, 64, 64)
+
+        with torch.no_grad():
+            outputs = rtdetr_model(pixel_values)
+
+        pred_boxes = outputs["pred_boxes"]
+        assert pred_boxes.min() >= 0.0
+        assert pred_boxes.max() <= 1.0
+
     def test_forward_with_labels(self, rtdetr_model: RTDetrModel) -> None:
         """学習時のforward処理が損失を返すことを確認."""
         was_training = rtdetr_model.training
