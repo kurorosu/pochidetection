@@ -6,6 +6,20 @@
 ## [Unreleased]
 
 ### Added
+- 無し
+
+### Changed
+- 無し
+
+### Fixed
+- 無し
+
+### Removed
+- 無し
+
+## [0.16.4] - 2026-04-19
+
+### Added
 - `tests/docs/testing_guide.md` 新設. テスト哲学 / Fixtures / Parametrize / slow marker / CUDA テスト等を網羅した開発者向けガイド. ([#552](https://github.com/kurorosu/pochidetection/pull/552))
 
 ### Changed
@@ -23,24 +37,7 @@
 - `BaseCocoDataset` の `_debug_save_*` private 属性に公開 property + setter を追加 (型 / 値検証付き). 学習ループ側も新 setter 経由に移行. ([#558](https://github.com/kurorosu/pochidetection/pull/558))
 - `tests/test_onnx/conftest.py` で二重定義されていた `ssdlite_model` fixture を削除し, 親 `tests/conftest.py` に寄せて重複解消. ([#559](https://github.com/kurorosu/pochidetection/pull/559))
 - `routers/inference.py` のログ整形ヘルパー (`format_phase` / `format_inference`) を `api/log_format.py` に切り出し. `_serializer_cache` を `threading.Lock` で保護し thread-safe 化. ([#560](https://github.com/kurorosu/pochidetection/pull/560))
-- `tests/test_api/` の類似テストを `@pytest.mark.parametrize` で統合 (`create_serializer` / `NVMLError` 失敗経路 / `backend_name` 3 実装). ((NA.))
-
-### Fixed
-- 無し
-
-### Removed
-- 無し
-
-## [0.16.3] - 2026-04-19
-
-### Added
-- HTTP body サイズ上限 middleware を追加し, 超過時に 413 を返す. デフォルト 64MB, `POCHI_MAX_BODY_SIZE` で上書き可能. ([#523](https://github.com/kurorosu/pochidetection/pull/523))
-
-### Changed
-- `api/state.py` を切り出し `routers/inference.py` の関数内遅延 import を解消. ([#520](https://github.com/kurorosu/pochidetection/pull/520))
-- `api/constants.py` を新設し `MAX_PIXELS` / `_ALLOWED_DTYPES` を `schemas.py` から分離. ([#521](https://github.com/kurorosu/pochidetection/pull/521))
-- CUDA Event を `__init__` キャッシュ化し, 推論毎の生成コストを撤廃. ([#522](https://github.com/kurorosu/pochidetection/pull/522))
-- `configs/schemas.py` の `DetectionConfig` (Pydantic) と `DetectionConfigDict` (TypedDict) の使い分けを docstring に明文化. ([#524](https://github.com/kurorosu/pochidetection/pull/524))
+- `tests/test_api/` の類似テストを `@pytest.mark.parametrize` で統合 (`create_serializer` / `NVMLError` 失敗経路 / `backend_name` 3 実装). ([#561](https://github.com/kurorosu/pochidetection/pull/561))
 
 ### Fixed
 - 無し
