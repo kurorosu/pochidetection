@@ -21,7 +21,9 @@
 - `CocoDetectionDataset` の bbox 用 empty tensor に `dtype=torch.float32` を明示. ([#556](https://github.com/kurorosu/pochidetection/pull/556))
 - `training/loop.py` の `len()` 呼び出しの `# type: ignore[arg-type]` を `cast(Sized, ...)` で解消. ([#557](https://github.com/kurorosu/pochidetection/pull/557))
 - `BaseCocoDataset` の `_debug_save_*` private 属性に公開 property + setter を追加 (型 / 値検証付き). 学習ループ側も新 setter 経由に移行. ([#558](https://github.com/kurorosu/pochidetection/pull/558))
-- `tests/test_onnx/conftest.py` で二重定義されていた `ssdlite_model` fixture を削除し, 親 `tests/conftest.py` に寄せて重複解消. ((NA.))
+- `tests/test_onnx/conftest.py` で二重定義されていた `ssdlite_model` fixture を削除し, 親 `tests/conftest.py` に寄せて重複解消. ([#559](https://github.com/kurorosu/pochidetection/pull/559))
+- `routers/inference.py` のログ整形ヘルパー (`format_phase` / `format_inference`) を `api/log_format.py` に切り出し. `_serializer_cache` を `threading.Lock` で保護し thread-safe 化. ([#560](https://github.com/kurorosu/pochidetection/pull/560))
+- `tests/test_api/` の類似テストを `@pytest.mark.parametrize` で統合 (`create_serializer` / `NVMLError` 失敗経路 / `backend_name` 3 実装). ((NA.))
 
 ### Fixed
 - 無し
