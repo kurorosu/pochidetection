@@ -5,10 +5,10 @@ RT-DETR と SSDLite で共有されるエポックループ, Early Stopping,
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sized
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, NamedTuple, Protocol
+from typing import Any, Literal, NamedTuple, Protocol, cast
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -80,8 +80,8 @@ def _apply_augmentation_to_dataset(
 
     dataset._augmentation = augmentation
     if debug_save_count > 0 and debug_save_dir is not None:
-        dataset._debug_save_count = debug_save_count
-        dataset._debug_save_dir = debug_save_dir
+        dataset.debug_save_count = debug_save_count
+        dataset.debug_save_dir = debug_save_dir
         if logger is not None:
             logger.info(
                 f"Augmentation debug: saving first {debug_save_count} "
@@ -210,8 +210,11 @@ def build_data_loaders(
     train_dataset = dataset_factory(train_dir)
     val_dataset = dataset_factory(val_dir)
 
-    logger.info(f"Train samples: {len(train_dataset)}")  # type: ignore[arg-type]
-    logger.info(f"Val samples: {len(val_dataset)}")  # type: ignore[arg-type]
+    # ``torch.utils.data.Dataset`` は ``__len__`` を要求しないが, 本プロジェクトの
+    # データセットは ``BaseCocoDataset`` 経由で ``__len__`` を実装している.
+    # ``Sized`` にキャストして ``len()`` を型安全に呼び出す.
+    logger.info(f"Train samples: {len(cast(Sized, train_dataset))}")
+    logger.info(f"Val samples: {len(cast(Sized, val_dataset))}")
 
     collator = DetectionCollator()
     train_loader = DataLoader(

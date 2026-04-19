@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pochidetection"
-version = "0.16.3"
+version = "0.16.4"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -88,7 +88,9 @@ convention = "google"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v -n 6 -m 'not slow'"
-markers = ["slow: 時間のかかるテスト (uv run pytest -m slow で実行)"]
+markers = [
+    "slow: 実モデルロード / GPU 使用 / TensorRT engine ビルドなど実行時間が長いテスト. 通常の 'uv run pytest' では除外され, 'uv run pytest -m slow' で明示的に実行する.",
+]
 filterwarnings = [
     "ignore:.*legacy TorchScript-based ONNX export.*:DeprecationWarning",
     "ignore::torch.jit.TracerWarning",

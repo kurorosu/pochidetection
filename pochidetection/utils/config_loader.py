@@ -123,6 +123,25 @@ class ConfigLoader:
 
         Raises:
             FileNotFoundError: ファイルを読み込めない場合.
+
+        Notes:
+            ローカル Python config ファイルを
+            ``importlib.util.spec_from_file_location`` と
+            ``spec.loader.exec_module()`` で読み込む. これは
+            ``path`` 先の Python コードを現プロセス内で実行することと
+            等価であり, モジュール本体の式や副作用 (import 文,
+            ファイル I/O, 関数定義, グローバル変数の初期化など) は
+            すべて評価される. 本メソッドは評価後のモジュール属性から
+            設定辞書を抽出しているに過ぎない.
+
+        Warning:
+            本メソッドは自前で管理している trusted な config ファイル
+            (``configs/*.py``) のみを対象とする. 外部入力
+            (ユーザアップロードファイル, HTTP リクエストボディ,
+            未検証のパス文字列, ネットワーク経由で取得した .py など) を
+            ``path`` に渡してはいけない. ``exec_module()`` は任意
+            コード実行と等価であり, ``python config.py`` を直接
+            実行するのと同じセキュリティ境界とみなす必要がある.
         """
         spec = importlib.util.spec_from_file_location("config", path)
         if spec is None or spec.loader is None:

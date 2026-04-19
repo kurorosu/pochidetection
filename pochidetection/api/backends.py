@@ -21,7 +21,7 @@ logger = LoggerManager().get_logger(__name__)
 
 
 def _safe_version(package: str) -> str | None:
-    """Return installed package version or None if missing."""
+    """指定パッケージのバージョンを返す. 未インストールなら None."""
     try:
         return importlib.metadata.version(package)
     except importlib.metadata.PackageNotFoundError:
@@ -29,7 +29,12 @@ def _safe_version(package: str) -> str | None:
 
 
 def get_available_backends() -> list[str]:
-    """Return backend names available in this environment."""
+    """本環境で利用可能なバックエンド名のリストを返す.
+
+    Returns:
+        ``["pytorch", "onnx", "tensorrt"]`` の部分集合. 対応するパッケージが
+        import 可能なもののみ含む.
+    """
     available: list[str] = []
     if _safe_version("torch") is not None:
         available.append("pytorch")
@@ -46,7 +51,15 @@ def get_available_backends() -> list[str]:
 def detect_backend_from_model(
     model_path: Path,
 ) -> Literal["pytorch", "onnx", "tensorrt"]:
-    """Infer backend name from the model path extension."""
+    """モデルパスの拡張子からバックエンド種別を推論する.
+
+    Args:
+        model_path: モデルファイルまたはディレクトリ.
+
+    Returns:
+        ``.engine`` → ``"tensorrt"``, ``.onnx`` → ``"onnx"``, それ以外 (ディレクトリ
+        / ``.pth`` 等) → ``"pytorch"``.
+    """
     if is_tensorrt_model(model_path):
         return "tensorrt"
     if is_onnx_model(model_path):
@@ -69,7 +82,13 @@ class IDetectionBackend(ABC):
         config: DetectionConfigDict,
         model_path: Path,
     ) -> None:
-        """Store the pipeline and metadata shared by all backends."""
+        """Pipeline と共通メタ情報を保持する.
+
+        Args:
+            pipeline: 構築済みの検出 pipeline.
+            config: 検証済みの設定辞書.
+            model_path: モデルファイルまたはディレクトリ.
+        """
         self._pipeline = pipeline
         self._config = config
         self._model_path = model_path
@@ -77,20 +96,29 @@ class IDetectionBackend(ABC):
 
     @property
     def pipeline(self) -> IDetectionPipeline[Any, Any]:
-        """Return the wrapped detection pipeline."""
+        """ラップしている検出 pipeline を返す."""
         return self._pipeline
 
     @property
     def class_names(self) -> list[str]:
-        """Return the current class names."""
+        """現在のクラス名リストを返す."""
         return self._class_names
 
     def set_class_names(self, class_names: list[str]) -> None:
-        """Override class names used for label lookup."""
+        """ラベル lookup で使用するクラス名を上書きする.
+
+        Args:
+            class_names: 新しいクラス名リスト. ``class_id`` のインデックスで参照される.
+        """
         self._class_names = list(class_names)
 
     def get_model_info(self) -> dict[str, Any]:
-        """Return model metadata for the /model-info endpoint."""
+        """``/model-info`` エンドポイント用のモデルメタ情報を返す.
+
+        Returns:
+            ``architecture`` / ``num_classes`` / ``class_names`` / ``input_size``
+            (``(height, width)``) / ``model_path`` / ``backend`` を持つ辞書.
+        """
         image_size = self._config["image_size"]
         return {
             "architecture": self._config["architecture"],
@@ -102,7 +130,7 @@ class IDetectionBackend(ABC):
         }
 
     def warmup(self) -> None:
-        """Run a single dummy inference to warm up the pipeline."""
+        """ダミー画像で 1 回推論し, pipeline を warmup する."""
         image_size = self._config["image_size"]
         height, width = image_size["height"], image_size["width"]
         dummy = np.zeros((height, width, 3), dtype=np.uint8)
@@ -171,14 +199,24 @@ class IDetectionBackend(ABC):
 
     @abstractmethod
     def close(self) -> None:
-        """Release backend-specific resources."""
+        """バックエンドが保持するリソースを解放する.
+
+        明示的に解放する必要のあるリソース (TensorRT engine / context,
+        CUDA provider を抱える ONNX session など) を持つ実装のみ, 本メソッドで
+        解放処理を行う. PyTorch バックエンドのように GC に任せられる実装は
+        no-op で良い.
+        """
 
 
 class _ConcreteBackend(IDetectionBackend):
-    """Shared concrete backend that simply wraps a prebuilt pipeline."""
+    """共通の concrete バックエンド.
+
+    構築済みの pipeline をラップするだけの backend 基底. リソース所有権は
+    pipeline 側にあるため ``close()`` は no-op で良い.
+    """
 
     def close(self) -> None:
-        """No-op: underlying pipeline owns its resources."""
+        """No-op. 配下の pipeline がリソース所有権を持つため解放不要."""
 
 
 class PyTorchDetectionBackend(_ConcreteBackend):
@@ -211,12 +249,12 @@ def create_detection_backend(
     config: DetectionConfigDict,
     config_path: str | None = None,
 ) -> IDetectionBackend:
-    """Build a detection backend by resolving the pipeline from the model path.
+    """model_path から pipeline を解決し, detection backend を構築する.
 
     Args:
         model_path: モデルファイルまたはディレクトリ.
         config: ロード済みの設定辞書.
-        config_path: 設定ファイルパス (推論結果ディレクトリへのコピー用, 未使用可).
+        config_path: 設定ファイルパス. 指定時は推論結果ディレクトリへコピーされる.
 
     Returns:
         構築済みのバックエンド.

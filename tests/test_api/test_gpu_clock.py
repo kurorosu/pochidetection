@@ -27,39 +27,43 @@ def _reset_gpu_clock_state() -> Iterator[None]:
     gpu_clock._initialized = False
 
 
-def test_returns_none_when_nvml_init_fails() -> None:
-    """`nvmlInit()` が NVMLError を送出した場合 ``None`` を返す.
+@pytest.mark.parametrize(
+    "failing_call",
+    ["init", "handle", "clock"],
+    ids=[
+        "nvmlInit_fails",
+        "nvmlDeviceGetHandleByIndex_fails",
+        "nvmlDeviceGetClockInfo_fails",
+    ],
+)
+def test_returns_none_on_nvml_failure(failing_call: str) -> None:
+    """pynvml の各呼び出し失敗時に ``None`` を返す.
 
-    pynvml 未インストール時も NVIDIA driver なしで `nvmlInit()` が失敗するため,
-    同一経路でカバーできる.
+    ``init`` (pynvml 未インストール or driver なしも同一経路) /
+    ``handle`` / ``clock`` の 3 箇所で ``NVMLError`` を送出させ,
+    いずれも ``None`` が返ることを確認する.
     """
-    with patch.object(pynvml, "nvmlInit", side_effect=pynvml.NVMLError(1)):
-        assert gpu_clock.get_gpu_clock_mhz() is None
+    fake_handle = object()
+    err = pynvml.NVMLError(1)
+    init_effect = err if failing_call == "init" else None
+    handle_effect = err if failing_call == "handle" else None
+    handle_return = None if failing_call == "handle" else fake_handle
+    clock_effect = err if failing_call == "clock" else None
+    clock_return = None if failing_call == "clock" else 1650
 
-
-def test_returns_none_when_handle_acquisition_fails() -> None:
-    """`nvmlDeviceGetHandleByIndex()` 失敗時 ``None`` を返す."""
     with (
-        patch.object(pynvml, "nvmlInit", return_value=None),
+        patch.object(pynvml, "nvmlInit", side_effect=init_effect, return_value=None),
         patch.object(
             pynvml,
             "nvmlDeviceGetHandleByIndex",
-            side_effect=pynvml.NVMLError(1),
+            side_effect=handle_effect,
+            return_value=handle_return,
         ),
-    ):
-        assert gpu_clock.get_gpu_clock_mhz() is None
-
-
-def test_returns_none_when_clock_info_fails() -> None:
-    """`nvmlDeviceGetClockInfo()` 失敗時 ``None`` を返す."""
-    fake_handle = object()
-    with (
-        patch.object(pynvml, "nvmlInit", return_value=None),
-        patch.object(pynvml, "nvmlDeviceGetHandleByIndex", return_value=fake_handle),
         patch.object(
             pynvml,
             "nvmlDeviceGetClockInfo",
-            side_effect=pynvml.NVMLError(1),
+            side_effect=clock_effect,
+            return_value=clock_return,
         ),
     ):
         assert gpu_clock.get_gpu_clock_mhz() is None

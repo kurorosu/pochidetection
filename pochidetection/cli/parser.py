@@ -77,15 +77,23 @@ def _create_parser() -> argparse.ArgumentParser:
         "--dir",
         type=str,
         default=None,
-        help="推論対象 (画像フォルダ / 動画ファイル / Webcam デバイスID / RTSP URL). "
-        "未指定時は config の infer_image_dir を使用",
+        help=(
+            "推論対象. 画像ディレクトリ / 動画ファイル (.mp4/.avi/.mov) / "
+            "カメラ ID (例: 0) / RTSP URL (rtsp://...) のいずれか. "
+            "省略時は config の infer_image_dir を使用."
+        ),
     )
     infer_parser.add_argument(
         "-m",
         "--model-dir",
         type=str,
         default=None,
-        help="モデルディレクトリ (default: 最新ワークスペースのbest)",
+        help=(
+            "モデルパス. ディレクトリ (学習済み work_dirs/xxx/best) / "
+            ".onnx ファイル / .engine ファイル (TensorRT) を指定. "
+            "拡張子から backend を自動選択. "
+            "省略時は最新ワークスペースの best を使用."
+        ),
     )
     infer_parser.add_argument(
         "-c",
@@ -132,7 +140,11 @@ def _create_parser() -> argparse.ArgumentParser:
         "--model-path",
         type=str,
         required=True,
-        help="モデルディレクトリ (best/last) または .onnx / .engine ファイル",
+        help=(
+            "モデルパス. ディレクトリ (学習済み work_dirs/xxx/best または last) / "
+            ".onnx ファイル / .engine ファイル (TensorRT) を指定. "
+            "拡張子から backend を自動選択."
+        ),
     )
     serve_parser.add_argument(
         "-c",

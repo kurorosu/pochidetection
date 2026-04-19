@@ -23,6 +23,7 @@ class _StubPipeline(IDetectionPipeline[Any, Any]):
 
     def __init__(self, *, gpu_inference_ms: float | None = None) -> None:
         """phased_timer なし, last_inference_gpu_ms を初期化する."""
+        super().__init__()
         self._validate_phased_timer(None)
         self._last_inference_gpu_ms = gpu_inference_ms
         self.run_calls: list[np.ndarray] = []
@@ -175,29 +176,27 @@ class TestClose:
 class TestBackendName:
     """backend_name class 属性の値を検証."""
 
-    def test_pytorch_backend_name(self) -> None:
-        """PyTorchDetectionBackend.backend_name == 'pytorch'."""
+    @pytest.mark.parametrize(
+        "backend_cls, model_suffix, expected_name",
+        [
+            (PyTorchDetectionBackend, "dummy.pt", "pytorch"),
+            (OnnxDetectionBackend, "dummy.onnx", "onnx"),
+            (TrtDetectionBackend, "dummy.engine", "tensorrt"),
+        ],
+        ids=["pytorch", "onnx", "tensorrt"],
+    )
+    def test_backend_name_matches_class(
+        self,
+        backend_cls: type,
+        model_suffix: str,
+        expected_name: str,
+    ) -> None:
+        """各 backend 実装クラスが正しい ``backend_name`` を持つ."""
         pipeline = _StubPipeline()
-        backend = PyTorchDetectionBackend(
-            pipeline=pipeline, config=_make_config(), model_path=Path("dummy.pt")
+        backend = backend_cls(
+            pipeline=pipeline, config=_make_config(), model_path=Path(model_suffix)
         )
-        assert backend.backend_name == "pytorch"
-
-    def test_onnx_backend_name(self) -> None:
-        """OnnxDetectionBackend.backend_name == 'onnx'."""
-        pipeline = _StubPipeline()
-        backend = OnnxDetectionBackend(
-            pipeline=pipeline, config=_make_config(), model_path=Path("dummy.onnx")
-        )
-        assert backend.backend_name == "onnx"
-
-    def test_tensorrt_backend_name(self) -> None:
-        """TrtDetectionBackend.backend_name == 'tensorrt'."""
-        pipeline = _StubPipeline()
-        backend = TrtDetectionBackend(
-            pipeline=pipeline, config=_make_config(), model_path=Path("dummy.engine")
-        )
-        assert backend.backend_name == "tensorrt"
+        assert backend.backend_name == expected_name
 
 
 def _build_rtdetr_e2e_config(class_names: list[str]) -> DetectionConfigDict:
