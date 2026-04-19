@@ -527,3 +527,136 @@ class TestRTDetrPipelineMode:
 
         assert inputs["pixel_values"].shape == (1, 3, 64, 64)
         assert all("not writable" not in str(w.message) for w in caught)
+
+
+class TestRTDetrPipelineLetterbox:
+    """letterbox=True 経路の preprocess / postprocess 動作を検証."""
+
+    def test_init_raises_when_letterbox_true_without_image_size(self) -> None:
+        """letterbox=True + image_size=None は ValueError."""
+        with pytest.raises(ValueError, match="letterbox=True requires image_size"):
+            RTDetrPipeline(
+                backend=DummyBackend(),
+                processor=DummyProcessor(),
+                transform=DUMMY_TRANSFORM,
+                device="cpu",
+                letterbox=True,
+            )
+
+    def test_preprocess_stores_letterbox_params(self) -> None:
+        """letterbox=True で preprocess 後に _last_letterbox_params が保持される."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            image_size=(64, 64),
+            letterbox=True,
+        )
+        # 横長 128x32 → 64x64: scale = min(64/32, 64/128) = 0.5, new=(16,64),
+        # pad_vertical = 48 → pad_top = 24, pad_bottom = 24, pad_left = pad_right = 0
+        image = Image.new("RGB", (128, 32))
+        pipeline.preprocess(image)
+
+        params = pipeline._last_letterbox_params
+        assert params is not None
+        assert params.scale == pytest.approx(0.5)
+        assert (params.new_h, params.new_w) == (16, 64)
+        assert (params.pad_top, params.pad_bottom) == (24, 24)
+        assert (params.pad_left, params.pad_right) == (0, 0)
+
+    def test_postprocess_reverses_letterbox_transform(self) -> None:
+        """letterbox 経路では processor 出力 (letterbox pixel 座標) が元画像座標に逆変換される.
+
+        DummyProcessor は ``[[10, 20, 30, 40]]`` を返す. target_hw=(64, 64) で
+        letterbox params(scale=0.5, pad_top=24, pad_left=0) を設定した場合,
+        逆変換後の bbox は ``[(10-0)/0.5, (20-24)/0.5, (30-0)/0.5, (40-24)/0.5]``
+        = ``[20, -8, 60, 32]``. 元画像 128x32 の座標系.
+        """
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            image_size=(64, 64),
+            letterbox=True,
+        )
+        # run 経由で params を設定.
+        image = Image.new("RGB", (128, 32))
+        detections = pipeline.run(image)
+
+        assert len(detections) == 1
+        box = detections[0].box
+        assert box[0] == pytest.approx(20.0, abs=1e-3)
+        assert box[1] == pytest.approx(-8.0, abs=1e-3)
+        assert box[2] == pytest.approx(60.0, abs=1e-3)
+        assert box[3] == pytest.approx(32.0, abs=1e-3)
+
+    def test_postprocess_passes_target_hw_as_target_sizes_when_letterbox(self) -> None:
+        """letterbox 時は HF に target_sizes=(target_h, target_w) を渡す (捕捉)."""
+
+        class TargetCapturingProcessor:
+            def __init__(self) -> None:
+                self.last_target_sizes: torch.Tensor | None = None
+
+            def post_process_object_detection(
+                self, outputs: Any, target_sizes: Any, threshold: float
+            ) -> list[dict[str, Any]]:
+                self.last_target_sizes = target_sizes
+                return [
+                    {
+                        "scores": torch.tensor([0.9]),
+                        "labels": torch.tensor([1]),
+                        "boxes": torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+                    }
+                ]
+
+        processor = TargetCapturingProcessor()
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=processor,
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            image_size=(64, 64),
+            letterbox=True,
+        )
+        image = Image.new("RGB", (128, 32))
+        pipeline.run(image)
+
+        assert processor.last_target_sizes is not None
+        assert processor.last_target_sizes.tolist() == [[64, 64]]
+
+    def test_letterbox_false_keeps_legacy_target_sizes(self) -> None:
+        """letterbox=False は従来通り target_sizes=(orig_h, orig_w) を渡す."""
+
+        class TargetCapturingProcessor:
+            def __init__(self) -> None:
+                self.last_target_sizes: torch.Tensor | None = None
+
+            def post_process_object_detection(
+                self, outputs: Any, target_sizes: Any, threshold: float
+            ) -> list[dict[str, Any]]:
+                self.last_target_sizes = target_sizes
+                return [
+                    {
+                        "scores": torch.tensor([0.9]),
+                        "labels": torch.tensor([1]),
+                        "boxes": torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+                    }
+                ]
+
+        processor = TargetCapturingProcessor()
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=processor,
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            image_size=(64, 64),
+            letterbox=False,
+        )
+        image = Image.new("RGB", (128, 32))
+        pipeline.run(image)
+
+        # orig (w, h) = (128, 32) → target_sizes = [[32, 128]] (H, W)
+        assert processor.last_target_sizes is not None
+        assert processor.last_target_sizes.tolist() == [[32, 128]]

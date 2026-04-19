@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 
+from pochidetection.core.letterbox import compute_letterbox_params
 from pochidetection.core.preprocess import gpu_preprocess_tensor
 
 _DEVICE_PARAMS = [
@@ -126,3 +127,60 @@ class TestGpuPreprocessTensor:
             / 255.0
         )
         assert torch.allclose(pixel_values, expected)
+
+
+class TestGpuPreprocessTensorLetterbox:
+    """``letterbox_params`` オプションが letterbox 経路で動作することを検証."""
+
+    @pytest.mark.parametrize("device", _DEVICE_PARAMS)
+    def test_letterbox_params_applies_padding(self, device: str) -> None:
+        """横長入力 + letterbox_params 指定で上下 pad が 0 (normalize 後も 0)."""
+        # 横長 (1, 2) → (2, 2): scale=1.0, new=(1,2), pad_top=0,pad_bottom=1
+        # ではなく (2, 4) → (4, 4): scale=1.0, new=(2,4), pad_top=1,pad_bottom=1
+        # 実テストは (4, 8) → (8, 8) を使う
+        image = _sample_image(h=4, w=8)
+        target_hw = (8, 8)
+        params = compute_letterbox_params((4, 8), target_hw)
+
+        assert params.new_h == 4
+        assert params.new_w == 8
+        assert params.pad_top == 2
+        assert params.pad_bottom == 2
+
+        pixel_values, _ = gpu_preprocess_tensor(
+            image,
+            target_hw,
+            device=device,
+            input_buffer=None,
+            use_fp16=False,
+            letterbox_params=params,
+        )
+
+        assert pixel_values.shape == (1, 3, 8, 8)
+        # 上端 pad_top (2 行) と下端 pad_bottom (2 行) が 0.
+        assert torch.all(pixel_values[0, :, :2, :] == 0)
+        assert torch.all(pixel_values[0, :, -2:, :] == 0)
+
+    @pytest.mark.parametrize("device", _DEVICE_PARAMS)
+    def test_letterbox_params_none_falls_back_to_resize(self, device: str) -> None:
+        """letterbox_params=None は従来 resize 経路と同等 (後方互換)."""
+        image = _sample_image(h=10, w=12)
+        target_hw = (8, 8)
+
+        pv_default, _ = gpu_preprocess_tensor(
+            image,
+            target_hw,
+            device=device,
+            input_buffer=None,
+            use_fp16=False,
+        )
+        pv_explicit_none, _ = gpu_preprocess_tensor(
+            image,
+            target_hw,
+            device=device,
+            input_buffer=None,
+            use_fp16=False,
+            letterbox_params=None,
+        )
+
+        assert torch.allclose(pv_default, pv_explicit_none)

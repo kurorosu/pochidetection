@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from torchvision.transforms import v2
 
+from pochidetection.core.letterbox import LetterboxParams, apply_letterbox
+
 
 def gpu_preprocess_tensor(
     image_np: np.ndarray,
@@ -11,10 +13,11 @@ def gpu_preprocess_tensor(
     device: torch.device | str,
     input_buffer: torch.Tensor | None,
     use_fp16: bool,
+    letterbox_params: LetterboxParams | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """GPU 経路の画像前処理を実行する.
 
-    numpy RGB uint8 → uint8 tensor CHW → CPU 上で uint8 のまま resize →
+    numpy RGB uint8 → uint8 tensor CHW → CPU 上で letterbox or 単純 resize →
     GPU バッファに ``copy_`` で float32 化 + H2D → ``div_(255)`` で [0,1] 化.
     バッファは shape mismatch 時のみ再確保する.
 
@@ -31,6 +34,9 @@ def gpu_preprocess_tensor(
             shape mismatch 時は再確保する.
         use_fp16: True の場合, 戻り値 ``pixel_values`` を fp16 にキャストする.
             persisted buffer は float32 のまま維持する.
+        letterbox_params: letterbox の幾何パラメータ. ``None`` の場合は従来の
+            単純 resize を適用する. 渡された場合は ``apply_letterbox`` で
+            アスペクト比維持 + padding を適用する.
 
     Returns:
         (pixel_values, persisted_buffer) のタプル.
@@ -40,7 +46,9 @@ def gpu_preprocess_tensor(
     """
     tensor_uint8 = torch.from_numpy(image_np).permute(2, 0, 1)  # (C, H, W) uint8
     target_h, target_w = target_hw
-    if tensor_uint8.shape[1:] != (target_h, target_w):
+    if letterbox_params is not None:
+        tensor_uint8 = apply_letterbox(tensor_uint8, letterbox_params, pad_value=0)
+    elif tensor_uint8.shape[1:] != (target_h, target_w):
         tensor_uint8 = v2.functional.resize(
             tensor_uint8,
             [target_h, target_w],

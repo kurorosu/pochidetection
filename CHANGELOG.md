@@ -6,7 +6,8 @@
 ## [Unreleased]
 
 ### Added
-- 学習時 preprocess に letterbox (アスペクト比維持 + padding) リサイズを追加. top-level `letterbox: bool = True` フラグで制御し, SSDLite / SSD300 / RT-DETR 全アーキで train/infer 分布を一致させる. `core/letterbox.py` を PIL/Tensor 多態 API で新規作成し, #445 推論側の再利用を前提にした 2 層設計 (core + v2 Transform) を採用. ((NA.))
+- 学習時 preprocess に letterbox (アスペクト比維持 + padding) リサイズを追加. top-level `letterbox: bool = True` フラグで制御し, SSDLite / SSD300 / RT-DETR 全アーキで train/infer 分布を一致させる. `core/letterbox.py` を PIL/Tensor 多態 API で新規作成し, #445 推論側の再利用を前提にした 2 層設計 (core + v2 Transform) を採用. ([#566](https://github.com/kurorosu/pochidetection/pull/566))
+- 推論側 pipeline preprocess / postprocess に letterbox を組み込み, `core/letterbox.py` を CPU / GPU 両経路 (`gpu_preprocess_tensor`) から再利用. bbox は letterbox 逆変換 (`(box - pad) / scale`) で元画像座標に戻すため, レスポンスの bbox スキーマは変更なし. 極端なアスペクト比画像 (例: 1920x480) でも正しい座標が返る. `config["letterbox"]=False` で従来挙動に戻せる. ((NA.))
 
 ### Changed
 - `IDetectionPipeline.run()` に `threshold` 引数を追加し, WebAPI `POST /api/v1/detect` のリクエスト毎 `score_threshold` がそのまま下限として効くように変更. backend 側の 2 段フィルタを撤廃. ([#564](https://github.com/kurorosu/pochidetection/pull/564))
