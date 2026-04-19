@@ -78,6 +78,7 @@ class SsdPipeline(
         self._use_fp16 = is_fp16_available(use_fp16, device)
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
         self._gpu_input_buffer: torch.Tensor | None = None
+        self._init_cuda_events(device)
 
     def preprocess(self, image: ImageInput) -> tuple[dict[str, torch.Tensor], int, int]:
         """画像を前処理し, モデル入力辞書と元画像サイズを返す.

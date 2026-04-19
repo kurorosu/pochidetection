@@ -87,6 +87,7 @@ class RTDetrPipeline(
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
         self._target_hw: tuple[int, int] | None = image_size
         self._gpu_input_buffer: torch.Tensor | None = None
+        self._init_cuda_events(device)
 
     def preprocess(self, image: ImageInput) -> dict[str, torch.Tensor]:
         """画像を前処理し, モデル入力テンソルを返す.
