@@ -1,4 +1,24 @@
-"""Pydantic 設定スキーマ."""
+"""Pydantic 設定スキーマと TypedDict ミラーの定義.
+
+本モジュールは同じ設定項目を 2 系統で表現する. 役割と使い分けは以下に従う.
+
+``DetectionConfig`` (Pydantic BaseModel)
+    **System boundary のバリデーター**. 外部から入ってきた設定値 (Python config
+    ファイルや dict) を runtime で検証し, 不正値を早期に弾く責務を持つ. 利用箇所は
+    ``ConfigLoader.load()`` の内部 (validation 用) に限定する. 関数シグネチャや
+    ダウンストリームで引き回さないこと.
+
+``DetectionConfigDict`` (TypedDict)
+    **内部で流通する設定値の型**. ``ConfigLoader.load()`` は Pydantic 検証後に
+    ``model_dump()`` で dict 化し, ``DetectionConfigDict`` にキャストして返す.
+    CLI / API / pipelines / training など, 検証後の設定を扱うすべての関数
+    シグネチャはこの TypedDict を採用する. mypy による静的型チェック (キー名の
+    typo 検出, 値の型検査) を目的とする.
+
+判断フロー:
+    - 外部入力を受け取り validation する層 → ``DetectionConfig``
+    - 検証済み設定を消費する層 (関数シグネチャ全般) → ``DetectionConfigDict``
+"""
 
 import warnings
 from typing import Any, Literal, TypedDict
@@ -36,15 +56,20 @@ class ImageSizeDict(TypedDict):
 
 
 class DetectionConfigDict(TypedDict, total=False):
-    """DetectionConfig.model_dump() の出力に対応する TypedDict.
+    """検証済み設定値を内部で流通させる TypedDict.
 
-    ConfigLoader.load() の戻り値型として使用する.
-    ランタイムのバリデーションは DetectionConfig (Pydantic) が担い,
-    この TypedDict は mypy による静的型チェック (キー名の typo 検出,
+    ``ConfigLoader.load()`` の戻り値型として用い, CLI / API / pipelines /
+    training など検証後の設定を受け取るすべての関数シグネチャはこの型を採用する.
+    ランタイムのバリデーションは ``DetectionConfig`` (Pydantic) が ``ConfigLoader``
+    内部で行い, この TypedDict は mypy による静的型チェック (キー名の typo 検出,
     値の型検査) を目的とする.
 
-    total=False により全キーがオプショナルとなるが,
+    ``total=False`` により全キーが型システム上オプショナルとなるが,
     Pydantic バリデーション済みのため実行時は全キーが存在する.
+
+    See Also:
+        ``DetectionConfig``: 対応する Pydantic モデル.
+            ``ConfigLoader.load()`` 内部で runtime validation に使う.
     """
 
     architecture: str
@@ -127,7 +152,17 @@ class ImageSizeConfig(BaseModel):
 
 
 class DetectionConfig(BaseModel):
-    """物体検出設定スキーマ."""
+    """物体検出設定の Pydantic スキーマ (system boundary validator).
+
+    外部から入ってきた設定値 (Python config ファイルや dict) を runtime で検証する
+    目的で使う. 利用箇所は ``ConfigLoader.load()`` の内部 (バリデーション用) に
+    限定し, 関数シグネチャやダウンストリームに引き回してはならない. 検証後は
+    ``model_dump()`` で ``DetectionConfigDict`` に変換して流通させる.
+
+    See Also:
+        ``DetectionConfigDict``: 対応する TypedDict.
+            検証後の設定値を関数シグネチャで流通させる際に使う.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
