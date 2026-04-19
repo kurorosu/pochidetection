@@ -68,8 +68,8 @@ class DetectionConfigDict(TypedDict, total=False):
     Pydantic バリデーション済みのため実行時は全キーが存在する.
 
     See Also:
-        ``DetectionConfig``: 外部入力を validation する際に使う Pydantic モデル.
-            本 TypedDict と同じキー集合をミラーしている.
+        ``DetectionConfig``: 対応する Pydantic モデル.
+            ``ConfigLoader.load()`` 内部で runtime validation に使う.
     """
 
     architecture: str
@@ -160,8 +160,8 @@ class DetectionConfig(BaseModel):
     ``model_dump()`` で ``DetectionConfigDict`` に変換して流通させる.
 
     See Also:
-        ``DetectionConfigDict``: 検証後の設定値を内部で流通させるための TypedDict.
-            ほぼすべての関数シグネチャで採用している.
+        ``DetectionConfigDict``: 対応する TypedDict.
+            検証後の設定値を関数シグネチャで流通させる際に使う.
     """
 
     model_config = ConfigDict(extra="forbid")
