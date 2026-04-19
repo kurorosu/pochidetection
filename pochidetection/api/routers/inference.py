@@ -7,11 +7,13 @@ postprocess の ms 値) を返す. CUDA 利用時は ``pipeline_inference_gpu_ms
 """
 
 import binascii
+import threading
 import time
 
 from fastapi import APIRouter, HTTPException
 
 from pochidetection.api.gpu_clock import get_gpu_clock_mhz
+from pochidetection.api.log_format import format_inference, format_phase
 from pochidetection.api.schemas import DetectionDict, DetectRequest, DetectResponse
 from pochidetection.api.serializers import IImageSerializer, create_serializer
 from pochidetection.api.state import get_engine
@@ -21,32 +23,27 @@ logger = LoggerManager().get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["inference"])
 
+# 複数 worker thread / 並列リクエストでの race condition を防ぐため lock で保護.
+# キャッシュ hit 時のクリティカルセクションは dict lookup のみで十分軽量.
 _serializer_cache: dict[str, IImageSerializer] = {}
+_serializer_cache_lock = threading.Lock()
 
 
 def _get_cached_serializer(fmt: str) -> IImageSerializer:
-    """Return a cached serializer for the given format."""
-    serializer = _serializer_cache.get(fmt)
-    if serializer is None:
-        serializer = create_serializer(fmt)
-        _serializer_cache[fmt] = serializer
-    return serializer
+    """指定 format のシリアライザをキャッシュ経由で取得する (thread-safe).
 
+    Args:
+        fmt: 画像フォーマット名 (``"raw"`` / ``"jpeg"``).
 
-def _format_inference(phase_times: dict[str, float]) -> str:
-    """Format the inference summary token for the INFO log line."""
-    inf_wall = phase_times.get("pipeline_inference_ms")
-    inf_gpu = phase_times.get("pipeline_inference_gpu_ms")
-    if inf_gpu is not None and inf_wall is not None:
-        return f"inf(gpu/wall)={inf_gpu:.1f}/{inf_wall:.1f}"
-    if inf_wall is not None:
-        return f"inf(wall)={inf_wall:.1f}"
-    return "inf=N/A"
-
-
-def _format_phase(phase_times: dict[str, float], key: str, label: str) -> str:
-    value = phase_times.get(key)
-    return f"{label}={value:.1f}" if value is not None else f"{label}=N/A"
+    Returns:
+        ``IImageSerializer`` 実装インスタンス.
+    """
+    with _serializer_cache_lock:
+        serializer = _serializer_cache.get(fmt)
+        if serializer is None:
+            serializer = create_serializer(fmt)
+            _serializer_cache[fmt] = serializer
+        return serializer
 
 
 @router.post("/detect", response_model=DetectResponse)
@@ -99,9 +96,9 @@ async def detect(request: DetectRequest) -> DetectResponse:
 
     logger.info(
         f"Detection complete: detections={len(detections)} e2e={elapsed_ms:.1f} "
-        f"{_format_phase(phase_times, 'pipeline_preprocess_ms', 'pre')} "
-        f"{_format_inference(phase_times)} "
-        f"{_format_phase(phase_times, 'pipeline_postprocess_ms', 'post')}"
+        f"{format_phase(phase_times, 'pipeline_preprocess_ms', 'pre')} "
+        f"{format_inference(phase_times)} "
+        f"{format_phase(phase_times, 'pipeline_postprocess_ms', 'post')}"
         f"{clk_str} pipeline={engine.pipeline.pipeline_mode}"
     )
 
