@@ -9,7 +9,7 @@
 - 無し
 
 ### Changed
-- 無し
+- `IDetectionPipeline.run()` に `threshold` 引数を追加し, WebAPI `POST /api/v1/detect` のリクエスト毎 `score_threshold` がそのまま下限として効くように変更. backend 側の 2 段フィルタを撤廃. ((NA.))
 
 ### Fixed
 - 無し

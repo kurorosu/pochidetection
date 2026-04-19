@@ -165,6 +165,7 @@ class SsdPipeline(
         pred: dict[str, torch.Tensor],
         orig_w: int,
         orig_h: int,
+        threshold: float | None = None,
     ) -> list[Detection]:
         """後処理. スコア閾値フィルタと座標リスケールを行う.
 
@@ -176,11 +177,14 @@ class SsdPipeline(
             pred: モデル出力 (boxes, scores, labels).
             orig_w: 元画像の幅.
             orig_h: 元画像の高さ.
+            threshold: スコア閾値を request 単位で上書きする値. ``None`` の場合は
+                ``__init__`` で渡された ``self._threshold`` を使用する.
 
         Returns:
             検出結果のリスト.
         """
-        mask = pred["scores"] >= self._threshold
+        effective_threshold = self._threshold if threshold is None else threshold
+        mask = pred["scores"] >= effective_threshold
         boxes = pred["boxes"][mask]
         scores = pred["scores"][mask]
         labels = pred["labels"][mask]
@@ -202,13 +206,17 @@ class SsdPipeline(
             for box, score, label in zip(boxes, scores, labels)
         ]
 
-    def run(self, image: ImageInput) -> list[Detection]:
+    def run(
+        self, image: ImageInput, *, threshold: float | None = None
+    ) -> list[Detection]:
         """E2E 実行. preprocess → infer → postprocess を順に実行する.
 
         PhasedTimer が設定されている場合, 各フェーズを個別に計測する.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
+            threshold: 検出信頼度の下限しきい値. ``None`` の場合は ``__init__``
+                で渡された値を使用する.
 
         Returns:
             検出結果のリスト.
@@ -218,6 +226,6 @@ class SsdPipeline(
         with self._measure("inference"), self._measure_inference_gpu():
             pred = self.infer(inputs)
         with self._measure("postprocess"):
-            detections = self.postprocess(pred, orig_w, orig_h)
+            detections = self.postprocess(pred, orig_w, orig_h, threshold=threshold)
 
         return detections
