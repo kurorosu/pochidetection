@@ -6,11 +6,11 @@
 ## [Unreleased]
 
 ### Added
-- 無し
+- 学習時 preprocess に letterbox (アスペクト比維持 + padding) リサイズを追加. top-level `letterbox: bool = True` フラグで制御し, SSDLite / SSD300 / RT-DETR 全アーキで train/infer 分布を一致させる. `core/letterbox.py` を PIL/Tensor 多態 API で新規作成し, #445 推論側の再利用を前提にした 2 層設計 (core + v2 Transform) を採用. ((NA.))
 
 ### Changed
 - `IDetectionPipeline.run()` に `threshold` 引数を追加し, WebAPI `POST /api/v1/detect` のリクエスト毎 `score_threshold` がそのまま下限として効くように変更. backend 側の 2 段フィルタを撤廃. ([#564](https://github.com/kurorosu/pochidetection/pull/564))
-- 学習画像のデバッグ保存を top-level `debug_save_count` (既定値 `10`) に昇格. augmentation の有無に関わらず発火し, 保存先は `{work_dir}/{run}/train_debug/train_XXXX.jpg`. letterbox / preprocess の silent bug 目視検知用. ((NA.))
+- 学習画像のデバッグ保存を top-level `debug_save_count` (既定値 `10`) に昇格. augmentation の有無に関わらず発火し, 保存先は `{work_dir}/{run}/train_debug/train_XXXX.jpg`. letterbox / preprocess の silent bug 目視検知用. ([#565](https://github.com/kurorosu/pochidetection/pull/565))
 
 ### Fixed
 - 無し

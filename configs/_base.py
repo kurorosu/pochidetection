@@ -41,6 +41,10 @@ infer_image_dir = "data/val/JPEGImages"  # 推論対象の画像フォルダ
 # letterbox / preprocess の silent bug を目視検知する目的. 0 で無効.
 debug_save_count = 10
 
+# Letterbox (アスペクト比維持 + padding) リサイズ
+# 学習 / 推論 両方に適用. False で従来の単純 resize に戻る.
+letterbox = True
+
 # Data Augmentation 設定 (学習時のみ適用, 詳細は docs/augmentation.md を参照)
 augmentation = {
     "enabled": False,  # データ拡張の有効化 (True で transforms の変換を適用)
