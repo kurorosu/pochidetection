@@ -12,6 +12,7 @@
 - `api/state.py` を切り出し `routers/inference.py` の関数内遅延 import を解消. ([#520](https://github.com/kurorosu/pochidetection/pull/520))
 - `api/constants.py` を新設し `MAX_PIXELS` / `_ALLOWED_DTYPES` を `schemas.py` から分離. ([#521](https://github.com/kurorosu/pochidetection/pull/521))
 - CUDA Event を `__init__` キャッシュ化し, 推論毎の生成コストを撤廃. ([#522](https://github.com/kurorosu/pochidetection/pull/522))
+- `configs/schemas.py` の `DetectionConfig` (Pydantic) と `DetectionConfigDict` (TypedDict) の使い分けを docstring に明文化. ((NA.))
 
 ### Fixed
 - 無し
