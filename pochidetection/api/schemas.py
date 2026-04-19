@@ -4,8 +4,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-_ALLOWED_DTYPES: frozenset[str] = frozenset({"uint8"})
-MAX_PIXELS: int = 4096 * 4096
+from pochidetection.api.constants import _ALLOWED_DTYPES, MAX_PIXELS
 
 
 class HealthResponse(BaseModel):

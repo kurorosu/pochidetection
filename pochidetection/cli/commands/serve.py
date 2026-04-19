@@ -9,9 +9,9 @@ from typing import Any
 
 import uvicorn
 
-from pochidetection.api import app as app_module
 from pochidetection.api.app import build_engine, create_app
 from pochidetection.api.config import ServerConfig
+from pochidetection.api.state import set_engine
 from pochidetection.logging import LoggerManager
 from pochidetection.logging.logger_manager import (
     COLORLOG_AVAILABLE,
@@ -123,7 +123,7 @@ def run_serve(args: argparse.Namespace) -> None:
         engine.close()
         return
 
-    app_module._engine = engine
+    set_engine(engine)
     app = create_app()
 
     logger.info(

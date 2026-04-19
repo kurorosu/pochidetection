@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pochidetection.api.gpu_clock import get_gpu_clock_mhz
 from pochidetection.api.schemas import DetectionDict, DetectRequest, DetectResponse
 from pochidetection.api.serializers import IImageSerializer, create_serializer
+from pochidetection.api.state import get_engine
 from pochidetection.logging import LoggerManager
 
 logger = LoggerManager().get_logger(__name__)
@@ -51,8 +52,6 @@ def _format_phase(phase_times: dict[str, float], key: str, label: str) -> str:
 @router.post("/detect", response_model=DetectResponse)
 async def detect(request: DetectRequest) -> DetectResponse:
     """Run detection on a single image and return bounding boxes."""
-    from pochidetection.api.app import get_engine
-
     try:
         engine = get_engine()
     except RuntimeError:

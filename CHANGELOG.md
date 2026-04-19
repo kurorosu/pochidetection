@@ -17,19 +17,16 @@
 ### Removed
 - 無し
 
-## [0.16.2] - 2026-04-19
+## [0.16.3] - 2026-04-19
 
 ### Added
-- 無し
+- HTTP body サイズ上限 middleware を追加し, 超過時に 413 を返す. デフォルト 64MB, `POCHI_MAX_BODY_SIZE` で上書き可能. ([#523](https://github.com/kurorosu/pochidetection/pull/523))
 
 ### Changed
-- `pred_boxes` の `[0, 1]` 値域テストと, `score_threshold` / `confidence` / `MAX_PIXELS` の境界値テストを parametrize で追加. ([#509](https://github.com/kurorosu/pochidetection/pull/509))
-- `PyTorchDetectionBackend` の実モデル E2E テストを `@pytest.mark.slow` で追加 (warmup / predict / set_class_names / get_model_info). MagicMock を使わない classical test. ([#510](https://github.com/kurorosu/pochidetection/pull/510))
-- `IImageSerializer` Protocol を `RawArraySerializer` / `JpegSerializer` が明示継承するよう変更. ([#511](https://github.com/kurorosu/pochidetection/pull/511))
-- `datasets/augmentation.py` の debug 画像色リストを `ColorPalette.DEFAULT_COLORS` 参照に統一. ([#512](https://github.com/kurorosu/pochidetection/pull/512))
-- plotter 3 ファイルの `<!DOCTYPE html>` 横並びテンプレートを `plotters/constants.py` の `render_side_by_side_html()` に集約. ([#513](https://github.com/kurorosu/pochidetection/pull/513))
-- SSD `infer()` を RTDetr と統一し dict 入力と `torch.no_grad()` を適用. ([#514](https://github.com/kurorosu/pochidetection/pull/514))
-- `_safe_version()` とログ日付フォーマット / 色定義の重複を共通化. ([#515](https://github.com/kurorosu/pochidetection/pull/515))
+- `api/state.py` を切り出し `routers/inference.py` の関数内遅延 import を解消. ([#520](https://github.com/kurorosu/pochidetection/pull/520))
+- `api/constants.py` を新設し `MAX_PIXELS` / `_ALLOWED_DTYPES` を `schemas.py` から分離. ([#521](https://github.com/kurorosu/pochidetection/pull/521))
+- CUDA Event を `__init__` キャッシュ化し, 推論毎の生成コストを撤廃. ([#522](https://github.com/kurorosu/pochidetection/pull/522))
+- `configs/schemas.py` の `DetectionConfig` (Pydantic) と `DetectionConfigDict` (TypedDict) の使い分けを docstring に明文化. ([#524](https://github.com/kurorosu/pochidetection/pull/524))
 
 ### Fixed
 - 無し

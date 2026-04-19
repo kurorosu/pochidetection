@@ -5,8 +5,8 @@ import base64
 import numpy as np
 from fastapi.testclient import TestClient
 
-from pochidetection.api import app as app_module
 from pochidetection.api.app import create_app
+from pochidetection.api.state import set_engine
 
 
 def _encode_raw(image: np.ndarray) -> dict[str, object]:
@@ -24,7 +24,7 @@ def _install_engine_returning(detections: list[dict]) -> None:
     engine = MagicMock()
     engine.backend_name = "pytorch"
     engine.predict.return_value = (detections, {})
-    app_module._engine = engine
+    set_engine(engine)
 
 
 def test_detect_returns_200_with_detections() -> None:
@@ -100,7 +100,7 @@ def test_detect_passes_score_threshold_to_engine() -> None:
     engine = MagicMock()
     engine.backend_name = "pytorch"
     engine.predict.return_value = ([], {})
-    app_module._engine = engine
+    set_engine(engine)
     app = create_app(None)
     payload = _encode_raw(np.zeros((4, 4, 3), dtype=np.uint8))
     payload["score_threshold"] = 0.7
