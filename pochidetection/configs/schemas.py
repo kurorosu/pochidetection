@@ -140,6 +140,8 @@ class AugmentationConfig(BaseModel):
         transforms: 適用する変換のリスト.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     enabled: bool = True
     transforms: list[AugmentTransformConfig] = Field(default_factory=list)
 
