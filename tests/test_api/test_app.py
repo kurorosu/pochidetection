@@ -1,9 +1,12 @@
 """create_app(None) 経由 (lifespan 無効) で 4 エンドポイントの応答を検証."""
 
+from collections.abc import Iterator
+
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from pochidetection import __version__
-from pochidetection.api.app import create_app
+from pochidetection.api.app import BodySizeLimitMiddleware, create_app
 
 
 def test_health_unhealthy_when_no_engine() -> None:
@@ -46,3 +49,75 @@ def test_model_info_returns_503_when_no_engine() -> None:
     with TestClient(app) as client:
         res = client.get("/api/v1/model-info")
     assert res.status_code == 503
+
+
+def _build_echo_app(max_body_size: int) -> FastAPI:
+    """body サイズ上限 middleware のみを載せた最小 echo app."""
+    app = FastAPI()
+    app.add_middleware(BodySizeLimitMiddleware, max_body_size=max_body_size)
+
+    @app.post("/echo")
+    async def echo(payload: dict) -> dict:  # type: ignore[type-arg]
+        return {"size": len(payload.get("data", ""))}
+
+    return app
+
+
+def test_body_size_limit_allows_payload_within_limit() -> None:
+    """上限以下の body は通常どおり処理される."""
+    app = _build_echo_app(max_body_size=1024)
+    with TestClient(app) as client:
+        res = client.post("/echo", json={"data": "x" * 100})
+    assert res.status_code == 200
+    assert res.json() == {"size": 100}
+
+
+def test_body_size_limit_rejects_oversized_payload() -> None:
+    """Content-Length が上限超過の body は 413 で弾かれる."""
+    app = _build_echo_app(max_body_size=128)
+    with TestClient(app) as client:
+        res = client.post("/echo", json={"data": "x" * 4096})
+    assert res.status_code == 413
+    body = res.json()
+    assert "Request body too large" in body["detail"]
+    assert "128" in body["detail"]
+
+
+def test_body_size_limit_rejects_invalid_content_length() -> None:
+    """Content-Length ヘッダーが非整数なら 413 で弾く."""
+    app = _build_echo_app(max_body_size=1024)
+    with TestClient(app) as client:
+        res = client.post(
+            "/echo",
+            data=b"{}",
+            headers={
+                "content-type": "application/json",
+                "content-length": "not-a-number",
+            },
+        )
+    assert res.status_code == 413
+
+
+def test_body_size_limit_streaming_exceeds_limit() -> None:
+    """Content-Length なし (chunked) でも累積バイト数で 413 判定する."""
+    app = _build_echo_app(max_body_size=16)
+
+    def gen() -> Iterator[bytes]:
+        yield b'{"data":"'
+        yield b"x" * 64
+        yield b'"}'
+
+    with TestClient(app) as client:
+        res = client.post(
+            "/echo",
+            data=gen(),
+            headers={"content-type": "application/json"},
+        )
+    assert res.status_code == 413
+
+
+def test_create_app_registers_body_size_middleware() -> None:
+    """create_app() で BodySizeLimitMiddleware が登録されていることを確認."""
+    app = create_app(None)
+    names = {m.cls.__name__ for m in app.user_middleware}
+    assert "BodySizeLimitMiddleware" in names
