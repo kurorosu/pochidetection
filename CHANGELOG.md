@@ -6,10 +6,16 @@
 ## [Unreleased]
 
 ### Added
-- 無し
+- `tests/docs/testing_guide.md` 新設. テスト哲学 / Fixtures / Parametrize / slow marker / CUDA テスト等を網羅した開発者向けガイド. ([#552](https://github.com/kurorosu/pochidetection/pull/552))
 
 ### Changed
-- 無し
+- `api/backends.py` の docstring を日本語化し Google style に統一. `create_detection_backend` の旧記述修正と `IDetectionBackend.close()` の no-op 許容方針明記を含む. ([#546](https://github.com/kurorosu/pochidetection/pull/546))
+- `api/schemas.py` の `DetectRequest` docstring を 1 行に簡潔化し, 詳細を `Field(description=...)` に統合. ([#547](https://github.com/kurorosu/pochidetection/pull/547))
+- `pochi infer / serve` の `-d` / `-m` help に具体例 (画像 / 動画 / カメラ ID / RTSP URL, `.onnx` / `.engine`) を追加. ([#548](https://github.com/kurorosu/pochidetection/pull/548))
+- `docs/api_detect_inference_variance_investigation.md` に `## 更新履歴` セクションを追加. 冗長な「教訓と再発防止」セクションを削除. ([#549](https://github.com/kurorosu/pochidetection/pull/549))
+- `pyproject.toml` の `slow` marker 説明を実モデルロード / GPU / TensorRT engine ビルド等の具体例付きに拡充. ([#550](https://github.com/kurorosu/pochidetection/pull/550))
+- Issue テンプレートの Branch プレースホルダを統一 (`feature/` → `feat/`, `test_request.md` 末尾改行修正). ([#551](https://github.com/kurorosu/pochidetection/pull/551))
+- `ConfigLoader._extract_config` docstring に `exec_module()` の挙動と security 前提 (trusted config のみ対象) を Notes / Warning として明記. ((NA.))
 
 ### Fixed
 - 無し
