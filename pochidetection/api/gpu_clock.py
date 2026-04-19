@@ -31,7 +31,7 @@ def get_gpu_clock_mhz() -> int | None:
             pynvml.nvmlInit()
             _handle = pynvml.nvmlDeviceGetHandleByIndex(0)
         except pynvml.NVMLError as e:
-            logger.info(f"pynvml unavailable, GPU clock monitoring disabled: {e}")
+            logger.warning(f"pynvml unavailable, GPU clock monitoring disabled: {e}")
             _handle = None
 
     if _handle is None:
