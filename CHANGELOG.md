@@ -10,7 +10,10 @@
 
 ### Changed
 - `pred_boxes` の `[0, 1]` 値域テストと, `score_threshold` / `confidence` / `MAX_PIXELS` の境界値テストを parametrize で追加. ([#509](https://github.com/kurorosu/pochidetection/pull/509))
-- `PyTorchDetectionBackend` の実モデル E2E テストを `@pytest.mark.slow` で追加 (warmup / predict / set_class_names / get_model_info). MagicMock を使わない classical test. (NA.)
+- `PyTorchDetectionBackend` の実モデル E2E テストを `@pytest.mark.slow` で追加 (warmup / predict / set_class_names / get_model_info). MagicMock を使わない classical test. ([#510](https://github.com/kurorosu/pochidetection/pull/510))
+- `IImageSerializer` Protocol を `RawArraySerializer` / `JpegSerializer` が明示継承するよう変更. (NA.)
+- `datasets/augmentation.py` の debug 画像色リストを `ColorPalette.DEFAULT_COLORS` 参照に統一. (NA.)
+- plotter 3 ファイルの `<!DOCTYPE html>` 横並びテンプレートを `plotters/constants.py` の `render_side_by_side_html()` に集約. (NA.)
 
 ### Fixed
 - 無し
