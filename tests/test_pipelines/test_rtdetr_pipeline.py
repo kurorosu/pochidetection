@@ -353,50 +353,8 @@ class TestRTDetrPipelineNms:
 class TestRTDetrPipelineMode:
     """RTDetrPipeline の pipeline_mode (CPU/GPU 経路切替) のテスト."""
 
-    def test_default_pipeline_mode_is_cpu(self) -> None:
-        """pipeline_mode 未指定時は 'cpu' (後方互換)."""
-        pipeline = RTDetrPipeline(
-            backend=DummyBackend(),
-            processor=DummyProcessor(),
-            transform=DUMMY_TRANSFORM,
-            device="cpu",
-        )
-        assert pipeline.pipeline_mode == "cpu"
-
-    def test_pipeline_mode_property_reflects_cpu_init_arg(self) -> None:
-        """pipeline_mode='cpu' で初期化すると pipeline_mode プロパティが 'cpu' を返す."""
-        pipeline = RTDetrPipeline(
-            backend=DummyBackend(),
-            processor=DummyProcessor(),
-            transform=DUMMY_TRANSFORM,
-            device="cpu",
-            pipeline_mode="cpu",
-        )
-        assert pipeline.pipeline_mode == "cpu"
-
-    def test_pipeline_mode_property_reflects_gpu_init_arg(self) -> None:
-        """pipeline_mode='gpu' で初期化すると pipeline_mode プロパティが 'gpu' を返す."""
-        pipeline = RTDetrPipeline(
-            backend=DummyBackend(),
-            processor=DummyProcessor(),
-            transform=DUMMY_TRANSFORM,
-            device="cpu",
-            pipeline_mode="gpu",
-            image_size=DUMMY_IMAGE_SIZE,
-        )
-        assert pipeline.pipeline_mode == "gpu"
-
-    def test_pipeline_mode_property_returns_gpu(self) -> None:
-        """pipeline_mode='gpu' で初期化すると pipeline_mode プロパティが 'gpu' を返す."""
-        pipeline = RTDetrPipeline(
-            backend=DummyBackend(),
-            processor=DummyProcessor(),
-            transform=DUMMY_TRANSFORM,
-            device="cpu",
-            pipeline_mode="gpu",
-            image_size=DUMMY_IMAGE_SIZE,
-        )
-        assert pipeline.pipeline_mode == "gpu"
+    # pipeline_mode プロパティの default / cpu / gpu 反映テストは
+    # tests/test_pipelines/test_pipeline_mode.py に parametrize で統合済み.
 
     def test_gpu_mode_without_image_size_raises_value_error(self) -> None:
         """pipeline_mode='gpu' で image_size 未指定なら ValueError."""

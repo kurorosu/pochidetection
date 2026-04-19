@@ -266,43 +266,8 @@ class TestSsdPipelineNoNms:
 class TestSsdPipelineMode:
     """SsdPipeline の pipeline_mode (CPU/GPU 経路切替) のテスト."""
 
-    def test_default_pipeline_mode_is_cpu(self) -> None:
-        """pipeline_mode 未指定時は 'cpu' (後方互換)."""
-        pipeline = _make_pipeline()
-        assert pipeline.pipeline_mode == "cpu"
-
-    def test_pipeline_mode_property_reflects_cpu_init_arg(self) -> None:
-        """pipeline_mode='cpu' で初期化すると pipeline_mode プロパティが 'cpu' を返す."""
-        pipeline = SsdPipeline(
-            backend=DummyBackend(),
-            transform=_make_transform((320, 320)),
-            image_size=(320, 320),
-            device="cpu",
-            pipeline_mode="cpu",
-        )
-        assert pipeline.pipeline_mode == "cpu"
-
-    def test_pipeline_mode_property_reflects_gpu_init_arg(self) -> None:
-        """pipeline_mode='gpu' で初期化すると pipeline_mode プロパティが 'gpu' を返す."""
-        pipeline = SsdPipeline(
-            backend=DummyBackend(),
-            transform=_make_transform((320, 320)),
-            image_size=(320, 320),
-            device="cpu",
-            pipeline_mode="gpu",
-        )
-        assert pipeline.pipeline_mode == "gpu"
-
-    def test_pipeline_mode_property_returns_gpu(self) -> None:
-        """pipeline_mode='gpu' で初期化すると pipeline_mode プロパティが 'gpu' を返す."""
-        pipeline = SsdPipeline(
-            backend=DummyBackend(),
-            transform=_make_transform((320, 320)),
-            image_size=(320, 320),
-            device="cpu",
-            pipeline_mode="gpu",
-        )
-        assert pipeline.pipeline_mode == "gpu"
+    # pipeline_mode プロパティの default / cpu / gpu 反映テストは
+    # tests/test_pipelines/test_pipeline_mode.py に parametrize で統合済み.
 
     def test_gpu_preprocess_returns_correct_shape_and_range(self) -> None:
         """GPU 経路 preprocess の出力 shape と [0, 1] 範囲を確認."""
