@@ -11,7 +11,7 @@ import numpy as np
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines.builder import (
     is_onnx_model,
     is_tensorrt_model,
     resolve_and_setup_pipeline,

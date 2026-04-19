@@ -89,3 +89,13 @@ class IDetectionModel(ABC, nn.Module):
             load_dir: 読み込み元ディレクトリパス.
         """
         pass
+
+    @property
+    @abstractmethod
+    def num_classes(self) -> int:
+        """クラス数を返す (背景クラスを含まない)."""
+
+    @property
+    @abstractmethod
+    def model(self) -> nn.Module:
+        """内部 PyTorch モデルを返す."""

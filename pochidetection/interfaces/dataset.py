@@ -55,3 +55,11 @@ class IDetectionDataset(ABC):
             カテゴリ情報のリスト. 各要素は {"id": int, "name": str} の形式.
         """
         pass
+
+    @abstractmethod
+    def get_num_classes(self) -> int:
+        """クラス数を返す."""
+
+    @abstractmethod
+    def get_category_names(self) -> list[str]:
+        """カテゴリ名のリストを返す (index が class_id に対応)."""

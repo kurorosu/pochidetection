@@ -19,18 +19,18 @@ except ImportError:
     _TRT_AVAILABLE = False
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines import SsdPipeline
+from pochidetection.pipelines.builder import (
     PipelineContext,
     build_pipeline_context,
     create_backend,
 )
-from pochidetection.scripts.common.inference import infer as common_infer
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines.builder import infer as common_infer
+from pochidetection.pipelines.builder import (
     resolve_device,
     resolve_pipeline_mode,
     setup_cudnn_benchmark,
 )
-from pochidetection.scripts.ssd.inference import SsdPipeline
 from pochidetection.utils import PhasedTimer
 
 logger = LoggerManager().get_logger(__name__)

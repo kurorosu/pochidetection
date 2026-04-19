@@ -8,7 +8,7 @@
 ネットワークアクセスなしで推論可能になる.
 """
 
-from pochidetection.scripts.common.coco_classes import COCO_CLASS_NAMES
+from pochidetection.core.coco_classes import COCO_CLASS_NAMES
 
 # モデル設定
 architecture = "RTDetr"

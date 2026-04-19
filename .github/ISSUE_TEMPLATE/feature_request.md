@@ -24,7 +24,7 @@ labels: enhancement
 
 <!-- 完了条件を記述してください. -->
 
-- [ ]
+-
 
 ## Additional Context
 

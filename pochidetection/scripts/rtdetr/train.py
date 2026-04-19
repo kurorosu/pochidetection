@@ -14,7 +14,7 @@ from pochidetection.datasets import CocoDetectionDataset
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
-from pochidetection.scripts.common.training import (
+from pochidetection.training.loop import (
     TrainingContext,
     TrainingLoop,
     setup_training,

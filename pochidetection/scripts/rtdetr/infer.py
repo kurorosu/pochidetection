@@ -20,22 +20,20 @@ except ImportError:
     _TRT_AVAILABLE = False
 from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines import RTDetrPipeline
+from pochidetection.pipelines.builder import (
     PRETRAINED,
     PipelineContext,
     build_pipeline_context,
     create_backend,
 )
-from pochidetection.scripts.common.inference import infer as common_infer
-from pochidetection.scripts.common.inference import (
+from pochidetection.pipelines.builder import infer as common_infer
+from pochidetection.pipelines.builder import (
     is_onnx_model,
     is_tensorrt_model,
     resolve_device,
     resolve_pipeline_mode,
     setup_cudnn_benchmark,
-)
-from pochidetection.scripts.rtdetr.inference import (
-    RTDetrPipeline,
 )
 from pochidetection.utils import PhasedTimer
 

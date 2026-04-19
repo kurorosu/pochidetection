@@ -178,6 +178,102 @@ print(requests.get(f"{BASE}/backends").json())
 - `e2e_time_ms`: デシリアライズ後の `engine.predict()` を `time.perf_counter()` で計測した wall clock
 - `backend`: `"pytorch"` / `"onnx"` / `"tensorrt"` のいずれか
 
+## メタエンドポイントのレスポンス仕様
+
+メタ情報系 4 エンドポイント (`/health`, `/version`, `/model-info`, `/backends`) のレスポンススキーマです. 実装は `pochidetection/api/schemas.py` の Pydantic モデル (`HealthResponse` / `VersionResponse` / `ModelInfoResponse` / `BackendsResponse`) に対応します.
+
+### GET /api/v1/health
+
+サーバとモデルロード状態を返します. モデル未ロード時でも 200 を返し, `model_loaded=false` で未ロードを示します.
+
+```json
+{
+  "status": "healthy",
+  "model_loaded": true,
+  "architecture": "RTDetr"
+}
+```
+
+未ロード時の例:
+
+```json
+{
+  "status": "unhealthy",
+  "model_loaded": false,
+  "architecture": null
+}
+```
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `status` | `str` | `"healthy"` / `"unhealthy"` |
+| `model_loaded` | `bool` | モデルロード済みフラグ |
+| `architecture` | `str \| null` | モデルアーキテクチャ名 (例: `"RTDetr"`). 未ロード時は `null` |
+
+### GET /api/v1/version
+
+pochidetection 本体と, インストール済みの推論バックエンドのバージョンを返します. `backend_versions` はインストール済みパッケージのみを含む動的辞書です.
+
+```json
+{
+  "pochidetection_version": "0.16.0",
+  "api_version": "v1",
+  "backend_versions": {
+    "torch": "2.9.0",
+    "onnxruntime-gpu": "1.24.0",
+    "tensorrt": "10.13.0"
+  }
+}
+```
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `pochidetection_version` | `str` | `pochidetection.__version__` |
+| `api_version` | `str` | API バージョン (固定 `"v1"`) |
+| `backend_versions` | `dict[str, str]` | キー候補: `torch` / `onnxruntime-gpu` / `onnxruntime` / `tensorrt`. インストール済みのみ含まれる |
+
+### GET /api/v1/model-info
+
+ロード済みモデルのメタ情報を返します. モデル未ロード時は `503` を返します.
+
+```json
+{
+  "architecture": "RTDetr",
+  "num_classes": 4,
+  "class_names": ["pochi", "pochi2", "pochi3", "pochi4"],
+  "input_size": [640, 640],
+  "model_path": "/path/to/work_dirs/20260124_001/best",
+  "backend": "pytorch"
+}
+```
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `architecture` | `str` | モデルアーキテクチャ名 (例: `"RTDetr"` / `"SSD300"` / `"SSDLite"`) |
+| `num_classes` | `int` | クラス数 (背景クラスを含まない) |
+| `class_names` | `list[str]` | クラス名の配列. 長さは `num_classes` と一致 |
+| `input_size` | `tuple[int, int]` | モデル入力解像度 `[height, width]` (順序に注意) |
+| `model_path` | `str` | ロード元のモデルパス |
+| `backend` | `str` | `"pytorch"` / `"onnx"` / `"tensorrt"` のいずれか |
+
+> **Note**: モデル未ロード時 (warmup 中やシャットダウン中) は HTTP `503` (`{"detail": "モデルが初期化されていません"}`) を返します.
+
+### GET /api/v1/backends
+
+環境で利用可能なバックエンド一覧と, 現在ロード中のバックエンドを返します.
+
+```json
+{
+  "available": ["pytorch", "onnx", "tensorrt"],
+  "current": "pytorch"
+}
+```
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `available` | `list[str]` | この環境で利用可能なバックエンド一覧 (import 可能性で判定) |
+| `current` | `str` | 現在ロード中のバックエンド. 未ロード時は文字列 `"none"` (`null` ではない) |
+
 ## リクエスト仕様
 
 ### DetectRequest フィールド

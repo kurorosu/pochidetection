@@ -24,7 +24,7 @@ labels: refactor
 
 <!-- 完了条件を記述してください. -->
 
-- [ ]
+-
 
 ## Labels
 

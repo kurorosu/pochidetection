@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.scripts.common.types import SetupPipelineFn
+from pochidetection.core.types import SetupPipelineFn
 
 TrainFn = Callable[[DetectionConfigDict, str], None]
 
