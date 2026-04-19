@@ -250,8 +250,10 @@ def resolve_pipeline_mode(
         if requested == "gpu":
             raise ValueError(
                 "ONNX backend は --pipeline cpu のみ対応. "
-                "GPU preprocess を使う場合は PyTorch / TensorRT バックエンドを"
-                "使用してください."
+                "フォールバック手順: "
+                "(1) `--pipeline cpu` を指定するか未指定にする, "
+                "または (2) GPU preprocess を使う場合は PyTorch (.pth) / "
+                "TensorRT (.engine) バックエンドのモデルに切り替える."
             )
         return "cpu"
     return requested if requested is not None else "gpu"
@@ -330,13 +332,32 @@ def resolve_device(
 ) -> tuple[str, str]:
     """モデル形式に応じたデバイスを解決する.
 
+    backend 種別ごとに以下のように決定する:
+
+    - TensorRT (.engine): ``("cuda", "cuda")`` 固定. 推論も preprocess も GPU.
+    - ONNX (.onnx): ``(actual_device, "cpu")``.
+      ``actual_device`` は ``backend.active_providers`` に
+      ``CUDAExecutionProvider`` が含まれるかで ``"cuda"`` / ``"cpu"`` を判定する
+      (ログ表示・メトリクス用). 一方 ``runtime_device`` は常に ``"cpu"``
+      とする. ONNX Runtime の ``session.run()`` は入力を CPU 上の numpy
+      配列で受け取るため, preprocess 結果を GPU テンソルで渡しても
+      Runtime 側で CPU へコピーし直され無駄が生じる. このため
+      preprocess の配置先 (=``runtime_device``) を CPU に固定し,
+      GPU preprocess 経路を選ばせないようにしている.
+    - PyTorch (.pth): ``(device, device)``. config の ``device`` をそのまま使う.
+
     Args:
         model_path: モデルのパス.
         config: 設定辞書.
-        backend: 生成済みのバックエンド.
+        backend: 生成済みのバックエンド. ONNX の場合のみ
+            ``active_providers`` 属性を参照する.
 
     Returns:
-        (actual_device, runtime_device) のタプル.
+        ``(actual_device, runtime_device)`` のタプル.
+
+        - ``actual_device``: 推論が実際に走るデバイス (ログ / メトリクス用).
+        - ``runtime_device``: preprocess 結果の配置先デバイス.
+          pipeline builder がこの値に従って CPU / GPU preprocess 経路を切り替える.
     """
     device = config["device"]
 

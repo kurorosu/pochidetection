@@ -40,7 +40,8 @@
 - `pipelines/builder.py` の public / private API を明確化. `__all__` を宣言し, 外部参照の無い関数 (`_run_inference` / `_write_reports` / `_resolve_model_path` / `_collect_image_files` / `_InferenceContext` 等) を `_` prefix に変更. public を上に private を下に配置する構成に並び替え. ([#489](https://github.com/kurorosu/pochidetection/pull/489))
 - RTDetr / SSD の `_preprocess_gpu` と `forward` の docstring に tensor の shape / dtype / device / 値域を明記. ([#504](https://github.com/kurorosu/pochidetection/pull/504))
 - `docs/api-server.md` に `/health`, `/version`, `/model-info`, `/backends` のレスポンススキーマ (JSON 例 + フィールド型表) を追記. モデル未ロード時の挙動 (`/health` は 200 で `model_loaded=false`, `/model-info` は 503) と `backend_versions` の動的構造も明記. ([#505](https://github.com/kurorosu/pochidetection/pull/505))
-- RTDetr / SSD pipeline の `pipeline_mode` プロパティテストを `tests/test_pipelines/test_pipeline_mode.py` に parametrize で統合. 重複していた `test_pipeline_mode_property_returns_gpu` を撤去. `gpu_preprocess_tensor` の各単体テストに device パラメータ (`cpu` / `cuda`) を追加し, `pytest.mark.skipif(not torch.cuda.is_available(), ...)` で CUDA 環境での実機検証を可能化. (NA.)
+- RTDetr / SSD pipeline の `pipeline_mode` プロパティテストを `tests/test_pipelines/test_pipeline_mode.py` に parametrize で統合. 重複していた `test_pipeline_mode_property_returns_gpu` を撤去. `gpu_preprocess_tensor` の各単体テストに device パラメータ (`cpu` / `cuda`) を追加し, `pytest.mark.skipif(not torch.cuda.is_available(), ...)` で CUDA 環境での実機検証を可能化. ([#506](https://github.com/kurorosu/pochidetection/pull/506))
+- `resolve_device()` の docstring を拡充し, backend 種別ごとの戻り値 (`actual_device` / `runtime_device`) の決定ロジックと ONNX で `runtime_device` を常に `"cpu"` に固定している理由 (ONNX Runtime が CPU numpy 入力を要求するため GPU preprocess に効果がない) を明記. `resolve_pipeline_mode()` が ONNX + `--pipeline gpu` を拒否する `ValueError` メッセージに具体的なフォールバック手順 (`--pipeline cpu` への切替, または PyTorch / TensorRT モデルへの切替) を追記. (NA.)
 
 ### Fixed
 - 無し
