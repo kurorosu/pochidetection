@@ -48,7 +48,21 @@ def _get_cached_serializer(fmt: str) -> IImageSerializer:
 
 @router.post("/detect", response_model=DetectResponse)
 async def detect(request: DetectRequest) -> DetectResponse:
-    """Run detection on a single image and return bounding boxes."""
+    """1 枚の画像に対して検出を実行し, バウンディングボックスを返す.
+
+    Args:
+        request: base64 エンコードされた画像 / ``format`` / ``score_threshold`` を
+            含む検出リクエスト.
+
+    Returns:
+        検出結果 (``class_id`` / ``class_name`` / ``confidence`` / ``bbox``), e2e
+        タイミング (``e2e_time_ms``), フェーズ別タイミング (``phase_times_ms``),
+        backend 名を含むレスポンス.
+
+    Raises:
+        HTTPException: 503 (モデル未ロード) / 400 (画像デシリアライズ失敗) /
+            500 (推論または予期しないエラー) のいずれか.
+    """
     try:
         engine = get_engine()
     except RuntimeError:
