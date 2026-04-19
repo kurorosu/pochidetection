@@ -84,16 +84,25 @@ class RTDetrModel(IDetectionModel):
         """順伝播.
 
         Args:
-            pixel_values: 入力画像テンソル, 形状は (B, C, H, W).
+            pixel_values: 入力画像テンソル, 形状 ``(B, 3, H, W)``, dtype
+                ``float32`` (fp16 経路でも HF 内部で float32 に揃う), 値域
+                ``[0, 1]``. device はモデルと同じ (``cuda`` / ``cpu``).
             labels: 学習時のターゲット. 各要素は以下のキーを含む辞書:
-                - boxes: バウンディングボックス (N, 4), 正規化座標 [cx, cy, w, h]
-                - class_labels: クラスラベル (N,)
+                - ``boxes``: バウンディングボックス, 形状 ``(N, 4)``,
+                  dtype ``float32``, 正規化座標 ``[cx, cy, w, h]`` (値域
+                  ``[0, 1]``)
+                - ``class_labels``: クラスラベル, 形状 ``(N,)``, dtype ``int64``
 
         Returns:
-            以下のキーを含む辞書:
-            - loss: 学習時の損失 (labelsが指定された場合)
-            - pred_boxes: 予測ボックス (B, num_queries, 4)
-            - pred_logits: 予測ロジット (B, num_queries, num_classes)
+            以下のキーを含む辞書 (全 tensor は pixel_values と同一 device):
+                - ``loss``: 学習時の損失. スカラー ``float32``
+                  (labels 指定時のみ).
+                - ``pred_boxes``: 予測ボックス, 形状
+                  ``(B, num_queries, 4)``, dtype ``float32``, 正規化座標
+                  ``[cx, cy, w, h]`` (値域 ``[0, 1]``).
+                - ``pred_logits``: 予測ロジット, 形状
+                  ``(B, num_queries, num_classes)``, dtype ``float32``.
+                  softmax 前の値.
         """
         outputs = self._model(pixel_values=pixel_values, labels=labels)
 
