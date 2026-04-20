@@ -23,12 +23,26 @@ from pochidetection.utils.device import is_fp16_available
 
 
 class RTDetrPipeline(
-    IDetectionPipeline[dict[str, torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
+    IDetectionPipeline[
+        tuple[dict[str, torch.Tensor], "LetterboxParams | None"],
+        tuple[torch.Tensor, torch.Tensor],
+    ]
 ):
     """E2E 推論パイプライン.
 
     前処理・推論・後処理を明示的に分離し,
     PhasedTimer によるフェーズ別プロファイリングを提供する.
+
+    Note:
+        request-scoped state (letterbox の幾何パラメータ) は ``run()`` 内で
+        call stack に保持し preprocess → postprocess に明示的に渡す. インスタンス
+        属性には置かないため, 同一 pipeline インスタンスを複数 thread から
+        ``run()`` で呼び出しても letterbox 逆変換が混線しない.
+
+        ``_gpu_input_buffer`` は buffer 再利用による allocation コスト削減が目的の
+        pipeline-scoped state. マルチ thread で同一 pipeline を共有すると偶発的に
+        他 request のピクセル値で推論が走る race が成立するため, WebAPI 等の並行
+        実行環境では **別 pipeline インスタンスを使う** 運用にする.
 
     Attributes:
         _backend: 推論バックエンド.
@@ -102,36 +116,38 @@ class RTDetrPipeline(
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
         self._target_hw: tuple[int, int] | None = image_size
         self._letterbox = letterbox
-        self._last_letterbox_params: LetterboxParams | None = None
         self._gpu_input_buffer: torch.Tensor | None = None
         self._init_cuda_events(device)
 
-    def preprocess(self, image: ImageInput) -> dict[str, torch.Tensor]:
-        """画像を前処理し, モデル入力テンソルを返す.
+    def preprocess(
+        self, image: ImageInput
+    ) -> tuple[dict[str, torch.Tensor], LetterboxParams | None]:
+        """画像を前処理し, モデル入力テンソルと letterbox params を返す.
 
         pipeline_mode='gpu' 時は GPU 経路 (uint8 H2D + GPU 上 float32/255 +
         バッファ再利用), 'cpu' 時は従来 PIL + torchvision v2 Compose.
         ``letterbox=True`` の場合は両経路とも ``apply_letterbox`` で
-        アスペクト比維持 + padding を施し, 内部属性 ``_last_letterbox_params``
-        に幾何パラメータを保持して postprocess の逆変換に利用する.
+        アスペクト比維持 + padding を施し, 幾何パラメータをタプルの 2 要素目で
+        返す. 呼び出し側 (``run()``) はこの params を postprocess にそのまま渡し,
+        bbox を元画像座標に逆変換する. 返却された params は request-scoped であり,
+        インスタンス属性を介さないため thread-safe.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
-            モデル入力テンソルの辞書.
+            ``(inputs, letterbox_params)`` のタプル. ``inputs`` は
+            ``{"pixel_values": (1, C, H, W)}`` 形式の辞書. ``letterbox_params``
+            は letterbox 有効時の幾何パラメータ, 無効時は ``None``.
         """
         # letterbox 用の幾何パラメータを事前計算 (元画像サイズ必要).
+        letterbox_params: LetterboxParams | None = None
         if self._letterbox and self._target_hw is not None:
             if isinstance(image, np.ndarray):
                 src_h, src_w = image.shape[:2]
             else:
                 src_w, src_h = image.size
-            self._last_letterbox_params = compute_letterbox_params(
-                (src_h, src_w), self._target_hw
-            )
-        else:
-            self._last_letterbox_params = None
+            letterbox_params = compute_letterbox_params((src_h, src_w), self._target_hw)
 
         if self._pipeline_mode == "gpu":
             # Why: np.asarray(PIL.Image) は read-only な配列を返し,
@@ -141,31 +157,36 @@ class RTDetrPipeline(
                 image_np = np.array(image)
             else:
                 image_np = image
-            return self._preprocess_gpu(image_np)
+            return self._preprocess_gpu(image_np, letterbox_params), letterbox_params
 
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
-        if self._last_letterbox_params is not None:
-            image = apply_letterbox(image, self._last_letterbox_params, pad_value=0)
+        if letterbox_params is not None:
+            image = apply_letterbox(image, letterbox_params, pad_value=0)
         pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
             pixel_values = pixel_values.half()
 
-        return {"pixel_values": pixel_values}
+        return {"pixel_values": pixel_values}, letterbox_params
 
-    def _preprocess_gpu(self, image_np: np.ndarray) -> dict[str, torch.Tensor]:
+    def _preprocess_gpu(
+        self,
+        image_np: np.ndarray,
+        letterbox_params: LetterboxParams | None,
+    ) -> dict[str, torch.Tensor]:
         """GPU 経路の前処理.
 
         ``gpu_preprocess_tensor`` ヘルパーに委譲し, 戻り値を HF 入力形式の
         dict でラップする. ヘルパー内部で uint8 → float32 キャスト + H2D 転送 +
         ``/255`` で ``[0, 1]`` 正規化を行う. バッファ再利用の state は本クラスが
-        保持する. ``letterbox=True`` 時は ``_last_letterbox_params`` を
-        ``gpu_preprocess_tensor`` に渡してアスペクト比維持 + padding を適用する.
+        保持する. ``letterbox_params`` を渡すとアスペクト比維持 + padding を適用する.
 
         Args:
             image_np: RGB uint8 numpy 配列, 形状 (H, W, 3), dtype ``uint8``,
                 値域 ``[0, 255]``.
+            letterbox_params: letterbox 幾何パラメータ. ``None`` の場合は単純
+                resize へフォールバック.
 
         Returns:
             HF モデル入力の辞書. キーと値は以下:
@@ -182,7 +203,7 @@ class RTDetrPipeline(
             device=self._device,
             input_buffer=self._gpu_input_buffer,
             use_fp16=self._use_fp16,
-            letterbox_params=self._last_letterbox_params,
+            letterbox_params=letterbox_params,
         )
         return {"pixel_values": pixel_values}
 
@@ -209,12 +230,13 @@ class RTDetrPipeline(
         pred_boxes: torch.Tensor,
         image_size: tuple[int, int],
         threshold: float | None = None,
+        letterbox_params: LetterboxParams | None = None,
     ) -> list[Detection]:
         """後処理. モデル出力を検出結果に変換する.
 
         letterbox 有効時は ``target_sizes`` を letterbox 後の入力サイズ
         (``self._target_hw``) にして HF から letterbox pixel 座標の bbox を取得し,
-        ``_last_letterbox_params`` を使って元画像座標に逆変換する
+        呼出し元から渡された ``letterbox_params`` で元画像座標に逆変換する
         (``(box - pad) / scale``). letterbox 無効時は ``target_sizes`` を元画像
         サイズにして HF に直接スケーリングさせる (従来挙動).
 
@@ -225,14 +247,16 @@ class RTDetrPipeline(
                 letterbox 逆変換後の出力座標系はこのサイズ基準になる.
             threshold: スコア閾値を request 単位で上書きする値. ``None`` の場合は
                 ``__init__`` で渡された ``self._threshold`` を使用する.
+            letterbox_params: ``preprocess`` が返した幾何パラメータ. 同一 request
+                内の逆変換にのみ使う request-scoped 値. ``None`` なら従来の単純
+                スケーリング経路.
 
         Returns:
             元画像座標系での検出結果のリスト (xyxy ピクセル).
         """
         outputs = OutputWrapper(logits=pred_logits, pred_boxes=pred_boxes)
 
-        params = self._last_letterbox_params
-        if params is not None and self._target_hw is not None:
+        if letterbox_params is not None and self._target_hw is not None:
             target_h, target_w = self._target_hw
             target_sizes = torch.tensor([[target_h, target_w]])
         else:
@@ -252,15 +276,20 @@ class RTDetrPipeline(
         results = {k: v[keep] for k, v in results.items()}
 
         boxes = results["boxes"]
-        if params is not None:
+        if letterbox_params is not None:
             # letterbox pixel 座標 → 元画像座標へ逆変換.
             # box - (pad_left, pad_top, pad_left, pad_top) then / scale.
             pad = torch.tensor(
-                [params.pad_left, params.pad_top, params.pad_left, params.pad_top],
+                [
+                    letterbox_params.pad_left,
+                    letterbox_params.pad_top,
+                    letterbox_params.pad_left,
+                    letterbox_params.pad_top,
+                ],
                 dtype=boxes.dtype,
                 device=boxes.device,
             )
-            boxes = (boxes - pad) / params.scale
+            boxes = (boxes - pad) / letterbox_params.scale
 
         return [
             Detection(
@@ -292,12 +321,16 @@ class RTDetrPipeline(
             image_size = image.size
 
         with self._measure("preprocess"):
-            inputs = self.preprocess(image)
+            inputs, letterbox_params = self.preprocess(image)
         with self._measure("inference"), self._measure_inference_gpu():
             pred_logits, pred_boxes = self.infer(inputs)
         with self._measure("postprocess"):
             detections = self.postprocess(
-                pred_logits, pred_boxes, image_size, threshold=threshold
+                pred_logits,
+                pred_boxes,
+                image_size,
+                threshold=threshold,
+                letterbox_params=letterbox_params,
             )
 
         return detections

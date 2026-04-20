@@ -22,7 +22,8 @@ from pochidetection.utils.device import is_fp16_available
 
 class SsdPipeline(
     IDetectionPipeline[
-        tuple[dict[str, torch.Tensor], int, int], dict[str, torch.Tensor]
+        tuple[dict[str, torch.Tensor], int, int, "LetterboxParams | None"],
+        dict[str, torch.Tensor],
     ]
 ):
     """SSD 共通 E2E 推論パイプライン.
@@ -34,6 +35,16 @@ class SsdPipeline(
     Note:
         NMS は backend 側で適用済みのため,
         後処理ではスコア閾値フィルタと座標リスケールのみ行う.
+
+        request-scoped state (letterbox の幾何パラメータ) は ``run()`` 内で
+        call stack に保持し preprocess → postprocess に明示的に渡す. インスタンス
+        属性には置かないため, 同一 pipeline インスタンスを複数 thread から
+        ``run()`` で呼び出しても letterbox 逆変換が混線しない.
+
+        ``_gpu_input_buffer`` は buffer 再利用による allocation コスト削減が目的の
+        pipeline-scoped state. マルチ thread で同一 pipeline を共有すると偶発的に
+        他 request のピクセル値で推論が走る race が成立するため, WebAPI 等の並行
+        実行環境では **別 pipeline インスタンスを使う** 運用にする.
 
     Attributes:
         _backend: 推論バックエンド.
@@ -89,38 +100,41 @@ class SsdPipeline(
         self._use_fp16 = is_fp16_available(use_fp16, device)
         self._pipeline_mode: Literal["cpu", "gpu"] = pipeline_mode
         self._letterbox = letterbox
-        self._last_letterbox_params: LetterboxParams | None = None
         self._gpu_input_buffer: torch.Tensor | None = None
         self._init_cuda_events(device)
 
-    def preprocess(self, image: ImageInput) -> tuple[dict[str, torch.Tensor], int, int]:
-        """画像を前処理し, モデル入力辞書と元画像サイズを返す.
+    def preprocess(
+        self, image: ImageInput
+    ) -> tuple[dict[str, torch.Tensor], int, int, LetterboxParams | None]:
+        """画像を前処理し, モデル入力辞書 / 元画像サイズ / letterbox params を返す.
 
         pipeline_mode='gpu' 時は GPU 経路 (uint8 H2D + GPU 上 float32/255 +
         バッファ再利用), 'cpu' 時は従来 PIL + torchvision v2 Compose.
         ``letterbox=True`` の場合は両経路とも ``apply_letterbox`` で
-        アスペクト比維持 + padding を施し, ``_last_letterbox_params`` に
-        幾何パラメータを保持して postprocess の逆変換に利用する.
+        アスペクト比維持 + padding を施し, 幾何パラメータをタプルの 4 要素目で
+        返す. 呼び出し側 (``run()``) はこの params を postprocess にそのまま渡し,
+        bbox を元画像座標に逆変換する. 返却された params は request-scoped であり,
+        インスタンス属性を介さないため thread-safe.
 
         Args:
             image: 入力画像 (PIL Image または numpy RGB 配列).
 
         Returns:
-            (inputs, orig_w, orig_h) のタプル.
-            inputs は ``{"pixel_values": (1, C, H, W)}`` 形式の辞書で,
-            RTDetr と統一された backend 入力形式.
+            ``(inputs, orig_w, orig_h, letterbox_params)`` のタプル.
+            ``inputs`` は ``{"pixel_values": (1, C, H, W)}`` 形式の辞書で,
+            RTDetr と統一された backend 入力形式. ``letterbox_params`` は
+            letterbox 有効時の幾何パラメータ, 無効時は ``None``.
         """
         if isinstance(image, np.ndarray):
             orig_h, orig_w = image.shape[:2]
         else:
             orig_w, orig_h = image.size
 
+        letterbox_params: LetterboxParams | None = None
         if self._letterbox:
-            self._last_letterbox_params = compute_letterbox_params(
+            letterbox_params = compute_letterbox_params(
                 (orig_h, orig_w), self._image_size
             )
-        else:
-            self._last_letterbox_params = None
 
         if self._pipeline_mode == "gpu":
             # Why: np.asarray(PIL.Image) は read-only な配列を返し,
@@ -130,31 +144,41 @@ class SsdPipeline(
                 image_np = np.array(image)
             else:
                 image_np = image
-            return {"pixel_values": self._preprocess_gpu(image_np)}, orig_w, orig_h
+            return (
+                {"pixel_values": self._preprocess_gpu(image_np, letterbox_params)},
+                orig_w,
+                orig_h,
+                letterbox_params,
+            )
 
         if isinstance(image, np.ndarray):
             image = Image.fromarray(image)
-        if self._last_letterbox_params is not None:
-            image = apply_letterbox(image, self._last_letterbox_params, pad_value=0)
+        if letterbox_params is not None:
+            image = apply_letterbox(image, letterbox_params, pad_value=0)
         pixel_values = self._transform(image).unsqueeze(0).to(self._device)
 
         if self._use_fp16:
             pixel_values = pixel_values.half()
 
-        return {"pixel_values": pixel_values}, orig_w, orig_h
+        return {"pixel_values": pixel_values}, orig_w, orig_h, letterbox_params
 
-    def _preprocess_gpu(self, image_np: np.ndarray) -> torch.Tensor:
+    def _preprocess_gpu(
+        self,
+        image_np: np.ndarray,
+        letterbox_params: LetterboxParams | None,
+    ) -> torch.Tensor:
         """GPU 経路の前処理.
 
         ``gpu_preprocess_tensor`` ヘルパーに委譲する. ヘルパー内部で uint8 →
         float32 キャスト + H2D 転送 + ``/255`` で ``[0, 1]`` 正規化を行う.
-        バッファ再利用の state は本クラスが保持する. ``letterbox=True`` 時は
-        ``_last_letterbox_params`` を ``gpu_preprocess_tensor`` に渡して
-        アスペクト比維持 + padding を適用する.
+        バッファ再利用の state は本クラスが保持する. ``letterbox_params`` を
+        渡すとアスペクト比維持 + padding を適用する.
 
         Args:
             image_np: RGB uint8 numpy 配列, 形状 (H, W, 3), dtype ``uint8``,
                 値域 ``[0, 255]``.
+            letterbox_params: letterbox 幾何パラメータ. ``None`` の場合は単純
+                resize へフォールバック.
 
         Returns:
             推論入力テンソル, 形状 ``(1, 3, H, W)``, device は ``self._device``
@@ -168,7 +192,7 @@ class SsdPipeline(
             device=self._device,
             input_buffer=self._gpu_input_buffer,
             use_fp16=self._use_fp16,
-            letterbox_params=self._last_letterbox_params,
+            letterbox_params=letterbox_params,
         )
         return pixel_values
 
@@ -193,6 +217,7 @@ class SsdPipeline(
         orig_w: int,
         orig_h: int,
         threshold: float | None = None,
+        letterbox_params: LetterboxParams | None = None,
     ) -> list[Detection]:
         """後処理. スコア閾値フィルタと座標リスケールを行う.
 
@@ -200,7 +225,7 @@ class SsdPipeline(
             NMS は backend 側で適用済みのため,
             ここではスコア閾値フィルタと座標リスケールのみ行う.
 
-        letterbox 有効時は ``_last_letterbox_params`` で逆変換
+        letterbox 有効時は呼出し元から渡された ``letterbox_params`` で逆変換
         (``(box - pad) / scale``) を適用し, 元画像座標に戻す. 無効時は従来の
         ``(orig_w/target_w, orig_h/target_h)`` での単純スケーリング.
 
@@ -210,6 +235,9 @@ class SsdPipeline(
             orig_h: 元画像の高さ.
             threshold: スコア閾値を request 単位で上書きする値. ``None`` の場合は
                 ``__init__`` で渡された ``self._threshold`` を使用する.
+            letterbox_params: ``preprocess`` が返した幾何パラメータ. 同一 request
+                内の逆変換にのみ使う request-scoped 値. ``None`` なら従来の単純
+                スケーリング経路.
 
         Returns:
             元画像座標系での検出結果のリスト.
@@ -220,14 +248,18 @@ class SsdPipeline(
         scores = pred["scores"][mask]
         labels = pred["labels"][mask]
 
-        params = self._last_letterbox_params
-        if params is not None:
+        if letterbox_params is not None:
             pad = torch.tensor(
-                [params.pad_left, params.pad_top, params.pad_left, params.pad_top],
+                [
+                    letterbox_params.pad_left,
+                    letterbox_params.pad_top,
+                    letterbox_params.pad_left,
+                    letterbox_params.pad_top,
+                ],
                 dtype=boxes.dtype,
                 device=boxes.device,
             )
-            boxes = (boxes - pad) / params.scale
+            boxes = (boxes - pad) / letterbox_params.scale
         else:
             target_h, target_w = self._image_size
             scale_x = orig_w / target_w
@@ -262,10 +294,16 @@ class SsdPipeline(
             検出結果のリスト.
         """
         with self._measure("preprocess"):
-            inputs, orig_w, orig_h = self.preprocess(image)
+            inputs, orig_w, orig_h, letterbox_params = self.preprocess(image)
         with self._measure("inference"), self._measure_inference_gpu():
             pred = self.infer(inputs)
         with self._measure("postprocess"):
-            detections = self.postprocess(pred, orig_w, orig_h, threshold=threshold)
+            detections = self.postprocess(
+                pred,
+                orig_w,
+                orig_h,
+                threshold=threshold,
+                letterbox_params=letterbox_params,
+            )
 
         return detections
