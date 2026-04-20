@@ -18,6 +18,7 @@ from pochidetection.pipelines.builder import (
 )
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
+from pochidetection.utils.infer_debug import InferDebugConfig
 from pochidetection.utils.video import (
     CompositeSink,
     DisplaySink,
@@ -132,6 +133,7 @@ def _run_stream_infer(
                 overlay_fps=True,
                 recording=record,
                 logger=logger,
+                infer_debug=InferDebugConfig.from_config(config, ctx.saver.output_dir),
             )
 
         if record and isinstance(writer, LazyVideoWriter):
@@ -259,6 +261,9 @@ def _run_video_infer(
                 visualizer=ctx.visualizer,
                 interval=interval,
                 logger=logger,
+                infer_debug=InferDebugConfig.from_config(
+                    resolved.config, ctx.saver.output_dir
+                ),
             )
 
     logger.info(f"Output saved to {output_path}")

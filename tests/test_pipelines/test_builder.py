@@ -1,15 +1,23 @@
 """pipelines/builder.py のテスト."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
+from PIL import Image
 
 from pochidetection.configs.schemas import DetectionConfigDict
+from pochidetection.core.detection import Detection
+from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
 from pochidetection.pipelines.builder import (
+    PipelineContext,
     _collect_image_files,
     _resolve_model_path,
+    _run_inference,
     resolve_pipeline_mode,
 )
+from pochidetection.reporting import InferenceSaver, Visualizer
+from pochidetection.utils import PhasedTimer
 
 
 class TestResolveModelPath:
@@ -151,3 +159,89 @@ class TestResolvePipelineMode:
         model_path = tmp_path / "model.onnx"
         with pytest.raises(ValueError, match="ONNX backend"):
             resolve_pipeline_mode("gpu", model_path)
+
+
+class _StubPipeline(IDetectionPipeline[Any, Any]):
+    """run() が空検出を返し, 付随する phased_timer もダミーで持つ stub."""
+
+    def __init__(self, phased_timer: PhasedTimer) -> None:
+        super().__init__()
+        self._validate_phased_timer(phased_timer)
+
+    def run(
+        self, image: ImageInput, *, threshold: float | None = None
+    ) -> list[Detection]:
+        """空の検出リストを返す."""
+        return []
+
+
+def _build_stub_context(saver_base: Path) -> PipelineContext:
+    """_run_inference テスト用の最小 PipelineContext を構築する."""
+    timer = PhasedTimer(
+        phases=["preprocess", "inference", "postprocess"],
+        device="cpu",
+        skip_first=False,
+    )
+    pipeline = _StubPipeline(timer)
+    saver = InferenceSaver(saver_base)
+    visualizer = Visualizer()
+    return PipelineContext(
+        pipeline=pipeline,
+        phased_timer=timer,
+        visualizer=visualizer,
+        saver=saver,
+        label_mapper=None,
+        class_names=None,
+        actual_device="cpu",
+        precision="fp32",
+    )
+
+
+class TestRunInferenceInferDebug:
+    """_run_inference の infer_debug 保存動作 (E2E 寄り)."""
+
+    def _prepare_images(self, dir_path: Path, n: int) -> list[Path]:
+        """jpg を n 枚作成してパスリストを返す."""
+        dir_path.mkdir(parents=True, exist_ok=True)
+        files: list[Path] = []
+        for i in range(n):
+            p = dir_path / f"img_{i:03d}.jpg"
+            Image.new("RGB", (128, 32), color=(i * 60, 0, 0)).save(p, format="JPEG")
+            files.append(p)
+        return files
+
+    def test_saves_first_n_images_to_inference_output_dir(self, tmp_path: Path) -> None:
+        """save_count=2 なら先頭 2 枚のみ ``<output_dir>/infer_debug/`` に保存."""
+        saver_base = tmp_path / "model"
+        saver_base.mkdir()
+        image_files = self._prepare_images(tmp_path / "images", 3)
+
+        ctx = _build_stub_context(saver_base)
+        config: DetectionConfigDict = {
+            "infer_debug_save_count": 2,
+            "image_size": {"height": 64, "width": 64},
+            "letterbox": True,
+        }
+
+        _run_inference(image_files, ctx, config, save_crop=False)
+
+        debug_dir = ctx.saver.output_dir / "infer_debug"
+        saved = sorted(p.name for p in debug_dir.iterdir() if p.suffix == ".jpg")
+        assert saved == ["infer_0000.jpg", "infer_0001.jpg"]
+
+    def test_no_save_when_disabled(self, tmp_path: Path) -> None:
+        """infer_debug_save_count=0 で ``infer_debug/`` が作られない."""
+        saver_base = tmp_path / "model"
+        saver_base.mkdir()
+        image_files = self._prepare_images(tmp_path / "images", 2)
+
+        ctx = _build_stub_context(saver_base)
+        config: DetectionConfigDict = {
+            "infer_debug_save_count": 0,
+            "image_size": {"height": 64, "width": 64},
+            "letterbox": True,
+        }
+
+        _run_inference(image_files, ctx, config, save_crop=False)
+
+        assert not (ctx.saver.output_dir / "infer_debug").exists()

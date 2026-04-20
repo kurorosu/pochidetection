@@ -12,11 +12,13 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.interfaces.frame_source import IFrameSource
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.reporting.visualizer import Visualizer
+from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 from pochidetection.utils.resource_monitor import (
     format_resource_lines,
     get_resource_usage,
@@ -501,6 +503,7 @@ def process_frames(
     overlay_fps: bool = False,
     recording: bool = False,
     logger: logging.Logger,
+    infer_debug: InferDebugConfig | None = None,
 ) -> FrameProcessingResult:
     """フレーム単位で推論・描画・書き出しを行う.
 
@@ -516,6 +519,8 @@ def process_frames(
         overlay_fps: True の場合, フレーム左上に実測 FPS を描画.
         recording: True の場合, オーバーレイに "REC" を赤文字で表示.
         logger: ロガー.
+        infer_debug: preprocess 後画像のデバッグ保存設定. ``None`` で無効.
+            推論処理対象になったフレームを先頭から ``save_count`` 枚まで保存.
 
     Returns:
         フレーム処理のサマリー結果.
@@ -526,6 +531,7 @@ def process_frames(
     start_time = time.monotonic()
     display_sink = _find_display_sink(sink)
     lazy_writer = _find_lazy_writer(sink)
+    infer_debug_saved = 0
 
     # フレーム外フェーズの累積計測用
     capture_total_ms = 0.0
@@ -558,6 +564,19 @@ def process_frames(
 
             # BGR → RGB (パイプライン入力用, PIL 変換なし)
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # preprocess 後画像のデバッグ保存 (先頭 N フレームのみ)
+            if infer_debug is not None and infer_debug_saved < infer_debug.save_count:
+                debug_path = (
+                    infer_debug.output_dir / f"infer_{infer_debug_saved:04d}.jpg"
+                )
+                save_infer_debug_image(
+                    source_image=Image.fromarray(rgb),
+                    target_hw=infer_debug.target_hw,
+                    letterbox=infer_debug.letterbox,
+                    save_path=debug_path,
+                )
+                infer_debug_saved += 1
 
             # 推論 (pre/infer/post は PhasedTimer が計測)
             detections = pipeline.run(rgb)
