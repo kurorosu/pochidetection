@@ -224,9 +224,8 @@ class DetectionConfig(BaseModel):
         description=(
             "推論時に保存する preprocess 後画像の枚数. letterbox 適用後 (モデル入力と"
             "同形状) の画像を先頭から N 枚まで保存する. bbox は含まず, preprocess の "
-            "silent bug を目視検知する目的. 保存先は CLI 推論で "
-            "``{output_dir}/infer_debug/``, WebAPI で "
-            "``work_dirs/api_<timestamp>/infer_debug/``. 0 で無効."
+            "silent bug を目視検知する目的. 保存先は CLI / WebAPI とも "
+            "``work_dirs/<train>/best/inference_NNN/infer_debug/``. 0 で無効."
         ),
     )
 

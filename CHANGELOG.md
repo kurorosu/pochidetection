@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 推論時 preprocess 後画像のデバッグ保存を追加. top-level `infer_debug_save_count` (既定 `1`, `0` で無効) で枚数を制御し, CLI batch / 動画 / カメラ / WebAPI の全経路で先頭 N 枚の letterbox 適用後画像を `{output_dir}/infer_debug/infer_XXXX.jpg` に保存. WebAPI 並行リクエスト下の counter は `threading.Lock` で排他. 学習側 `debug_save_count` と対になる preprocess silent bug 検知用. (NA.)
+- 推論時 preprocess 後画像のデバッグ保存を追加. top-level `infer_debug_save_count` (既定 1) で制御し, CLI / 動画 / カメラ / WebAPI の全経路で先頭 N 枚を `{output_dir}/infer_debug/` へ保存. (NA.)
 
 ### Changed
 - Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. ([#576](https://github.com/kurorosu/pochidetection/pull/576))
