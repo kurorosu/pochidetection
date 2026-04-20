@@ -9,7 +9,7 @@
 - 無し
 
 ### Changed
-- 無し
+- Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. (NA.)
 
 ### Fixed
 - 無し

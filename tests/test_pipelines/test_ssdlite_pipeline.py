@@ -62,6 +62,7 @@ def _make_pipeline(
     threshold: float = 0.5,
     image_size: tuple[int, int] = (320, 320),
     phased_timer: PhasedTimer | None = None,
+    letterbox: bool = False,
 ) -> SsdPipeline:
     """テスト用パイプラインを生成."""
     return SsdPipeline(
@@ -71,6 +72,7 @@ def _make_pipeline(
         device="cpu",
         threshold=threshold,
         phased_timer=phased_timer,
+        letterbox=letterbox,
     )
 
 
@@ -163,11 +165,11 @@ class TestSsdPipelineMethods:
     """SsdPipeline の個別メソッドテスト."""
 
     def test_preprocess_returns_inputs_dict_and_original_size(self) -> None:
-        """preprocess() が入力辞書と元画像サイズを返すことを確認."""
+        """preprocess() が入力辞書 / 元画像サイズ / letterbox params を返すことを確認."""
         pipeline = _make_pipeline(image_size=(320, 320))
         image = Image.new("RGB", (640, 480))
 
-        inputs, orig_w, orig_h = pipeline.preprocess(image)
+        inputs, orig_w, orig_h, letterbox_params = pipeline.preprocess(image)
 
         assert isinstance(inputs, dict)
         assert "pixel_values" in inputs
@@ -176,6 +178,7 @@ class TestSsdPipelineMethods:
         assert pixel_values.shape == (1, 3, 320, 320)
         assert orig_w == 640
         assert orig_h == 480
+        assert letterbox_params is None  # letterbox=False 時は None
 
     def test_infer_calls_backend(self) -> None:
         """infer() がバックエンドを呼び出すことを確認."""
@@ -342,7 +345,7 @@ class TestSsdPipelineMode:
         )
         image = np.random.randint(0, 256, size=(480, 640, 3), dtype=np.uint8)
 
-        inputs, orig_w, orig_h = pipeline.preprocess(image)
+        inputs, orig_w, orig_h, _ = pipeline.preprocess(image)
         pixel_values = inputs["pixel_values"]
 
         assert pixel_values.shape == (1, 3, 320, 320)
@@ -375,8 +378,8 @@ class TestSsdPipelineMode:
             pipeline_mode="gpu",
         )
 
-        cpu_out, _, _ = cpu_pipeline.preprocess(image)
-        gpu_out, _, _ = gpu_pipeline.preprocess(image)
+        cpu_out, _, _, _ = cpu_pipeline.preprocess(image)
+        gpu_out, _, _, _ = gpu_pipeline.preprocess(image)
         cpu_tensor = cpu_out["pixel_values"]
         gpu_tensor = gpu_out["pixel_values"]
 
@@ -395,9 +398,9 @@ class TestSsdPipelineMode:
         )
         image = np.zeros((480, 640, 3), dtype=np.uint8)
 
-        out1, _, _ = pipeline.preprocess(image)
+        out1, _, _, _ = pipeline.preprocess(image)
         buf_id_1 = id(pipeline._gpu_input_buffer)
-        out2, _, _ = pipeline.preprocess(image)
+        out2, _, _, _ = pipeline.preprocess(image)
         buf_id_2 = id(pipeline._gpu_input_buffer)
 
         assert buf_id_1 == buf_id_2  # 同一インスタンス再利用
@@ -420,7 +423,7 @@ class TestSsdPipelineMode:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            inputs, orig_w, orig_h = pipeline.preprocess(image)
+            inputs, orig_w, orig_h, _ = pipeline.preprocess(image)
 
         assert inputs["pixel_values"].shape == (1, 3, 320, 320)
         assert orig_w == 640
@@ -431,21 +434,33 @@ class TestSsdPipelineMode:
 class TestSsdPipelineLetterbox:
     """letterbox=True 経路の preprocess / postprocess 動作を検証."""
 
-    def test_preprocess_stores_letterbox_params(self) -> None:
-        """letterbox=True で preprocess 後に _last_letterbox_params が保持される."""
+    def test_preprocess_returns_letterbox_params(self) -> None:
+        """letterbox=True で preprocess が幾何パラメータを戻り値で返す."""
         # 横長 640x480 → 320x320: scale = min(320/480, 320/640) = 0.5,
         # new=(240,320), pad_vertical=80 → pad_top=40, pad_bottom=40
-        pipeline = _make_pipeline(image_size=(320, 320))
-        pipeline._letterbox = True  # _make_pipeline は letterbox 引数を持たないため
+        pipeline = _make_pipeline(image_size=(320, 320), letterbox=True)
         image = Image.new("RGB", (640, 480))
 
-        pipeline.preprocess(image)
+        _, _, _, params = pipeline.preprocess(image)
 
-        params = pipeline._last_letterbox_params
         assert params is not None
         assert params.scale == pytest.approx(0.5)
         assert (params.new_h, params.new_w) == (240, 320)
         assert (params.pad_top, params.pad_bottom) == (40, 40)
+
+    def test_preprocess_returns_none_params_when_letterbox_disabled(self) -> None:
+        """letterbox=False で preprocess の params 戻り値が None."""
+        pipeline = _make_pipeline(image_size=(320, 320), letterbox=False)
+        image = Image.new("RGB", (640, 480))
+
+        _, _, _, params = pipeline.preprocess(image)
+
+        assert params is None
+
+    def test_pipeline_has_no_last_letterbox_params_attribute(self) -> None:
+        """request-scoped 化後は _last_letterbox_params インスタンス属性を持たない."""
+        pipeline = _make_pipeline(image_size=(320, 320), letterbox=True)
+        assert not hasattr(pipeline, "_last_letterbox_params")
 
     def test_postprocess_reverses_letterbox_transform(self) -> None:
         """letterbox 有効時に backend 出力 (letterbox pixel 座標) が元画像座標に逆変換される.
