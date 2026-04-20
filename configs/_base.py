@@ -41,6 +41,11 @@ infer_image_dir = "data/val/JPEGImages"  # 推論対象の画像フォルダ
 # letterbox / preprocess の silent bug を目視検知する目的. 0 で無効.
 debug_save_count = 10
 
+# 推論時 preprocess 後画像のデバッグ保存 (letterbox 適用後, bbox なし)
+# 保存先: CLI は ``{output_dir}/infer_debug/``, WebAPI は
+# ``work_dirs/api_<timestamp>/infer_debug/``. 0 で無効.
+infer_debug_save_count = 1
+
 # Letterbox (アスペクト比維持 + padding) リサイズ
 # 学習 / 推論 両方に適用. False で従来の単純 resize に戻る.
 letterbox = True

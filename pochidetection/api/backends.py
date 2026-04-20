@@ -1,12 +1,14 @@
 """検出バックエンド抽象と 3 実装 (PyTorch / ONNX / TensorRT)."""
 
 import importlib.metadata
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.pipeline import IDetectionPipeline
@@ -16,6 +18,7 @@ from pochidetection.pipelines.builder import (
     is_tensorrt_model,
     resolve_and_setup_pipeline,
 )
+from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -81,6 +84,7 @@ class IDetectionBackend(ABC):
         pipeline: IDetectionPipeline[Any, Any],
         config: DetectionConfigDict,
         model_path: Path,
+        infer_debug: InferDebugConfig | None = None,
     ) -> None:
         """Pipeline と共通メタ情報を保持する.
 
@@ -88,11 +92,17 @@ class IDetectionBackend(ABC):
             pipeline: 構築済みの検出 pipeline.
             config: 検証済みの設定辞書.
             model_path: モデルファイルまたはディレクトリ.
+            infer_debug: preprocess 後画像のデバッグ保存設定. ``None`` で無効.
+                マルチリクエスト並行時の counter は本クラスが ``threading.Lock``
+                で排他制御する.
         """
         self._pipeline = pipeline
         self._config = config
         self._model_path = model_path
         self._class_names: list[str] = list(config.get("class_names") or [])
+        self._infer_debug = infer_debug
+        self._infer_debug_saved = 0
+        self._infer_debug_lock = threading.Lock()
 
     @property
     def pipeline(self) -> IDetectionPipeline[Any, Any]:
@@ -161,6 +171,7 @@ class IDetectionBackend(ABC):
             (GIL / asyncio / OS scheduler) の指標となる.
         """
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self._maybe_save_infer_debug(rgb)
         raw_detections = self._pipeline.run(rgb, threshold=score_threshold)
 
         phase_times: dict[str, float] = {}
@@ -196,6 +207,31 @@ class IDetectionBackend(ABC):
                 }
             )
         return results, phase_times
+
+    def _maybe_save_infer_debug(self, rgb: np.ndarray) -> None:
+        """推論 request 毎に先頭 N 枚の preprocess 後画像を保存する.
+
+        Lock 下で counter を進め, 上限到達後は何もしない. 保存対象と判定された
+        index は lock 外で JPEG 化するため, I/O がロック区間を延ばさない.
+
+        Args:
+            rgb: RGB uint8 画像.
+        """
+        if self._infer_debug is None:
+            return
+
+        with self._infer_debug_lock:
+            if self._infer_debug_saved >= self._infer_debug.save_count:
+                return
+            idx = self._infer_debug_saved
+            self._infer_debug_saved += 1
+
+        save_infer_debug_image(
+            source_image=Image.fromarray(rgb),
+            target_hw=self._infer_debug.target_hw,
+            letterbox=self._infer_debug.letterbox,
+            save_path=self._infer_debug.output_dir / f"infer_{idx:04d}.jpg",
+        )
 
     @abstractmethod
     def close(self) -> None:
@@ -274,8 +310,13 @@ def create_detection_backend(
     if resolved is None:
         raise RuntimeError(f"モデルロードに失敗しました: {model_path}")
 
+    infer_debug = InferDebugConfig.from_config(
+        resolved.config, resolved.ctx.saver.output_dir
+    )
+
     return backend_cls(
         pipeline=resolved.ctx.pipeline,
         config=resolved.config,
         model_path=resolved.model_path,
+        infer_debug=infer_debug,
     )

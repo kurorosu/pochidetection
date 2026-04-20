@@ -109,6 +109,7 @@ class DetectionConfigDict(TypedDict, total=False):
     augmentation: AugmentationDict | None
 
     debug_save_count: int
+    infer_debug_save_count: int
     letterbox: bool
 
     camera_fps: int | None
@@ -214,6 +215,18 @@ class DetectionConfig(BaseModel):
             "bbox 付きで保存する. 保存先は ``{work_dir}/{run}/train_debug/``. "
             "letterbox / preprocess の silent bug (padding 色 / アスペクト比 / "
             "label 座標のズレ) を目視で早期検知する目的. 0 で無効."
+        ),
+    )
+
+    infer_debug_save_count: int = Field(
+        default=1,
+        ge=0,
+        description=(
+            "推論時に保存する preprocess 後画像の枚数. letterbox 適用後 (モデル入力と"
+            "同形状) の画像を先頭から N 枚まで保存する. bbox は含まず, preprocess の "
+            "silent bug を目視検知する目的. 保存先は CLI 推論で "
+            "``{output_dir}/infer_debug/``, WebAPI で "
+            "``work_dirs/api_<timestamp>/infer_debug/``. 0 で無効."
         ),
     )
 

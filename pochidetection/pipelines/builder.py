@@ -40,6 +40,7 @@ from pochidetection.utils import (
 )
 from pochidetection.utils.config_loader import ConfigLoader
 from pochidetection.utils.device import is_fp16_available
+from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import (
     ConfusionMatrixPlotter,
@@ -523,13 +524,14 @@ def infer(
     ctx, config, config_path, model_path = resolved
     logger.info(f"Results will be saved to {ctx.saver.output_dir}")
 
-    all_predictions = _run_inference(image_files, ctx, save_crop=save_crop)
+    all_predictions = _run_inference(image_files, ctx, config, save_crop=save_crop)
     _write_reports(config, image_files, all_predictions, ctx, model_path, config_path)
 
 
 def _run_inference(
     image_files: list[Path],
     ctx: _InferenceContext,
+    config: DetectionConfigDict,
     *,
     save_crop: bool = True,
 ) -> dict[str, list[Detection]]:
@@ -538,6 +540,8 @@ def _run_inference(
     Args:
         image_files: 推論対象の画像ファイルリスト.
         ctx: パイプラインコンテキスト.
+        config: 設定辞書. ``infer_debug_save_count`` / ``image_size`` /
+            ``letterbox`` を debug 保存で参照する.
         save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
 
     Returns:
@@ -545,9 +549,20 @@ def _run_inference(
     """
     all_predictions: dict[str, list[Detection]] = {}
 
-    for image_file in image_files:
+    infer_debug = InferDebugConfig.from_config(config, ctx.saver.output_dir)
+
+    for i, image_file in enumerate(image_files):
         with Image.open(image_file) as img:
             image = img.convert("RGB")
+
+        if infer_debug is not None and i < infer_debug.save_count:
+            save_infer_debug_image(
+                source_image=image,
+                target_hw=infer_debug.target_hw,
+                letterbox=infer_debug.letterbox,
+                save_path=infer_debug.output_dir / f"infer_{i:04d}.jpg",
+            )
+
         detections = ctx.pipeline.run(image)
         all_predictions[image_file.name] = detections
 
