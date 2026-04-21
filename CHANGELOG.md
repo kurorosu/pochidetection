@@ -6,10 +6,11 @@
 ## [Unreleased]
 
 ### Added
-- 推論時 preprocess 後画像のデバッグ保存を追加. top-level `infer_debug_save_count` (既定 1) で制御し, CLI / 動画 / カメラ / WebAPI の全経路で先頭 N 枚を `{output_dir}/infer_debug/` へ保存. (NA.)
+- 推論時 preprocess 後画像のデバッグ保存を追加. top-level `infer_debug_save_count` (既定 1) で制御し, CLI / 動画 / カメラ / WebAPI の全経路で先頭 N 枚を `{output_dir}/infer_debug/` へ保存. ([#577](https://github.com/kurorosu/pochidetection/pull/577))
 
 ### Changed
 - Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. ([#576](https://github.com/kurorosu/pochidetection/pull/576))
+- `scripts/{rtdetr,ssdlite,ssd300}/infer.py::_setup_pipeline` の共通 boilerplate を `pipelines/builder.py::setup_pipeline` + `ArchitectureSpec` dataclass に集約し, 各スクリプトの本体行数を 50-70% 削減. (NA.)
 
 ### Fixed
 - 無し

@@ -23,19 +23,16 @@ from pochidetection.models import RTDetrModel
 from pochidetection.pipelines import RTDetrPipeline
 from pochidetection.pipelines.builder import (
     PRETRAINED,
+    ArchitectureSpec,
+    BackendFactories,
     PipelineContext,
-    build_pipeline_context,
-    create_backend,
 )
 from pochidetection.pipelines.builder import infer as common_infer
 from pochidetection.pipelines.builder import (
     is_onnx_model,
     is_tensorrt_model,
-    resolve_device,
-    resolve_pipeline_mode,
-    setup_cudnn_benchmark,
+    setup_pipeline,
 )
-from pochidetection.utils import PhasedTimer
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -71,39 +68,9 @@ def infer(
 # ---------------------------------------------------------------------------
 
 
-def _setup_pipeline(
-    config: DetectionConfigDict,
-    model_path: Path,
-) -> PipelineContext:
-    """推論パイプラインの構築.
-
-    Args:
-        config: 設定辞書.
-        model_path: モデルのパス.
-
-    Returns:
-        構築済みのパイプラインコンテキスト.
-    """
-    threshold = config["infer_score_threshold"]
-    nms_iou_threshold = config["nms_iou_threshold"]
-
-    setup_cudnn_benchmark(config)
-
-    processor = _load_processor(model_path, config)
-    backend, precision, use_fp16 = create_backend(
-        model_path,
-        config,
-        create_trt=lambda p: RTDetrTensorRTBackend(p),
-        create_onnx=lambda p, d: RTDetrOnnxBackend(p, device=d),
-        create_pytorch=lambda p, d, fp16: _create_pytorch_backend(p, d, fp16, config),
-        trt_available=_TRT_AVAILABLE,
-    )
-
-    image_size = (
-        int(config["image_size"]["height"]),
-        int(config["image_size"]["width"]),
-    )
-    transform = v2.Compose(
+def _build_rtdetr_transform(image_size: tuple[int, int]) -> v2.Compose:
+    """RT-DETR 用 transform (BILINEAR 補間で明示的に組み立てる)."""
+    return v2.Compose(
         [
             v2.Resize(image_size, interpolation=v2.InterpolationMode.BILINEAR),
             v2.ToImage(),
@@ -111,35 +78,30 @@ def _setup_pipeline(
         ]
     )
 
-    actual_device, runtime_device = resolve_device(model_path, config, backend)
-    pipeline_mode = resolve_pipeline_mode(config.get("pipeline_mode"), model_path)
 
-    phased_timer = PhasedTimer(
-        phases=RTDetrPipeline.PHASES,
-        device=runtime_device,
+def _setup_pipeline(
+    config: DetectionConfigDict,
+    model_path: Path,
+) -> PipelineContext:
+    """推論パイプラインの構築 (``ArchitectureSpec`` 経由で共通化)."""
+    spec = ArchitectureSpec(
+        pipeline_cls=RTDetrPipeline,
+        backends=BackendFactories(
+            pytorch=lambda p, d, fp16: _create_pytorch_backend(p, d, fp16, config),
+            onnx=lambda p, d: RTDetrOnnxBackend(p, device=d),
+            tensorrt=lambda p: RTDetrTensorRTBackend(p),
+            trt_available=_TRT_AVAILABLE,
+        ),
+        load_processor=_load_processor,
+        build_transform=_build_rtdetr_transform,
+        build_pipeline_kwargs=lambda cfg, hw, processor: {
+            "processor": processor,
+            "nms_iou_threshold": cfg["nms_iou_threshold"],
+            "image_size": hw,
+        },
+        default_image_size=(640, 640),
     )
-    pipeline = RTDetrPipeline(
-        backend=backend,
-        processor=processor,
-        transform=transform,
-        device=runtime_device,
-        threshold=threshold,
-        nms_iou_threshold=nms_iou_threshold,
-        use_fp16=use_fp16,
-        phased_timer=phased_timer,
-        pipeline_mode=pipeline_mode,
-        image_size=image_size,
-        letterbox=config.get("letterbox", True),
-    )
-
-    return build_pipeline_context(
-        pipeline=pipeline,
-        phased_timer=phased_timer,
-        config=config,
-        model_path=model_path,
-        actual_device=actual_device,
-        precision=precision,
-    )
+    return setup_pipeline(spec, config, model_path)
 
 
 def _load_processor(
