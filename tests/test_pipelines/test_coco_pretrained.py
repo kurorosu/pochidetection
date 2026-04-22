@@ -7,7 +7,7 @@ from pochidetection.core.coco_classes import (
     COCO_NUM_CLASSES,
     PRETRAINED_CONFIG_PATH,
 )
-from pochidetection.pipelines.builder import PRETRAINED, _resolve_model_path
+from pochidetection.pipelines.model_path import PRETRAINED, _resolve_model_path
 from pochidetection.utils import ConfigLoader
 
 

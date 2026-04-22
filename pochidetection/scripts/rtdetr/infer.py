@@ -22,16 +22,18 @@ from pochidetection.logging import LoggerManager
 from pochidetection.models import RTDetrModel
 from pochidetection.pipelines import RTDetrPipeline
 from pochidetection.pipelines.builder import (
-    PRETRAINED,
     ArchitectureSpec,
     BackendFactories,
     PipelineContext,
 )
 from pochidetection.pipelines.builder import infer as common_infer
 from pochidetection.pipelines.builder import (
+    setup_pipeline,
+)
+from pochidetection.pipelines.model_path import (
+    PRETRAINED,
     is_onnx_model,
     is_tensorrt_model,
-    setup_pipeline,
 )
 
 logger = LoggerManager().get_logger(__name__)

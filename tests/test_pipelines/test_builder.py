@@ -15,11 +15,11 @@ from pochidetection.pipelines.builder import (
     BackendFactories,
     PipelineContext,
     _collect_image_files,
-    _resolve_model_path,
     _run_inference,
     resolve_pipeline_mode,
     setup_pipeline,
 )
+from pochidetection.pipelines.model_path import _resolve_model_path
 from pochidetection.reporting import InferenceSaver, Visualizer
 from pochidetection.utils import PhasedTimer
 
@@ -47,7 +47,7 @@ class TestResolveModelPath:
 
     def test_returns_pretrained_when_no_workspaces(self, tmp_path: Path) -> None:
         """model_dir=None でワークスペースが無い場合 PRETRAINED を返すことを確認."""
-        from pochidetection.pipelines.builder import PRETRAINED
+        from pochidetection.pipelines.model_path import PRETRAINED
 
         work_dir = tmp_path / "work_dirs"
         work_dir.mkdir()

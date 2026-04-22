@@ -23,6 +23,12 @@ from pochidetection.core.types import SetupPipelineFn
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
+from pochidetection.pipelines.model_path import (
+    PRETRAINED,
+    _resolve_model_path,
+    is_onnx_model,
+    is_tensorrt_model,
+)
 from pochidetection.reporting import (
     DetectionSummary,
     InferenceSaver,
@@ -53,7 +59,6 @@ from pochidetection.visualization import (
 logger = LoggerManager().get_logger(__name__)
 
 __all__ = [
-    "PRETRAINED",
     "ArchitectureSpec",
     "BackendFactories",
     "PipelineContext",
@@ -61,8 +66,6 @@ __all__ = [
     "build_pipeline_context",
     "create_backend",
     "infer",
-    "is_onnx_model",
-    "is_tensorrt_model",
     "resolve_and_setup_pipeline",
     "resolve_device",
     "resolve_pipeline_mode",
@@ -74,9 +77,6 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # 定数
 # ---------------------------------------------------------------------------
-
-PRETRAINED = Path("__pretrained__")
-"""プリトレインモデル使用を示すセンチネル値."""
 
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 
@@ -150,76 +150,6 @@ class _InferenceContext(Protocol):
     def visualizer(self) -> Visualizer:
         """Visualizer."""
         ...
-
-
-# ---------------------------------------------------------------------------
-# モデルパス解決
-# ---------------------------------------------------------------------------
-
-
-def is_onnx_model(model_path: Path) -> bool:
-    """モデルパスが ONNX ファイルかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .onnx ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".onnx"
-
-
-def is_tensorrt_model(model_path: Path) -> bool:
-    """モデルパスが TensorRT エンジンかどうかを判定する.
-
-    Args:
-        model_path: モデルのパス.
-
-    Returns:
-        .engine ファイルの場合 True.
-    """
-    return model_path.suffix.lower() == ".engine"
-
-
-def _resolve_model_path(
-    config: DetectionConfigDict,
-    model_dir: str | None,
-) -> Path | None:
-    """モデルパスを解決.
-
-    Args:
-        config: 設定辞書.
-        model_dir: 指定されたモデルディレクトリ.
-
-    Returns:
-        モデルパス. エラー時は None.
-    """
-    if model_dir is not None:
-        model_path = Path(model_dir)
-        if not model_path.exists():
-            logger.error(f"Model not found at {model_path}")
-            return None
-        return model_path
-
-    workspace_manager = WorkspaceManager(config["work_dir"])
-    workspaces = workspace_manager.get_available_workspaces()
-
-    if not workspaces:
-        logger.info(
-            "No trained models found. Using COCO pretrained model for inference."
-        )
-        return PRETRAINED
-
-    latest_workspace = Path(str(workspaces[-1]["path"]))
-    model_path = latest_workspace / "best"
-
-    if not model_path.exists():
-        logger.error(
-            f"Best model not found at {model_path}. Please run training first."
-        )
-        return None
-
-    return model_path
 
 
 # ---------------------------------------------------------------------------
