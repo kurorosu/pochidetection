@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from pochidetection.pipelines.builder import _log_benchmark_summary
+from pochidetection.orchestration.reports import _log_benchmark_summary
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.benchmark import (
     BENCHMARK_SCHEMA_VERSION,

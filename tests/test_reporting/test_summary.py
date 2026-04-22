@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from pochidetection.core.detection import Detection
-from pochidetection.pipelines.builder import _log_detection_summary
+from pochidetection.orchestration.reports import _log_detection_summary
 from pochidetection.reporting.summary import (
     DETECTION_SUMMARY_SCHEMA_VERSION,
     ClassCount,

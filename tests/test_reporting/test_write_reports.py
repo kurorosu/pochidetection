@@ -1,4 +1,4 @@
-"""_write_reports() の統合テスト."""
+"""write_reports() の統合テスト."""
 
 import csv
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
-from pochidetection.pipelines.builder import _write_reports
+from pochidetection.orchestration.reports import write_reports
 from pochidetection.pipelines.context import PipelineContext
 from pochidetection.reporting.saver import InferenceSaver
 from pochidetection.reporting.visualizer import Visualizer
@@ -60,7 +60,7 @@ class TestWriteReportsNormal:
         model_path = tmp_path / "model"
         model_path.mkdir()
 
-        _write_reports(config, image_files, sample_predictions, ctx, model_path)
+        write_reports(config, image_files, sample_predictions, ctx, model_path)
 
         output_dir = ctx.saver.output_dir
         assert (output_dir / "detection_summary.json").exists()
@@ -84,7 +84,7 @@ class TestWriteReportsNormal:
         model_path = tmp_path / "model"
         model_path.mkdir()
 
-        _write_reports(config, image_files, sample_predictions, ctx, model_path)
+        write_reports(config, image_files, sample_predictions, ctx, model_path)
 
         csv_path = ctx.saver.output_dir / "detection_results.csv"
         with open(csv_path, encoding="utf-8") as f:
@@ -109,7 +109,7 @@ class TestWriteReportsNormal:
         model_path = tmp_path / "model"
         model_path.mkdir()
 
-        _write_reports(config, image_files, sample_predictions, ctx, model_path)
+        write_reports(config, image_files, sample_predictions, ctx, model_path)
 
         summary_path = ctx.saver.output_dir / "detection_summary.json"
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -132,7 +132,7 @@ class TestWriteReportsEmpty:
         model_path = tmp_path / "model"
         model_path.mkdir()
 
-        _write_reports(config, image_files, empty_predictions, ctx, model_path)
+        write_reports(config, image_files, empty_predictions, ctx, model_path)
 
         output_dir = ctx.saver.output_dir
         assert (output_dir / "detection_summary.json").exists()
@@ -168,7 +168,7 @@ class TestWriteReportsNoAnnotation:
         model_path = tmp_path / "model"
         model_path.mkdir()
 
-        _write_reports(config, image_files, sample_predictions, ctx, model_path)
+        write_reports(config, image_files, sample_predictions, ctx, model_path)
 
         output_dir = ctx.saver.output_dir
         assert (output_dir / "detection_summary.json").exists()
@@ -198,7 +198,7 @@ class TestWriteReportsNoAnnotation:
         model_path = tmp_path / "model"
         model_path.mkdir()
 
-        _write_reports(config, image_files, sample_predictions, ctx, model_path)
+        write_reports(config, image_files, sample_predictions, ctx, model_path)
 
         output_dir = ctx.saver.output_dir
         assert (output_dir / "detection_summary.json").exists()
@@ -226,7 +226,7 @@ class TestWriteReportsConfigSave:
         model_path = tmp_path / "model"
         model_path.mkdir()
 
-        _write_reports(
+        write_reports(
             config,
             image_files,
             sample_predictions,

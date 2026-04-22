@@ -1,4 +1,4 @@
-"""pipelines/builder.py のテスト (CLI batch フロー系)."""
+"""orchestration/batch_inference.py のテスト (CLI batch フロー系)."""
 
 from pathlib import Path
 from typing import Any
@@ -8,7 +8,7 @@ from PIL import Image
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
-from pochidetection.pipelines.builder import (
+from pochidetection.orchestration.batch_inference import (
     _collect_image_files,
     _run_inference,
 )

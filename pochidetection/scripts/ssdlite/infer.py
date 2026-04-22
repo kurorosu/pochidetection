@@ -16,8 +16,8 @@ except ImportError:
     _TRT_AVAILABLE = False
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
+from pochidetection.orchestration import run_batch_inference
 from pochidetection.pipelines import SsdPipeline
-from pochidetection.pipelines.builder import infer as common_infer
 from pochidetection.pipelines.context import PipelineContext
 from pochidetection.pipelines.spec import (
     ArchitectureSpec,
@@ -46,7 +46,7 @@ def infer(
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
         save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
     """
-    common_infer(
+    run_batch_inference(
         config,
         image_dir,
         model_dir,
