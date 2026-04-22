@@ -16,10 +16,10 @@ from pochidetection.pipelines.builder import (
     PipelineContext,
     _collect_image_files,
     _run_inference,
-    resolve_pipeline_mode,
     setup_pipeline,
 )
 from pochidetection.pipelines.model_path import _resolve_model_path
+from pochidetection.pipelines.runtime import resolve_pipeline_mode
 from pochidetection.reporting import InferenceSaver, Visualizer
 from pochidetection.utils import PhasedTimer
 
