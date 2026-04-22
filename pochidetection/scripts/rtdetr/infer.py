@@ -24,12 +24,12 @@ from pochidetection.pipelines import RTDetrPipeline
 from pochidetection.pipelines.builder import (
     ArchitectureSpec,
     BackendFactories,
-    PipelineContext,
 )
 from pochidetection.pipelines.builder import infer as common_infer
 from pochidetection.pipelines.builder import (
     setup_pipeline,
 )
+from pochidetection.pipelines.context import PipelineContext
 from pochidetection.pipelines.model_path import (
     PRETRAINED,
     is_onnx_model,

@@ -13,11 +13,11 @@ from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
 from pochidetection.pipelines.builder import (
     ArchitectureSpec,
     BackendFactories,
-    PipelineContext,
     _collect_image_files,
     _run_inference,
     setup_pipeline,
 )
+from pochidetection.pipelines.context import PipelineContext
 from pochidetection.pipelines.model_path import _resolve_model_path
 from pochidetection.pipelines.runtime import resolve_pipeline_mode
 from pochidetection.reporting import InferenceSaver, Visualizer

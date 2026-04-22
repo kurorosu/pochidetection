@@ -20,12 +20,12 @@ from pochidetection.pipelines import SsdPipeline
 from pochidetection.pipelines.builder import (
     ArchitectureSpec,
     BackendFactories,
-    PipelineContext,
 )
 from pochidetection.pipelines.builder import infer as common_infer
 from pochidetection.pipelines.builder import (
     setup_pipeline,
 )
+from pochidetection.pipelines.context import PipelineContext
 
 logger = LoggerManager().get_logger(__name__)
 

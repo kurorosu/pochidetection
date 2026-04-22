@@ -12,10 +12,8 @@ from pochidetection.cli.registry import resolve_infer
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.logging import LoggerManager
-from pochidetection.pipelines.builder import (
-    ResolvedPipeline,
-    resolve_and_setup_pipeline,
-)
+from pochidetection.pipelines.builder import resolve_and_setup_pipeline
+from pochidetection.pipelines.context import ResolvedPipeline
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
 from pochidetection.utils.infer_debug import InferDebugConfig

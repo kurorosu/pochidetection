@@ -9,7 +9,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, NamedTuple, Protocol
+from typing import Any
 
 import torch
 from PIL import Image
@@ -24,6 +24,12 @@ from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
 from pochidetection.pipelines.backend_factory import create_backend
+from pochidetection.pipelines.context import (
+    PipelineContext,
+    ResolvedPipeline,
+    _InferenceContext,
+    build_pipeline_context,
+)
 from pochidetection.pipelines.model_path import (
     PRETRAINED,
     _resolve_model_path,
@@ -37,8 +43,6 @@ from pochidetection.pipelines.runtime import (
 )
 from pochidetection.reporting import (
     DetectionSummary,
-    InferenceSaver,
-    Visualizer,
     build_detection_results,
     build_detection_summary,
     write_detection_results_csv,
@@ -48,7 +52,6 @@ from pochidetection.utils import (
     BenchmarkResult,
     DetectionMetrics,
     PhasedTimer,
-    WorkspaceManager,
     build_benchmark_result,
     write_benchmark_result,
 )
@@ -57,7 +60,6 @@ from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_
 from pochidetection.utils.map_evaluator import MapEvaluator
 from pochidetection.visualization import (
     ConfusionMatrixPlotter,
-    LabelMapper,
     build_confusion_matrix,
 )
 
@@ -66,9 +68,6 @@ logger = LoggerManager().get_logger(__name__)
 __all__ = [
     "ArchitectureSpec",
     "BackendFactories",
-    "PipelineContext",
-    "ResolvedPipeline",
-    "build_pipeline_context",
     "infer",
     "resolve_and_setup_pipeline",
     "setup_pipeline",
@@ -80,77 +79,6 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
-
-
-# ---------------------------------------------------------------------------
-# データ構造 (NamedTuple / Protocol)
-# ---------------------------------------------------------------------------
-
-
-class PipelineContext(NamedTuple):
-    """推論パイプラインコンテキスト."""
-
-    pipeline: IDetectionPipeline
-    phased_timer: PhasedTimer
-    visualizer: Visualizer
-    saver: InferenceSaver
-    label_mapper: LabelMapper | None
-    class_names: list[str] | None
-    actual_device: str
-    precision: str
-
-
-class ResolvedPipeline(NamedTuple):
-    """モデル解決・パイプライン構築の結果."""
-
-    ctx: PipelineContext
-    config: DetectionConfigDict
-    config_path: str | None
-    model_path: Path
-
-
-class _InferenceContext(Protocol):
-    """推論コンテキストのプロトコル (内部利用)."""
-
-    @property
-    def pipeline(self) -> IDetectionPipeline:
-        """推論パイプライン."""
-        ...
-
-    @property
-    def phased_timer(self) -> PhasedTimer:
-        """PhasedTimer."""
-        ...
-
-    @property
-    def saver(self) -> InferenceSaver:
-        """InferenceSaver."""
-        ...
-
-    @property
-    def label_mapper(self) -> LabelMapper | None:
-        """LabelMapper."""
-        ...
-
-    @property
-    def class_names(self) -> list[str] | None:
-        """クラス名リスト."""
-        ...
-
-    @property
-    def actual_device(self) -> str:
-        """実際のデバイス名."""
-        ...
-
-    @property
-    def precision(self) -> str:
-        """精度 (fp32/fp16)."""
-        ...
-
-    @property
-    def visualizer(self) -> Visualizer:
-        """Visualizer."""
-        ...
 
 
 # ---------------------------------------------------------------------------
@@ -317,54 +245,6 @@ def setup_pipeline(
         phased_timer=phased_timer,
         config=config,
         model_path=model_path,
-        actual_device=actual_device,
-        precision=precision,
-    )
-
-
-def build_pipeline_context(
-    *,
-    pipeline: IDetectionPipeline,
-    phased_timer: PhasedTimer,
-    config: DetectionConfigDict,
-    model_path: Path,
-    actual_device: str,
-    precision: str,
-) -> PipelineContext:
-    """共通の初期化ステップから PipelineContext を構築する.
-
-    LabelMapper, Visualizer, InferenceSaver の構築を共通化する.
-
-    Args:
-        pipeline: 構築済みの推論パイプライン.
-        phased_timer: 構築済みの PhasedTimer.
-        config: 設定辞書.
-        model_path: モデルのパス.
-        actual_device: 実際のデバイス名.
-        precision: 精度 (fp32/fp16).
-
-    Returns:
-        構築済みの PipelineContext.
-    """
-    class_names = config.get("class_names")
-    label_mapper = LabelMapper(class_names) if class_names else None
-    visualizer = Visualizer(label_mapper=label_mapper)
-
-    if model_path == PRETRAINED:
-        saver_base = Path(config.get("work_dir", "work_dirs")) / "pretrained"
-    elif is_onnx_model(model_path) or is_tensorrt_model(model_path):
-        saver_base = model_path.parent
-    else:
-        saver_base = model_path
-    saver = InferenceSaver(saver_base)
-
-    return PipelineContext(
-        pipeline=pipeline,
-        phased_timer=phased_timer,
-        visualizer=visualizer,
-        saver=saver,
-        label_mapper=label_mapper,
-        class_names=class_names,
         actual_device=actual_device,
         precision=precision,
     )
