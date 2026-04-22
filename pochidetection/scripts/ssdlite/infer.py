@@ -17,13 +17,11 @@ except ImportError:
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
 from pochidetection.pipelines import SsdPipeline
-from pochidetection.pipelines.builder import (
+from pochidetection.pipelines.builder import infer as common_infer
+from pochidetection.pipelines.context import PipelineContext
+from pochidetection.pipelines.spec import (
     ArchitectureSpec,
     BackendFactories,
-    PipelineContext,
-)
-from pochidetection.pipelines.builder import infer as common_infer
-from pochidetection.pipelines.builder import (
     setup_pipeline,
 )
 

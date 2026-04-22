@@ -13,11 +13,8 @@ from PIL import Image
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
-from pochidetection.pipelines.builder import (
-    is_onnx_model,
-    is_tensorrt_model,
-    resolve_and_setup_pipeline,
-)
+from pochidetection.pipelines.model_path import is_onnx_model, is_tensorrt_model
+from pochidetection.pipelines.spec import resolve_and_setup_pipeline
 from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 
 logger = LoggerManager().get_logger(__name__)
