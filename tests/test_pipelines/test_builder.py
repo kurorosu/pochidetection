@@ -11,15 +11,17 @@ from pochidetection.core.detection import Detection
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
 from pochidetection.pipelines.builder import (
-    ArchitectureSpec,
-    BackendFactories,
     _collect_image_files,
     _run_inference,
-    setup_pipeline,
 )
 from pochidetection.pipelines.context import PipelineContext
 from pochidetection.pipelines.model_path import _resolve_model_path
 from pochidetection.pipelines.runtime import resolve_pipeline_mode
+from pochidetection.pipelines.spec import (
+    ArchitectureSpec,
+    BackendFactories,
+    setup_pipeline,
+)
 from pochidetection.reporting import InferenceSaver, Visualizer
 from pochidetection.utils import PhasedTimer
 

@@ -10,15 +10,13 @@ from pochidetection.inference import SsdPyTorchBackend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSD300Model
 from pochidetection.pipelines import SsdPipeline
-from pochidetection.pipelines.builder import (
+from pochidetection.pipelines.builder import infer as common_infer
+from pochidetection.pipelines.context import PipelineContext
+from pochidetection.pipelines.spec import (
     ArchitectureSpec,
     BackendFactories,
-)
-from pochidetection.pipelines.builder import infer as common_infer
-from pochidetection.pipelines.builder import (
     setup_pipeline,
 )
-from pochidetection.pipelines.context import PipelineContext
 
 logger = LoggerManager().get_logger(__name__)
 
