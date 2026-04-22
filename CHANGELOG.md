@@ -11,8 +11,10 @@
 ### Changed
 - Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. ([#576](https://github.com/kurorosu/pochidetection/pull/576))
 - `scripts/{rtdetr,ssdlite,ssd300}/infer.py::_setup_pipeline` の共通 boilerplate を `pipelines/builder.py::setup_pipeline` + `ArchitectureSpec` dataclass に集約し, 各スクリプトの本体行数を 50-70% 削減. ([#578](https://github.com/kurorosu/pochidetection/pull/578))
-- `pipelines/builder.py` の pipeline 構築部を `model_path` / `runtime` / `backend_factory` / `context` / `spec` の 5 モジュールに分割し, 各モジュールで `__all__` 境界を明確化. builder.py は CLI batch フロー専用に縮小. ((NA.))
+- `pipelines/builder.py` の pipeline 構築部を `model_path` / `runtime` / `backend_factory` / `context` / `spec` の 5 モジュールに分割し, 各モジュールで `__all__` 境界を明確化. builder.py は CLI batch フロー専用に縮小. ([#579](https://github.com/kurorosu/pochidetection/pull/579))
   - `tests/test_pipelines/test_builder.py` も責務単位に `test_model_path` / `test_runtime` / `test_spec` / `test_builder` の 4 ファイルへ分割.
+- `pipelines/builder.py` を削除し CLI batch 推論フロー (画像ループ / レポート出力) を新設 `orchestration/` パッケージへ移設. `builder.infer` は `orchestration.run_batch_inference` にリネーム. ((NA.))
+  - `tests/test_pipelines/test_builder.py` を `tests/test_orchestration/test_batch_inference.py` へ移設.
 
 ### Fixed
 - 無し
