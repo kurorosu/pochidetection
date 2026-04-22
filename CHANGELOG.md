@@ -10,7 +10,7 @@
 
 ### Changed
 - Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. ([#576](https://github.com/kurorosu/pochidetection/pull/576))
-- `scripts/{rtdetr,ssdlite,ssd300}/infer.py::_setup_pipeline` の共通 boilerplate を `pipelines/builder.py::setup_pipeline` + `ArchitectureSpec` dataclass に集約し, 各スクリプトの本体行数を 50-70% 削減. (NA.)
+- `scripts/{rtdetr,ssdlite,ssd300}/infer.py::_setup_pipeline` の共通 boilerplate を `pipelines/builder.py::setup_pipeline` + `ArchitectureSpec` dataclass に集約し, 各スクリプトの本体行数を 50-70% 削減. ([#578](https://github.com/kurorosu/pochidetection/pull/578))
 
 ### Fixed
 - 無し
