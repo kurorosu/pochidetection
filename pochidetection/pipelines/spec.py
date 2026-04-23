@@ -19,10 +19,10 @@ from typing import Any
 import torch
 from torchvision.transforms import v2
 
-from pochidetection.cli.registry import resolve_setup_pipeline
+from pochidetection.cli.registry import get_build_pipeline_for_arch
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.coco_classes import PRETRAINED_CONFIG_PATH
-from pochidetection.core.types import SetupPipelineFn
+from pochidetection.core.types import BuildPipelineFn
 from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
@@ -32,7 +32,7 @@ from pochidetection.pipelines.context import (
     ResolvedPipeline,
     build_pipeline_context,
 )
-from pochidetection.pipelines.model_path import PRETRAINED, _resolve_model_path
+from pochidetection.pipelines.model_path import PRETRAINED, resolve_model_path
 from pochidetection.pipelines.runtime import (
     resolve_device,
     resolve_pipeline_mode,
@@ -238,7 +238,7 @@ def resolve_and_setup_pipeline(
     log = logger_instance or logger
 
     if model_dir is not None:
-        model_path = _resolve_model_path(config, model_dir)
+        model_path = resolve_model_path(config, model_dir)
         if model_path is None:
             return None
     else:
@@ -247,13 +247,13 @@ def resolve_and_setup_pipeline(
     if model_path == PRETRAINED:
         config_path = PRETRAINED_CONFIG_PATH
         config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn: SetupPipelineFn = resolve_setup_pipeline(config)
+        build_pipeline: BuildPipelineFn = get_build_pipeline_for_arch(config)
         log.info("Loading RT-DETR COCO pretrained model")
     else:
-        setup_pipeline_fn = resolve_setup_pipeline(config)
+        build_pipeline = get_build_pipeline_for_arch(config)
         log.info(f"Loading model from {model_path}")
 
-    ctx = setup_pipeline_fn(config, model_path)
+    ctx = build_pipeline(config, model_path)
     return ResolvedPipeline(
         ctx=ctx, config=config, config_path=config_path, model_path=model_path
     )

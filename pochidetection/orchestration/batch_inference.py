@@ -12,7 +12,7 @@ from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
 from pochidetection.logging import LoggerManager
 from pochidetection.orchestration.reports import write_reports
-from pochidetection.pipelines.context import _InferenceContext
+from pochidetection.pipelines.context import InferenceContext
 from pochidetection.pipelines.spec import resolve_and_setup_pipeline
 from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 
@@ -84,7 +84,7 @@ def _collect_image_files(image_dir: str) -> list[Path] | None:
 
 def _run_inference(
     image_files: list[Path],
-    ctx: _InferenceContext,
+    ctx: InferenceContext,
     config: DetectionConfigDict,
     *,
     save_crop: bool = True,

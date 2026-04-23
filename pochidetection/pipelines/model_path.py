@@ -4,7 +4,7 @@
 
 - ``PRETRAINED``: pretrained モデル利用を示すセンチネル Path.
 - ``is_onnx_model`` / ``is_tensorrt_model``: モデルファイル種別判定.
-- ``_resolve_model_path``: CLI / config から推論対象のモデルパスを解決.
+- ``resolve_model_path``: CLI / config から推論対象のモデルパスを解決.
 """
 
 from pathlib import Path
@@ -17,6 +17,7 @@ __all__ = [
     "PRETRAINED",
     "is_onnx_model",
     "is_tensorrt_model",
+    "resolve_model_path",
 ]
 
 logger = LoggerManager().get_logger(__name__)
@@ -49,7 +50,7 @@ def is_tensorrt_model(model_path: Path) -> bool:
     return model_path.suffix.lower() == ".engine"
 
 
-def _resolve_model_path(
+def resolve_model_path(
     config: DetectionConfigDict,
     model_dir: str | None,
 ) -> Path | None:

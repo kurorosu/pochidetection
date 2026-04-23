@@ -9,7 +9,7 @@ from pathlib import Path
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
 from pochidetection.logging import LoggerManager
-from pochidetection.pipelines.context import _InferenceContext
+from pochidetection.pipelines.context import InferenceContext
 from pochidetection.reporting import (
     DetectionSummary,
     build_detection_results,
@@ -39,7 +39,7 @@ def write_reports(
     config: DetectionConfigDict,
     image_files: list[Path],
     all_predictions: dict[str, list[Detection]],
-    ctx: _InferenceContext,
+    ctx: InferenceContext,
     model_path: Path,
     config_path: str | None = None,
 ) -> None:

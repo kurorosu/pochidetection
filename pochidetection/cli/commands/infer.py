@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
-from pochidetection.cli.registry import resolve_infer
+from pochidetection.cli.registry import get_infer_for_arch
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.logging import LoggerManager
@@ -309,7 +309,7 @@ def run_infer(args: argparse.Namespace) -> None:
     elif is_video_file(input_path):
         _run_video_infer(config, input_path, args.model_dir, config_path, args.interval)
     else:
-        infer_fn = resolve_infer(config)
+        infer_fn = get_infer_for_arch(config)
         infer_fn(
             config,
             input_path,

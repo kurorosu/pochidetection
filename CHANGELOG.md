@@ -13,8 +13,10 @@
 - `scripts/{rtdetr,ssdlite,ssd300}/infer.py::_setup_pipeline` の共通 boilerplate を `pipelines/builder.py::setup_pipeline` + `ArchitectureSpec` dataclass に集約し, 各スクリプトの本体行数を 50-70% 削減. ([#578](https://github.com/kurorosu/pochidetection/pull/578))
 - `pipelines/builder.py` の pipeline 構築部を `model_path` / `runtime` / `backend_factory` / `context` / `spec` の 5 モジュールに分割し, 各モジュールで `__all__` 境界を明確化. builder.py は CLI batch フロー専用に縮小. ([#579](https://github.com/kurorosu/pochidetection/pull/579))
   - `tests/test_pipelines/test_builder.py` も責務単位に `test_model_path` / `test_runtime` / `test_spec` / `test_builder` の 4 ファイルへ分割.
-- `pipelines/builder.py` を削除し CLI batch 推論フロー (画像ループ / レポート出力) を新設 `orchestration/` パッケージへ移設. `builder.infer` は `orchestration.run_batch_inference` にリネーム. ((NA.))
+- `pipelines/builder.py` を削除し CLI batch 推論フロー (画像ループ / レポート出力) を新設 `orchestration/` パッケージへ移設. `builder.infer` は `orchestration.run_batch_inference` にリネーム. ([#581](https://github.com/kurorosu/pochidetection/pull/581))
   - `tests/test_pipelines/test_builder.py` を `tests/test_orchestration/test_batch_inference.py` へ移設.
+- 推論 route の命名整理: `_setup_pipeline` (→`build_pipeline`) / `_InferenceContext` / `_resolve_model_path` を public 化し, CLAUDE.md 命名規約との乖離を是正. ((NA.))
+  - `cli/registry.py` の `resolve_infer` / `resolve_setup_pipeline` を `get_*_for_arch` にリネーム + `__all__` 宣言.
 
 ### Fixed
 - 無し

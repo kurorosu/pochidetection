@@ -3,11 +3,11 @@
 from pathlib import Path
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.pipelines.model_path import PRETRAINED, _resolve_model_path
+from pochidetection.pipelines.model_path import PRETRAINED, resolve_model_path
 
 
 class TestResolveModelPath:
-    """_resolve_model_path のテスト."""
+    """resolve_model_path のテスト."""
 
     def test_returns_path_when_model_dir_exists(self, tmp_path: Path) -> None:
         """model_dir が存在する場合そのパスを返すことを確認."""
@@ -15,7 +15,7 @@ class TestResolveModelPath:
         model_dir.mkdir()
         config: DetectionConfigDict = {"work_dir": str(tmp_path)}
 
-        result = _resolve_model_path(config, str(model_dir))
+        result = resolve_model_path(config, str(model_dir))
 
         assert result == model_dir
 
@@ -23,7 +23,7 @@ class TestResolveModelPath:
         """model_dir が存在しない場合 None を返すことを確認."""
         config: DetectionConfigDict = {"work_dir": str(tmp_path)}
 
-        result = _resolve_model_path(config, str(tmp_path / "nonexistent"))
+        result = resolve_model_path(config, str(tmp_path / "nonexistent"))
 
         assert result is None
 
@@ -33,7 +33,7 @@ class TestResolveModelPath:
         work_dir.mkdir()
         config: DetectionConfigDict = {"work_dir": str(work_dir)}
 
-        result = _resolve_model_path(config, None)
+        result = resolve_model_path(config, None)
 
         assert result == PRETRAINED
 
@@ -45,7 +45,7 @@ class TestResolveModelPath:
         best_dir.mkdir(parents=True)
         config: DetectionConfigDict = {"work_dir": str(work_dir)}
 
-        result = _resolve_model_path(config, None)
+        result = resolve_model_path(config, None)
 
         assert result == best_dir
 
@@ -56,6 +56,6 @@ class TestResolveModelPath:
         workspace.mkdir(parents=True)
         config: DetectionConfigDict = {"work_dir": str(work_dir)}
 
-        result = _resolve_model_path(config, None)
+        result = resolve_model_path(config, None)
 
         assert result is None
