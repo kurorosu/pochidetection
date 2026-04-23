@@ -247,13 +247,13 @@ def resolve_and_setup_pipeline(
     if model_path == PRETRAINED:
         config_path = PRETRAINED_CONFIG_PATH
         config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn: BuildPipelineFn = get_build_pipeline_for_arch(config)
+        build_pipeline: BuildPipelineFn = get_build_pipeline_for_arch(config)
         log.info("Loading RT-DETR COCO pretrained model")
     else:
-        setup_pipeline_fn = get_build_pipeline_for_arch(config)
+        build_pipeline = get_build_pipeline_for_arch(config)
         log.info(f"Loading model from {model_path}")
 
-    ctx = setup_pipeline_fn(config, model_path)
+    ctx = build_pipeline(config, model_path)
     return ResolvedPipeline(
         ctx=ctx, config=config, config_path=config_path, model_path=model_path
     )

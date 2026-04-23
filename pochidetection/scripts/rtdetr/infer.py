@@ -101,7 +101,8 @@ def build_pipeline(
         },
         default_image_size=(640, 640),
     )
-    return setup_pipeline(spec, config, model_path)
+    context = setup_pipeline(spec, config, model_path)
+    return context
 
 
 def _load_processor(

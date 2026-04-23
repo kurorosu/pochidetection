@@ -109,4 +109,5 @@ def build_pipeline(
         build_pipeline_kwargs=lambda cfg, hw, _processor: {"image_size": hw},
         default_image_size=(300, 300),
     )
-    return setup_pipeline(spec, config, model_path)
+    context = setup_pipeline(spec, config, model_path)
+    return context
