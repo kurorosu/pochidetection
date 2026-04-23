@@ -17,7 +17,9 @@
   - `tests/test_pipelines/test_builder.py` を `tests/test_orchestration/test_batch_inference.py` へ移設.
 - 推論 route の命名整理: `_setup_pipeline` (→`build_pipeline`) / `_InferenceContext` / `_resolve_model_path` を public 化し, CLAUDE.md 命名規約との乖離を是正. ([#582](https://github.com/kurorosu/pochidetection/pull/582))
   - `cli/registry.py` の `resolve_infer` / `resolve_setup_pipeline` を `get_*_for_arch` にリネーム + `__all__` 宣言.
-- 学習 route の命名整理: `cli/registry.py::resolve_train` を推論 route と揃えて `get_train_for_arch` にリネーム. `cli/commands/train.py` の `train_fn` ローカル変数から冗長な `_fn` を削除. ((NA.))
+- 学習 route の命名整理: `cli/registry.py::resolve_train` を推論 route と揃えて `get_train_for_arch` にリネーム. `cli/commands/train.py` の `train_fn` ローカル変数から冗長な `_fn` を削除. ([#583](https://github.com/kurorosu/pochidetection/pull/583))
+- Pipeline route の命名整理: `pipelines/` の動詞を役割別 (`build_*` / `create_*` / `configure_*` / `resolve_*`) に統一し, `setup_pipeline` → `build_pipeline_from_spec`, `resolve_and_setup_pipeline` → `resolve_and_build_pipeline`, `setup_cudnn_benchmark` → `configure_cudnn_benchmark` にリネーム. ((NA.))
+  - `ResolvedPipeline.ctx` を `.context` に改名し, orchestration の public parameter の `ctx: InferenceContext` も `context: InferenceContext` に統一. 短い local スコープの `ctx` は維持.
 
 ### Fixed
 - 無し

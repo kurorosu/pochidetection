@@ -1,4 +1,4 @@
-"""pipelines/spec.py (ArchitectureSpec + setup_pipeline) のテスト."""
+"""pipelines/spec.py (ArchitectureSpec + build_pipeline_from_spec) のテスト."""
 
 from pathlib import Path
 from typing import Any
@@ -13,7 +13,7 @@ from pochidetection.pipelines.context import PipelineContext
 from pochidetection.pipelines.spec import (
     ArchitectureSpec,
     BackendFactories,
-    setup_pipeline,
+    build_pipeline_from_spec,
 )
 
 
@@ -26,7 +26,7 @@ class _FakeBackend(IInferenceBackend[Any]):
 
 
 class _RecordingPipeline(IDetectionPipeline[Any, Any]):
-    """setup_pipeline が渡した kwargs を ``init_kwargs`` に記録する stub pipeline.
+    """build_pipeline_from_spec が渡した kwargs を ``init_kwargs`` に記録する stub pipeline.
 
     ArchitectureSpec 経由の kwargs 組立が意図通り (processor / image_size /
     nms_iou_threshold 等) になっているかを検証する.
@@ -53,7 +53,7 @@ class _RecordingPipeline(IDetectionPipeline[Any, Any]):
 
 
 class TestSetupPipeline:
-    """ArchitectureSpec + setup_pipeline の統合テスト."""
+    """ArchitectureSpec + build_pipeline_from_spec の統合テスト."""
 
     def _make_config(self, tmp_path: Path) -> DetectionConfigDict:
         return {
@@ -87,7 +87,7 @@ class TestSetupPipeline:
             ),
         )
 
-        ctx = setup_pipeline(spec, config, model_path)
+        ctx = build_pipeline_from_spec(spec, config, model_path)
 
         kwargs = _RecordingPipeline.init_kwargs
         assert kwargs is not None
@@ -134,7 +134,7 @@ class TestSetupPipeline:
             build_pipeline_kwargs=extra,
         )
 
-        setup_pipeline(spec, config, model_path)
+        build_pipeline_from_spec(spec, config, model_path)
 
         kwargs = _RecordingPipeline.init_kwargs
         assert kwargs is not None
@@ -172,6 +172,6 @@ class TestSetupPipeline:
             default_image_size=(256, 512),
         )
 
-        setup_pipeline(spec, config, model_path)
+        build_pipeline_from_spec(spec, config, model_path)
 
         assert captured["image_size"] == (256, 512)

@@ -39,7 +39,7 @@ def write_reports(
     config: DetectionConfigDict,
     image_files: list[Path],
     all_predictions: dict[str, list[Detection]],
-    ctx: InferenceContext,
+    context: InferenceContext,
     model_path: Path,
     config_path: str | None = None,
 ) -> None:
@@ -49,17 +49,17 @@ def write_reports(
         config: 設定辞書.
         image_files: 推論対象の画像ファイルリスト.
         all_predictions: ファイル名をキー, 検出結果リストを値とする辞書.
-        ctx: 推論コンテキスト.
+        context: 推論コンテキスト.
         model_path: モデルのパス.
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
     """
     if config_path is not None:
-        _save_config(config, config_path, ctx.saver.output_dir)
+        _save_config(config, config_path, context.saver.output_dir)
 
     detection_metrics = _evaluate_map(config, all_predictions)
 
-    summary = build_detection_summary(all_predictions, ctx.label_mapper)
-    summary_path = write_detection_summary(ctx.saver.output_dir, summary)
+    summary = build_detection_summary(all_predictions, context.label_mapper)
+    summary_path = write_detection_summary(context.saver.output_dir, summary)
     logger.info(f"Detection summary saved to {summary_path}")
     _log_detection_summary(summary)
 
@@ -71,37 +71,37 @@ def write_reports(
 
     csv_rows = build_detection_results(
         predictions=all_predictions,
-        label_mapper=ctx.label_mapper,
+        label_mapper=context.label_mapper,
         annotation_path=annotation_path,
     )
-    csv_path = write_detection_results_csv(ctx.saver.output_dir, csv_rows)
+    csv_path = write_detection_results_csv(context.saver.output_dir, csv_rows)
     logger.info(f"Detection results CSV saved to {csv_path}")
 
-    if annotation_path is not None and ctx.class_names is not None:
+    if annotation_path is not None and context.class_names is not None:
         cm = build_confusion_matrix(
             predictions=all_predictions,
             annotation_path=annotation_path,
-            class_names=ctx.class_names,
+            class_names=context.class_names,
         )
-        cm_plotter = ConfusionMatrixPlotter(cm, ctx.class_names)
-        cm_path = ctx.saver.output_dir / "confusion_matrix.html"
+        cm_plotter = ConfusionMatrixPlotter(cm, context.class_names)
+        cm_path = context.saver.output_dir / "confusion_matrix.html"
         cm_plotter.plot(cm_path)
         logger.info(f"Confusion matrix saved to {cm_path}")
 
     result = build_benchmark_result(
-        phased_timer=ctx.phased_timer,
+        phased_timer=context.phased_timer,
         num_images=len(image_files),
-        device=ctx.actual_device,
-        precision=ctx.precision,
+        device=context.actual_device,
+        precision=context.precision,
         model_path=str(model_path),
         detection_metrics=detection_metrics,
     )
 
-    json_path = write_benchmark_result(ctx.saver.output_dir, result)
+    json_path = write_benchmark_result(context.saver.output_dir, result)
     logger.info(f"Benchmark result saved to {json_path}")
 
     _log_benchmark_summary(result)
-    logger.info(f"Results saved to {ctx.saver.output_dir}")
+    logger.info(f"Results saved to {context.saver.output_dir}")
 
 
 def _save_config(
