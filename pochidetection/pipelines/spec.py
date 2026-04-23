@@ -1,11 +1,11 @@
 """推論 pipeline 構築のアーキテクチャ固有情報 (``ArchitectureSpec``) と共通 setup.
 
 アーキ固有部分 (pipeline クラス / backend factory / processor / transform /
-kwargs 組立) を ``ArchitectureSpec`` dataclass で束ね, ``setup_pipeline`` に
+kwargs 組立) を ``ArchitectureSpec`` dataclass で束ね, ``build_pipeline_from_spec`` に
 共通の手順 (cudnn 設定 / backend 生成 / device 解決 / pipeline_mode 解決 /
 PhasedTimer 生成 / pipeline 構築 / context 構築) を集約する.
 
-``resolve_and_setup_pipeline`` はモデル解決まで一段階前に戻り, CLI / WebAPI /
+``resolve_and_build_pipeline`` はモデル解決まで一段階前に戻り, CLI / WebAPI /
 video / stream の全経路からモデルパス解決 + pipeline 構築を 1 コールで済ませる
 ためのエントリポイント.
 """
@@ -34,9 +34,9 @@ from pochidetection.pipelines.context import (
 )
 from pochidetection.pipelines.model_path import PRETRAINED, resolve_model_path
 from pochidetection.pipelines.runtime import (
+    configure_cudnn_benchmark,
     resolve_device,
     resolve_pipeline_mode,
-    setup_cudnn_benchmark,
 )
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.config_loader import ConfigLoader
@@ -44,8 +44,8 @@ from pochidetection.utils.config_loader import ConfigLoader
 __all__ = [
     "ArchitectureSpec",
     "BackendFactories",
-    "resolve_and_setup_pipeline",
-    "setup_pipeline",
+    "build_pipeline_from_spec",
+    "resolve_and_build_pipeline",
 ]
 
 logger = LoggerManager().get_logger(__name__)
@@ -114,9 +114,9 @@ def _empty_pipeline_kwargs(
 class ArchitectureSpec:
     """推論 pipeline 構築のアーキテクチャ固有情報.
 
-    ``setup_pipeline`` と組み合わせて使う. アーキ固有部分 (pipeline クラス /
+    ``build_pipeline_from_spec`` と組み合わせて使う. アーキ固有部分 (pipeline クラス /
     backend factory / processor / transform / kwargs 組立) を dataclass で束ね,
-    共通の setup 手順は ``setup_pipeline`` 側に集約する.
+    共通の setup 手順は ``build_pipeline_from_spec`` 側に集約する.
 
     Attributes:
         pipeline_cls: 構築する Pipeline クラス (``IDetectionPipeline`` 派生).
@@ -127,7 +127,7 @@ class ArchitectureSpec:
         build_transform: ``image_size`` から前処理 ``v2.Compose`` を組み立てる関数.
         build_pipeline_kwargs: pipeline クラスへ渡すアーキ固有 kwargs を返す関数.
             共通 kwargs (``backend`` / ``transform`` / ``threshold`` 等) は
-            ``setup_pipeline`` 側で付与するため, ここでは差分のみ返す.
+            ``build_pipeline_from_spec`` 側で付与するため, ここでは差分のみ返す.
         default_image_size: ``config["image_size"]`` 未指定時のフォールバック
             ``(height, width)``.
     """
@@ -140,7 +140,7 @@ class ArchitectureSpec:
     default_image_size: tuple[int, int] = (640, 640)
 
 
-def setup_pipeline(
+def build_pipeline_from_spec(
     spec: ArchitectureSpec,
     config: DetectionConfigDict,
     model_path: Path,
@@ -159,7 +159,7 @@ def setup_pipeline(
     Returns:
         構築済みの ``PipelineContext``.
     """
-    setup_cudnn_benchmark(config)
+    configure_cudnn_benchmark(config)
 
     processor = (
         spec.load_processor(model_path, config)
@@ -215,7 +215,7 @@ def setup_pipeline(
     )
 
 
-def resolve_and_setup_pipeline(
+def resolve_and_build_pipeline(
     config: DetectionConfigDict,
     model_dir: str | None,
     config_path: str | None,

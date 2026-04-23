@@ -4,7 +4,7 @@
 LabelMapper などを束ねる NamedTuple. ``ResolvedPipeline`` はモデル解決まで済んだ
 後の全体結果 (context + config + model_path) を束ねる. ``InferenceContext`` は
 ``_run_inference`` / ``write_reports`` が受け取る最小面の Protocol.
-``build_pipeline_context`` は ``setup_pipeline`` 内部から呼ばれ, LabelMapper /
+``build_pipeline_context`` は ``build_pipeline_from_spec`` 内部から呼ばれ, LabelMapper /
 Visualizer / InferenceSaver の構築を共通化する.
 """
 

@@ -22,7 +22,7 @@ from pochidetection.pipelines.context import PipelineContext
 from pochidetection.pipelines.spec import (
     ArchitectureSpec,
     BackendFactories,
-    setup_pipeline,
+    build_pipeline_from_spec,
 )
 
 logger = LoggerManager().get_logger(__name__)
@@ -120,5 +120,5 @@ def build_pipeline(
         build_pipeline_kwargs=lambda cfg, hw, _processor: {"image_size": hw},
         default_image_size=(320, 320),
     )
-    context = setup_pipeline(spec, config, model_path)
+    context = build_pipeline_from_spec(spec, config, model_path)
     return context

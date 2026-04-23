@@ -14,7 +14,7 @@ from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
 from pochidetection.pipelines.model_path import is_onnx_model, is_tensorrt_model
-from pochidetection.pipelines.spec import resolve_and_setup_pipeline
+from pochidetection.pipelines.spec import resolve_and_build_pipeline
 from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 
 logger = LoggerManager().get_logger(__name__)
@@ -299,7 +299,7 @@ def create_detection_backend(
     backend_cls = _BACKEND_CLASSES[backend_name]
 
     logger.info(f"Loading model: {model_path} (backend={backend_name})")
-    resolved = resolve_and_setup_pipeline(
+    resolved = resolve_and_build_pipeline(
         config=config,
         model_dir=str(model_path),
         config_path=config_path,

@@ -13,7 +13,7 @@ from pochidetection.core.detection import Detection
 from pochidetection.logging import LoggerManager
 from pochidetection.orchestration.reports import write_reports
 from pochidetection.pipelines.context import InferenceContext
-from pochidetection.pipelines.spec import resolve_and_setup_pipeline
+from pochidetection.pipelines.spec import resolve_and_build_pipeline
 from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 
 logger = LoggerManager().get_logger(__name__)
@@ -41,7 +41,7 @@ def run_batch_inference(
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
         save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
     """
-    resolved = resolve_and_setup_pipeline(config, model_dir, config_path)
+    resolved = resolve_and_build_pipeline(config, model_dir, config_path)
     if resolved is None:
         return
 
