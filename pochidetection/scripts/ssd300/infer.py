@@ -93,7 +93,7 @@ def _create_pytorch_backend(
     return SsdPyTorchBackend(model)
 
 
-def _setup_pipeline(
+def build_pipeline(
     config: DetectionConfigDict,
     model_path: Path,
 ) -> PipelineContext:

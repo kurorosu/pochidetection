@@ -10,7 +10,7 @@ from typing import Any
 
 from pochidetection.configs.schemas import DetectionConfigDict
 
-SetupPipelineFn = Callable[[DetectionConfigDict, Path], Any]
+BuildPipelineFn = Callable[[DetectionConfigDict, Path], Any]
 """パイプライン構築コールバックの型.
 
 (config, model_path) を受け取り PipelineContext を返す.

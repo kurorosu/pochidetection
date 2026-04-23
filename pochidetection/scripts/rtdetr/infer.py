@@ -79,7 +79,7 @@ def _build_rtdetr_transform(image_size: tuple[int, int]) -> v2.Compose:
     )
 
 
-def _setup_pipeline(
+def build_pipeline(
     config: DetectionConfigDict,
     model_path: Path,
 ) -> PipelineContext:

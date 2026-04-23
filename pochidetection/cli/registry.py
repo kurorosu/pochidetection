@@ -1,10 +1,10 @@
-"""アーキテクチャごとの train / infer / setup_pipeline を解決するレジストリ."""
+"""アーキテクチャごとの train / infer / build_pipeline を解決するレジストリ."""
 
 from collections.abc import Callable
 from typing import Protocol
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.core.types import SetupPipelineFn
+from pochidetection.core.types import BuildPipelineFn
 
 TrainFn = Callable[[DetectionConfigDict, str], None]
 
@@ -39,10 +39,10 @@ def _import_rtdetr_infer() -> InferFn:
     return infer
 
 
-def _import_rtdetr_setup_pipeline() -> SetupPipelineFn:
-    from pochidetection.scripts.rtdetr.infer import _setup_pipeline
+def _import_rtdetr_build_pipeline() -> BuildPipelineFn:
+    from pochidetection.scripts.rtdetr.infer import build_pipeline
 
-    return _setup_pipeline
+    return build_pipeline
 
 
 def _import_ssdlite_train() -> TrainFn:
@@ -57,10 +57,10 @@ def _import_ssdlite_infer() -> InferFn:
     return infer
 
 
-def _import_ssdlite_setup_pipeline() -> SetupPipelineFn:
-    from pochidetection.scripts.ssdlite.infer import _setup_pipeline
+def _import_ssdlite_build_pipeline() -> BuildPipelineFn:
+    from pochidetection.scripts.ssdlite.infer import build_pipeline
 
-    return _setup_pipeline
+    return build_pipeline
 
 
 def _import_ssd300_train() -> TrainFn:
@@ -75,33 +75,33 @@ def _import_ssd300_infer() -> InferFn:
     return infer
 
 
-def _import_ssd300_setup_pipeline() -> SetupPipelineFn:
-    from pochidetection.scripts.ssd300.infer import _setup_pipeline
+def _import_ssd300_build_pipeline() -> BuildPipelineFn:
+    from pochidetection.scripts.ssd300.infer import build_pipeline
 
-    return _setup_pipeline
+    return build_pipeline
 
 
 _REGISTRY: dict[
     str,
     dict[
         str,
-        Callable[[], TrainFn] | Callable[[], InferFn] | Callable[[], SetupPipelineFn],
+        Callable[[], TrainFn] | Callable[[], InferFn] | Callable[[], BuildPipelineFn],
     ],
 ] = {
     "RTDetr": {
         "train": _import_rtdetr_train,
         "infer": _import_rtdetr_infer,
-        "setup_pipeline": _import_rtdetr_setup_pipeline,
+        "build_pipeline": _import_rtdetr_build_pipeline,
     },
     "SSDLite": {
         "train": _import_ssdlite_train,
         "infer": _import_ssdlite_infer,
-        "setup_pipeline": _import_ssdlite_setup_pipeline,
+        "build_pipeline": _import_ssdlite_build_pipeline,
     },
     "SSD300": {
         "train": _import_ssd300_train,
         "infer": _import_ssd300_infer,
-        "setup_pipeline": _import_ssd300_setup_pipeline,
+        "build_pipeline": _import_ssd300_build_pipeline,
     },
 }
 
@@ -136,15 +136,15 @@ def resolve_infer(config: DetectionConfigDict) -> InferFn:
     return loader()  # type: ignore[return-value]
 
 
-def resolve_setup_pipeline(config: DetectionConfigDict) -> SetupPipelineFn:
-    """Architecture に基づいて _setup_pipeline 関数を返す.
+def resolve_setup_pipeline(config: DetectionConfigDict) -> BuildPipelineFn:
+    """Architecture に基づいて build_pipeline 関数を返す.
 
     Args:
         config: 設定辞書.
 
     Returns:
-        setup_pipeline 関数.
+        build_pipeline 関数.
     """
     arch = config.get("architecture", _DEFAULT_ARCH)
-    loader = _REGISTRY[arch]["setup_pipeline"]
+    loader = _REGISTRY[arch]["build_pipeline"]
     return loader()  # type: ignore[return-value]
