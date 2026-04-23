@@ -32,7 +32,7 @@ from pochidetection.pipelines.context import (
     ResolvedPipeline,
     build_pipeline_context,
 )
-from pochidetection.pipelines.model_path import PRETRAINED, _resolve_model_path
+from pochidetection.pipelines.model_path import PRETRAINED, resolve_model_path
 from pochidetection.pipelines.runtime import (
     resolve_device,
     resolve_pipeline_mode,
@@ -238,7 +238,7 @@ def resolve_and_setup_pipeline(
     log = logger_instance or logger
 
     if model_dir is not None:
-        model_path = _resolve_model_path(config, model_dir)
+        model_path = resolve_model_path(config, model_dir)
         if model_path is None:
             return None
     else:

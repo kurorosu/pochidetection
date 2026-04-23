@@ -2,8 +2,8 @@
 
 ``PipelineContext`` は推論 pipeline + PhasedTimer + Visualizer + InferenceSaver +
 LabelMapper などを束ねる NamedTuple. ``ResolvedPipeline`` はモデル解決まで済んだ
-後の全体結果 (context + config + model_path) を束ねる. ``_InferenceContext`` は
-``_run_inference`` / ``_write_reports`` が受け取る最小面の Protocol.
+後の全体結果 (context + config + model_path) を束ねる. ``InferenceContext`` は
+``_run_inference`` / ``write_reports`` が受け取る最小面の Protocol.
 ``build_pipeline_context`` は ``setup_pipeline`` 内部から呼ばれ, LabelMapper /
 Visualizer / InferenceSaver の構築を共通化する.
 """
@@ -23,6 +23,7 @@ from pochidetection.utils import PhasedTimer
 from pochidetection.visualization import LabelMapper
 
 __all__ = [
+    "InferenceContext",
     "PipelineContext",
     "ResolvedPipeline",
     "build_pipeline_context",
@@ -51,8 +52,8 @@ class ResolvedPipeline(NamedTuple):
     model_path: Path
 
 
-class _InferenceContext(Protocol):
-    """推論コンテキストのプロトコル (内部利用)."""
+class InferenceContext(Protocol):
+    """推論コンテキストのプロトコル."""
 
     @property
     def pipeline(self) -> IDetectionPipeline:

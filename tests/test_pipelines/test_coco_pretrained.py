@@ -7,7 +7,7 @@ from pochidetection.core.coco_classes import (
     COCO_NUM_CLASSES,
     PRETRAINED_CONFIG_PATH,
 )
-from pochidetection.pipelines.model_path import PRETRAINED, _resolve_model_path
+from pochidetection.pipelines.model_path import PRETRAINED, resolve_model_path
 from pochidetection.utils import ConfigLoader
 
 
@@ -61,17 +61,17 @@ class TestResolveModelPathPretrained:
     def test_returns_pretrained_when_no_workspace(self, tmp_path: Path) -> None:
         """ワークスペースが存在しない場合 PRETRAINED を返す."""
         config = {"work_dir": str(tmp_path / "empty_work_dirs")}
-        result = _resolve_model_path(config, None)  # type: ignore[arg-type]
+        result = resolve_model_path(config, None)  # type: ignore[arg-type]
         assert result == PRETRAINED
 
     def test_returns_explicit_model_path(self, tmp_path: Path) -> None:
         """明示的にモデルパスを指定した場合はそのパスを返す."""
         model_dir = tmp_path / "my_model"
         model_dir.mkdir()
-        result = _resolve_model_path({}, str(model_dir))  # type: ignore[arg-type]
+        result = resolve_model_path({}, str(model_dir))  # type: ignore[arg-type]
         assert result == model_dir
 
     def test_returns_none_when_explicit_path_not_exists(self) -> None:
         """存在しないパスを指定した場合は None を返す."""
-        result = _resolve_model_path({}, "/nonexistent/path")  # type: ignore[arg-type]
+        result = resolve_model_path({}, "/nonexistent/path")  # type: ignore[arg-type]
         assert result is None
