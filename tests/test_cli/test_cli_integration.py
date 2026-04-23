@@ -14,7 +14,7 @@ from pochidetection.cli.commands.infer import (
     run_infer,
 )
 from pochidetection.cli.parser import _create_parser
-from pochidetection.cli.registry import get_infer_for_arch, resolve_train
+from pochidetection.cli.registry import get_infer_for_arch, get_train_for_arch
 
 # ------------------------------------------------------------------ #
 # 引数パース
@@ -166,35 +166,35 @@ class TestNoCommand:
 # ------------------------------------------------------------------ #
 
 
-class TestResolveTrainDispatch:
-    """resolve_train のアーキテクチャ別ディスパッチテスト."""
+class TestGetTrainForArchDispatch:
+    """get_train_for_arch のアーキテクチャ別ディスパッチテスト."""
 
     def test_rtdetr_default(self) -> None:
         """architecture 未指定時に RT-DETR の train が返ることを確認する."""
         from pochidetection.scripts.rtdetr.train import train as rtdetr_train
 
-        fn = resolve_train({})
+        fn = get_train_for_arch({})
         assert fn is rtdetr_train
 
     def test_rtdetr_explicit(self) -> None:
         """architecture='RTDetr' で RT-DETR の train が返ることを確認する."""
         from pochidetection.scripts.rtdetr.train import train as rtdetr_train
 
-        fn = resolve_train({"architecture": "RTDetr"})
+        fn = get_train_for_arch({"architecture": "RTDetr"})
         assert fn is rtdetr_train
 
     def test_ssdlite(self) -> None:
         """architecture='SSDLite' で SSDLite の train が返ることを確認する."""
         from pochidetection.scripts.ssdlite.train import train as ssdlite_train
 
-        fn = resolve_train({"architecture": "SSDLite"})
+        fn = get_train_for_arch({"architecture": "SSDLite"})
         assert fn is ssdlite_train
 
     def test_ssd300(self) -> None:
         """architecture='SSD300' で SSD300 の train が返ることを確認する."""
         from pochidetection.scripts.ssd300.train import train as ssd300_train
 
-        fn = resolve_train({"architecture": "SSD300"})
+        fn = get_train_for_arch({"architecture": "SSD300"})
         assert fn is ssd300_train
 
 

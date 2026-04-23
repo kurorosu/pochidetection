@@ -11,7 +11,7 @@ __all__ = [
     "TrainFn",
     "get_build_pipeline_for_arch",
     "get_infer_for_arch",
-    "resolve_train",
+    "get_train_for_arch",
 ]
 
 TrainFn = Callable[[DetectionConfigDict, str], None]
@@ -116,7 +116,7 @@ _REGISTRY: dict[
 _DEFAULT_ARCH = "RTDetr"
 
 
-def resolve_train(config: DetectionConfigDict) -> TrainFn:
+def get_train_for_arch(config: DetectionConfigDict) -> TrainFn:
     """Architecture に基づいて train 関数を返す.
 
     Args:

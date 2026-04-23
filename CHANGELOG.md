@@ -15,8 +15,9 @@
   - `tests/test_pipelines/test_builder.py` も責務単位に `test_model_path` / `test_runtime` / `test_spec` / `test_builder` の 4 ファイルへ分割.
 - `pipelines/builder.py` を削除し CLI batch 推論フロー (画像ループ / レポート出力) を新設 `orchestration/` パッケージへ移設. `builder.infer` は `orchestration.run_batch_inference` にリネーム. ([#581](https://github.com/kurorosu/pochidetection/pull/581))
   - `tests/test_pipelines/test_builder.py` を `tests/test_orchestration/test_batch_inference.py` へ移設.
-- 推論 route の命名整理: `_setup_pipeline` (→`build_pipeline`) / `_InferenceContext` / `_resolve_model_path` を public 化し, CLAUDE.md 命名規約との乖離を是正. ((NA.))
+- 推論 route の命名整理: `_setup_pipeline` (→`build_pipeline`) / `_InferenceContext` / `_resolve_model_path` を public 化し, CLAUDE.md 命名規約との乖離を是正. ([#582](https://github.com/kurorosu/pochidetection/pull/582))
   - `cli/registry.py` の `resolve_infer` / `resolve_setup_pipeline` を `get_*_for_arch` にリネーム + `__all__` 宣言.
+- 学習 route の命名整理: `cli/registry.py::resolve_train` を推論 route と揃えて `get_train_for_arch` にリネーム. `cli/commands/train.py` の `train_fn` ローカル変数から冗長な `_fn` を削除. ((NA.))
 
 ### Fixed
 - 無し
