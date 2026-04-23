@@ -6,6 +6,14 @@ from typing import Protocol
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.types import BuildPipelineFn
 
+__all__ = [
+    "InferFn",
+    "TrainFn",
+    "get_build_pipeline_for_arch",
+    "get_infer_for_arch",
+    "resolve_train",
+]
+
 TrainFn = Callable[[DetectionConfigDict, str], None]
 
 
@@ -122,7 +130,7 @@ def resolve_train(config: DetectionConfigDict) -> TrainFn:
     return loader()  # type: ignore[return-value]
 
 
-def resolve_infer(config: DetectionConfigDict) -> InferFn:
+def get_infer_for_arch(config: DetectionConfigDict) -> InferFn:
     """Architecture に基づいて infer 関数を返す.
 
     Args:
@@ -136,7 +144,7 @@ def resolve_infer(config: DetectionConfigDict) -> InferFn:
     return loader()  # type: ignore[return-value]
 
 
-def resolve_setup_pipeline(config: DetectionConfigDict) -> BuildPipelineFn:
+def get_build_pipeline_for_arch(config: DetectionConfigDict) -> BuildPipelineFn:
     """Architecture に基づいて build_pipeline 関数を返す.
 
     Args:

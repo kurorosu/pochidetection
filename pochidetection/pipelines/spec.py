@@ -19,7 +19,7 @@ from typing import Any
 import torch
 from torchvision.transforms import v2
 
-from pochidetection.cli.registry import resolve_setup_pipeline
+from pochidetection.cli.registry import get_build_pipeline_for_arch
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.coco_classes import PRETRAINED_CONFIG_PATH
 from pochidetection.core.types import BuildPipelineFn
@@ -247,10 +247,10 @@ def resolve_and_setup_pipeline(
     if model_path == PRETRAINED:
         config_path = PRETRAINED_CONFIG_PATH
         config = ConfigLoader.load(PRETRAINED_CONFIG_PATH)
-        setup_pipeline_fn: BuildPipelineFn = resolve_setup_pipeline(config)
+        setup_pipeline_fn: BuildPipelineFn = get_build_pipeline_for_arch(config)
         log.info("Loading RT-DETR COCO pretrained model")
     else:
-        setup_pipeline_fn = resolve_setup_pipeline(config)
+        setup_pipeline_fn = get_build_pipeline_for_arch(config)
         log.info(f"Loading model from {model_path}")
 
     ctx = setup_pipeline_fn(config, model_path)
