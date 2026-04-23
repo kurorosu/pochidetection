@@ -46,7 +46,7 @@ class PipelineContext(NamedTuple):
 class ResolvedPipeline(NamedTuple):
     """モデル解決・パイプライン構築の結果."""
 
-    ctx: PipelineContext
+    context: PipelineContext
     config: DetectionConfigDict
     config_path: str | None
     model_path: Path

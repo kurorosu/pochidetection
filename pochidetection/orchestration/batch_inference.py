@@ -84,7 +84,7 @@ def _collect_image_files(image_dir: str) -> list[Path] | None:
 
 def _run_inference(
     image_files: list[Path],
-    ctx: InferenceContext,
+    context: InferenceContext,
     config: DetectionConfigDict,
     *,
     save_crop: bool = True,
@@ -93,7 +93,7 @@ def _run_inference(
 
     Args:
         image_files: 推論対象の画像ファイルリスト.
-        ctx: パイプラインコンテキスト.
+        context: パイプラインコンテキスト.
         config: 設定辞書. ``infer_debug_save_count`` / ``image_size`` /
             ``letterbox`` を debug 保存で参照する.
         save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
@@ -103,7 +103,7 @@ def _run_inference(
     """
     all_predictions: dict[str, list[Detection]] = {}
 
-    infer_debug = InferDebugConfig.from_config(config, ctx.saver.output_dir)
+    infer_debug = InferDebugConfig.from_config(config, context.saver.output_dir)
 
     for i, image_file in enumerate(image_files):
         with Image.open(image_file) as img:
@@ -117,16 +117,18 @@ def _run_inference(
                 save_path=infer_debug.output_dir / f"infer_{i:04d}.jpg",
             )
 
-        detections = ctx.pipeline.run(image)
+        detections = context.pipeline.run(image)
         all_predictions[image_file.name] = detections
 
         if save_crop:
-            ctx.saver.save_crops(image, detections, image_file.name, ctx.label_mapper)
+            context.saver.save_crops(
+                image, detections, image_file.name, context.label_mapper
+            )
 
-        result_image = ctx.visualizer.draw(image, detections, inplace=True)
-        output_path = ctx.saver.save(result_image, image_file.name)
+        result_image = context.visualizer.draw(image, detections, inplace=True)
+        output_path = context.saver.save(result_image, image_file.name)
 
-        inf_timer = ctx.phased_timer.get_timer("inference")
+        inf_timer = context.phased_timer.get_timer("inference")
         logger.info(
             f"  {image_file.name} ({inf_timer.last_time_ms:.1f}ms) - "
             f"{len(detections)} objects -> {output_path.name}"

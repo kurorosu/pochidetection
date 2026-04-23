@@ -308,11 +308,11 @@ def create_detection_backend(
         raise RuntimeError(f"モデルロードに失敗しました: {model_path}")
 
     infer_debug = InferDebugConfig.from_config(
-        resolved.config, resolved.ctx.saver.output_dir
+        resolved.config, resolved.context.saver.output_dir
     )
 
     return backend_cls(
-        pipeline=resolved.ctx.pipeline,
+        pipeline=resolved.context.pipeline,
         config=resolved.config,
         model_path=resolved.model_path,
         infer_debug=infer_debug,

@@ -255,5 +255,5 @@ def resolve_and_build_pipeline(
 
     ctx = build_pipeline(config, model_path)
     return ResolvedPipeline(
-        ctx=ctx, config=config, config_path=config_path, model_path=model_path
+        context=ctx, config=config, config_path=config_path, model_path=model_path
     )

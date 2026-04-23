@@ -233,7 +233,7 @@ def _run_video_infer(
     if resolved is None:
         return
 
-    ctx = resolved.ctx
+    ctx = resolved.context
 
     # 出力パス: 入力と同じディレクトリに _result 付きで出力
     output_path = video_file.parent / f"{video_file.stem}_result.mp4"
