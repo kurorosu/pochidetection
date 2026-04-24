@@ -7,7 +7,8 @@
 
 ### Added
 - 推論時 preprocess 後画像のデバッグ保存を追加. top-level `infer_debug_save_count` (既定 1) で制御し, CLI / 動画 / カメラ / WebAPI の全経路で先頭 N 枚を `{output_dir}/infer_debug/` へ保存. ([#577](https://github.com/kurorosu/pochidetection/pull/577))
-- `DetectResponse` に GPU メトリクス 3 フィールド (`gpu_clock_mhz` / `gpu_vram_used_mb` / `gpu_temperature_c`) を追加. `api/gpu_clock.py` を `api/gpu_metrics.py` にリネームし, VRAM 使用量 / 温度取得関数を新設して handle をキャッシュ共有. ((NA.))
+- `DetectResponse` に GPU メトリクス 3 フィールド (`gpu_clock_mhz` / `gpu_vram_used_mb` / `gpu_temperature_c`) を追加. `api/gpu_clock.py` を `api/gpu_metrics.py` にリネームし, VRAM 使用量 / 温度取得関数を新設して handle をキャッシュ共有. ([#586](https://github.com/kurorosu/pochidetection/pull/586))
+- `POST /api/v1/detect` の `phase_times_ms` に API boundary 計測キー `api_preprocess_ms` (deserialize + cvtColor) / `api_postprocess_ms` (results 組み立て + DetectResponse 構築) を追加. 全フェーズ合計が `e2e_time_ms` と概ね一致する. INFO ログにも `api_pre` / `api_post` を併記. ((NA.))
 
 ### Changed
 - Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. ([#576](https://github.com/kurorosu/pochidetection/pull/576))

@@ -128,11 +128,14 @@ class DetectResponse(BaseModel):
     phase_times_ms: dict[str, float] | None = Field(
         default=None,
         description=(
-            "Pipeline 内のフェーズ別タイミング (ms). "
+            "フェーズ別タイミング (ms). Pipeline 内の "
             "pipeline_preprocess_ms / pipeline_inference_ms / "
-            "pipeline_postprocess_ms を含む. CUDA 利用時は "
-            "pipeline_inference_gpu_ms (CUDA Event 計測の GPU 実時間) も追加され, "
-            "pipeline_inference_ms との差分が Python 側待ち時間 "
+            "pipeline_postprocess_ms に加え, API boundary の "
+            "api_preprocess_ms (deserialize + cvtColor) / "
+            "api_postprocess_ms (results 組み立て + DetectResponse 構築) も含む. "
+            "全キー合計は e2e_time_ms と概ね一致する. "
+            "CUDA 利用時は pipeline_inference_gpu_ms (CUDA Event 計測の GPU 実時間) "
+            "も追加され, pipeline_inference_ms との差分が Python 側待ち時間 "
             "(GIL / asyncio / OS scheduler) の指標になる."
         ),
     )

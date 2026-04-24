@@ -33,12 +33,15 @@ def _encode_raw(image: np.ndarray) -> dict[str, object]:
     }
 
 
-def _install_engine_returning(detections: list[dict]) -> None:
+def _install_engine_returning(
+    detections: list[dict],
+    phase_times: dict[str, float] | None = None,
+) -> None:
     from unittest.mock import MagicMock
 
     engine = MagicMock()
     engine.backend_name = "pytorch"
-    engine.predict.return_value = (detections, {})
+    engine.predict.return_value = (detections, phase_times or {})
     set_engine(engine)
 
 
@@ -65,8 +68,9 @@ def test_detect_returns_200_with_detections() -> None:
     assert body["detections"][0]["bbox"] == [1.0, 2.0, 3.0, 4.0]
     assert "e2e_time_ms" in body
     assert "phase_times_ms" in body
-    # MagicMock engine が空 dict を返すため breakdown は出ない.
-    # 旧 b64_decode_ms / cvt_color_ms 等のキーが消えていることを確認.
+    # MagicMock engine が空 dict を返すため pipeline 内訳は出ないが,
+    # router は deserialize / response_build を計測して api_* キーを追加する.
+    # 旧 b64_decode_ms / cvt_color_ms / gap_since_last_request_ms は出ないことを確認.
     assert "b64_decode_ms" not in body["phase_times_ms"]
     assert "cvt_color_ms" not in body["phase_times_ms"]
     assert "gap_since_last_request_ms" not in body["phase_times_ms"]
@@ -169,3 +173,46 @@ def test_detect_returns_null_gpu_metrics_when_pynvml_unavailable() -> None:
     assert body["gpu_clock_mhz"] is None
     assert body["gpu_vram_used_mb"] is None
     assert body["gpu_temperature_c"] is None
+
+
+def test_detect_phase_times_contains_api_pre_post_keys() -> None:
+    """レスポンスの phase_times_ms に api_preprocess_ms / api_postprocess_ms が入る."""
+    _install_engine_returning([])
+    app = create_app(None)
+    payload = _encode_raw(np.zeros((4, 4, 3), dtype=np.uint8))
+    with TestClient(app) as client:
+        res = client.post("/api/v1/detect", json=payload)
+
+    assert res.status_code == 200
+    body = res.json()
+    phases = body["phase_times_ms"]
+    assert "api_preprocess_ms" in phases
+    assert "api_postprocess_ms" in phases
+    assert phases["api_preprocess_ms"] >= 0.0
+    assert phases["api_postprocess_ms"] >= 0.0
+
+
+def test_detect_phase_times_strips_backend_internal_keys() -> None:
+    """Backend が返す underscore prefix キーは router が吸収しレスポンスに出ない."""
+    _install_engine_returning(
+        [],
+        phase_times={
+            "pipeline_preprocess_ms": 1.0,
+            "pipeline_inference_ms": 5.0,
+            "pipeline_postprocess_ms": 2.0,
+            "_api_preprocess_backend_ms": 0.4,
+            "_api_postprocess_backend_ms": 0.3,
+        },
+    )
+    app = create_app(None)
+    payload = _encode_raw(np.zeros((4, 4, 3), dtype=np.uint8))
+    with TestClient(app) as client:
+        res = client.post("/api/v1/detect", json=payload)
+
+    assert res.status_code == 200
+    phases = res.json()["phase_times_ms"]
+    assert "_api_preprocess_backend_ms" not in phases
+    assert "_api_postprocess_backend_ms" not in phases
+    # backend の cvtColor 分が router の deserialize に加算されている.
+    assert phases["api_preprocess_ms"] >= 0.4
+    assert phases["api_postprocess_ms"] >= 0.3
