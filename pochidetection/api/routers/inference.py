@@ -12,7 +12,11 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from pochidetection.api.gpu_clock import get_gpu_clock_mhz
+from pochidetection.api.gpu_metrics import (
+    get_gpu_clock_mhz,
+    get_gpu_temperature_c,
+    get_gpu_vram_used_mb,
+)
 from pochidetection.api.log_format import format_inference, format_phase
 from pochidetection.api.schemas import DetectionDict, DetectRequest, DetectResponse
 from pochidetection.api.serializers import IImageSerializer, create_serializer
@@ -103,9 +107,11 @@ async def detect(request: DetectRequest) -> DetectResponse:
 
     phase_times: dict[str, float] = {k: round(v, 3) for k, v in predict_phases.items()}
 
-    # Why: GPU clock は e2e 計測外 (logger.info 直前) で取得し,
-    # pynvml 呼び出し (~数百 us) が e2e_time_ms に乗らないようにする.
+    # Why: GPU メトリクスは e2e 計測外 (logger.info 直前) で取得し,
+    # pynvml 呼び出し (~数百 us x 3) が e2e_time_ms に乗らないようにする.
     clk_mhz = get_gpu_clock_mhz()
+    vram_mb = get_gpu_vram_used_mb()
+    temp_c = get_gpu_temperature_c()
     clk_str = f" clk={clk_mhz}MHz" if clk_mhz is not None else ""
 
     logger.info(
@@ -121,4 +127,7 @@ async def detect(request: DetectRequest) -> DetectResponse:
         e2e_time_ms=round(elapsed_ms, 3),
         backend=engine.backend_name,
         phase_times_ms=phase_times,
+        gpu_clock_mhz=clk_mhz,
+        gpu_vram_used_mb=vram_mb,
+        gpu_temperature_c=temp_c,
     )
