@@ -2,6 +2,7 @@
 
 import importlib.metadata
 import threading
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
@@ -166,10 +167,18 @@ class IDetectionBackend(ABC):
             ``pipeline_inference_gpu_ms`` (CUDA Event 計測の GPU 実時間) も
             追加される. wall-clock との差分が Python 側の待ち時間
             (GIL / asyncio / OS scheduler) の指標となる.
+            Backend 側の API boundary 所要時間は ``_api_preprocess_backend_ms``
+            (cvtColor + infer_debug lock 確認) と ``_api_postprocess_backend_ms``
+            (phase_times / results dict 組み立て) の underscore prefix で返し,
+            router 側で deserialize / response_build と合算して公開キー
+            ``api_preprocess_ms`` / ``api_postprocess_ms`` にする.
         """
+        t_backend_pre_start = time.perf_counter()
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         self._maybe_save_infer_debug(rgb)
+        t_pipeline_start = time.perf_counter()
         raw_detections = self._pipeline.run(rgb, threshold=score_threshold)
+        t_backend_post_start = time.perf_counter()
 
         phase_times: dict[str, float] = {}
         pt = self._pipeline.phased_timer
@@ -203,6 +212,13 @@ class IDetectionBackend(ABC):
                     "bbox": [float(v) for v in det.box],
                 }
             )
+        t_backend_post_end = time.perf_counter()
+        phase_times["_api_preprocess_backend_ms"] = (
+            t_pipeline_start - t_backend_pre_start
+        ) * 1000
+        phase_times["_api_postprocess_backend_ms"] = (
+            t_backend_post_end - t_backend_post_start
+        ) * 1000
         return results, phase_times
 
     def _maybe_save_infer_debug(self, rgb: np.ndarray) -> None:

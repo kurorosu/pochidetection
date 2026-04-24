@@ -97,8 +97,7 @@ class TestPredictPhaseTimes:
         _, phase_times = backend.predict(image)
 
         assert "pipeline_inference_gpu_ms" not in phase_times
-        # phase_times は 4 値 (CUDA 時) / 3 値 (CPU 時) のみで,
-        # cvt_color_ms / pipeline_total_ms 等の breakdown を含まない.
+        # 旧 breakdown キーは含まない.
         assert "cvt_color_ms" not in phase_times
         assert "pipeline_total_ms" not in phase_times
 
@@ -111,6 +110,21 @@ class TestPredictPhaseTimes:
         _, phase_times = backend.predict(image)
 
         assert phase_times["pipeline_inference_gpu_ms"] == 7.42
+
+    def test_predict_returns_backend_api_boundary_timings(self) -> None:
+        """predict() が cvtColor + infer_debug と post-pipeline 組み立ての
+        underscore prefix キーを返す.
+        """
+        pipeline = _StubPipeline()
+        backend = _make_backend(pipeline)
+        image = np.zeros((32, 32, 3), dtype=np.uint8)
+
+        _, phase_times = backend.predict(image)
+
+        assert "_api_preprocess_backend_ms" in phase_times
+        assert "_api_postprocess_backend_ms" in phase_times
+        assert phase_times["_api_preprocess_backend_ms"] >= 0.0
+        assert phase_times["_api_postprocess_backend_ms"] >= 0.0
 
 
 class TestPredictThresholdForwarding:
