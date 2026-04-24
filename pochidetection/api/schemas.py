@@ -136,3 +136,18 @@ class DetectResponse(BaseModel):
             "(GIL / asyncio / OS scheduler) の指標になる."
         ),
     )
+    gpu_clock_mhz: int | None = Field(
+        default=None,
+        description=(
+            "現在の GPU graphics clock (MHz). pynvml 初期化失敗 "
+            "(CUDA 不在 / NVIDIA driver なし) 時は null."
+        ),
+    )
+    gpu_vram_used_mb: int | None = Field(
+        default=None,
+        description=("現在の GPU VRAM 使用量 (MB). pynvml 初期化失敗時は null."),
+    )
+    gpu_temperature_c: int | None = Field(
+        default=None,
+        description=("現在の GPU 温度 (℃). pynvml 初期化失敗時は null."),
+    )

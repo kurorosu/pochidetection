@@ -205,7 +205,7 @@ import pytest
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
 def test_returns_real_clock_mhz_on_cuda_environment() -> None:
     """CUDA 環境では実際の GPU graphics clock (MHz) を整数で返す."""
-    result = gpu_clock.get_gpu_clock_mhz()
+    result = gpu_metrics.get_gpu_clock_mhz()
     assert result is not None
     assert isinstance(result, int)
 ```

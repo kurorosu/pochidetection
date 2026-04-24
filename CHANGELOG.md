@@ -7,6 +7,7 @@
 
 ### Added
 - 推論時 preprocess 後画像のデバッグ保存を追加. top-level `infer_debug_save_count` (既定 1) で制御し, CLI / 動画 / カメラ / WebAPI の全経路で先頭 N 枚を `{output_dir}/infer_debug/` へ保存. ([#577](https://github.com/kurorosu/pochidetection/pull/577))
+- `DetectResponse` に GPU メトリクス 3 フィールド (`gpu_clock_mhz` / `gpu_vram_used_mb` / `gpu_temperature_c`) を追加. `api/gpu_clock.py` を `api/gpu_metrics.py` にリネームし, VRAM 使用量 / 温度取得関数を新設して handle をキャッシュ共有. ((NA.))
 
 ### Changed
 - Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. ([#576](https://github.com/kurorosu/pochidetection/pull/576))
@@ -18,7 +19,7 @@
 - 推論 route の命名整理: `_setup_pipeline` (→`build_pipeline`) / `_InferenceContext` / `_resolve_model_path` を public 化し, CLAUDE.md 命名規約との乖離を是正. ([#582](https://github.com/kurorosu/pochidetection/pull/582))
   - `cli/registry.py` の `resolve_infer` / `resolve_setup_pipeline` を `get_*_for_arch` にリネーム + `__all__` 宣言.
 - 学習 route の命名整理: `cli/registry.py::resolve_train` を推論 route と揃えて `get_train_for_arch` にリネーム. `cli/commands/train.py` の `train_fn` ローカル変数から冗長な `_fn` を削除. ([#583](https://github.com/kurorosu/pochidetection/pull/583))
-- Pipeline route の命名整理: `pipelines/` の動詞を役割別 (`build_*` / `create_*` / `configure_*` / `resolve_*`) に統一し, `setup_pipeline` → `build_pipeline_from_spec`, `resolve_and_setup_pipeline` → `resolve_and_build_pipeline`, `setup_cudnn_benchmark` → `configure_cudnn_benchmark` にリネーム. ((NA.))
+- Pipeline route の命名整理: `pipelines/` の動詞を役割別 (`build_*` / `create_*` / `configure_*` / `resolve_*`) に統一し, `setup_pipeline` → `build_pipeline_from_spec`, `resolve_and_setup_pipeline` → `resolve_and_build_pipeline`, `setup_cudnn_benchmark` → `configure_cudnn_benchmark` にリネーム. ([#585](https://github.com/kurorosu/pochidetection/pull/585))
   - `ResolvedPipeline.ctx` を `.context` に改名し, orchestration の public parameter の `ctx: InferenceContext` も `context: InferenceContext` に統一. 短い local スコープの `ctx` は維持.
 
 ### Fixed

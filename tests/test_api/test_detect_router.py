@@ -1,12 +1,27 @@
 """POST /api/v1/detect エンドポイントを MagicMock engine で検証."""
 
 import base64
+from collections.abc import Iterator
+from unittest.mock import patch
 
 import numpy as np
+import pynvml
+import pytest
 from fastapi.testclient import TestClient
 
+from pochidetection.api import gpu_metrics
 from pochidetection.api.app import create_app
 from pochidetection.api.state import set_engine
+
+
+@pytest.fixture(autouse=True)
+def _reset_gpu_metrics_state() -> Iterator[None]:
+    """`gpu_metrics` モジュール level のキャッシュ状態をテスト間で初期化する."""
+    gpu_metrics._handle = None
+    gpu_metrics._initialized = False
+    yield
+    gpu_metrics._handle = None
+    gpu_metrics._initialized = False
 
 
 def _encode_raw(image: np.ndarray) -> dict[str, object]:
@@ -110,3 +125,47 @@ def test_detect_passes_score_threshold_to_engine() -> None:
     engine.predict.assert_called_once()
     _, kwargs = engine.predict.call_args
     assert kwargs["score_threshold"] == 0.7
+
+
+def test_detect_returns_gpu_metrics_when_pynvml_available() -> None:
+    """pynvml 取得成功時, GPU clock / VRAM / 温度 がレスポンスに int で載る."""
+    from types import SimpleNamespace
+
+    _install_engine_returning([])
+    fake_handle = object()
+    fake_mem = SimpleNamespace(used=1024 * 1024 * 768)  # 768 MiB
+    app = create_app(None)
+    payload = _encode_raw(np.zeros((4, 4, 3), dtype=np.uint8))
+    with (
+        patch.object(pynvml, "nvmlInit", return_value=None),
+        patch.object(pynvml, "nvmlDeviceGetHandleByIndex", return_value=fake_handle),
+        patch.object(pynvml, "nvmlDeviceGetClockInfo", return_value=1800),
+        patch.object(pynvml, "nvmlDeviceGetMemoryInfo", return_value=fake_mem),
+        patch.object(pynvml, "nvmlDeviceGetTemperature", return_value=58),
+        TestClient(app) as client,
+    ):
+        res = client.post("/api/v1/detect", json=payload)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["gpu_clock_mhz"] == 1800
+    assert body["gpu_vram_used_mb"] == 768
+    assert body["gpu_temperature_c"] == 58
+
+
+def test_detect_returns_null_gpu_metrics_when_pynvml_unavailable() -> None:
+    """pynvml 初期化失敗時, 3 メトリクスともレスポンスで null になる."""
+    _install_engine_returning([])
+    app = create_app(None)
+    payload = _encode_raw(np.zeros((4, 4, 3), dtype=np.uint8))
+    with (
+        patch.object(pynvml, "nvmlInit", side_effect=pynvml.NVMLError(1)),
+        TestClient(app) as client,
+    ):
+        res = client.post("/api/v1/detect", json=payload)
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["gpu_clock_mhz"] is None
+    assert body["gpu_vram_used_mb"] is None
+    assert body["gpu_temperature_c"] is None
