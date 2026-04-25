@@ -1,6 +1,6 @@
 # pochidetection
 
-[![Version](https://img.shields.io/badge/version-0.17.0-blue.svg)](https://github.com/kurorosu/pochidetection)
+[![Version](https://img.shields.io/badge/version-0.18.0-blue.svg)](https://github.com/kurorosu/pochidetection)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13+-yellow.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9+-ee4c2c.svg)](https://pytorch.org/)
@@ -96,7 +96,7 @@ uv run pochi train -c configs/rtdetr_coco.py
 uv run pochi train -c configs/ssdlite_coco.py
 ```
 
-Data Augmentation は config.py の `augmentation` セクションで設定可能 (詳細は [docs/augmentation.md](docs/augmentation.md) を参照).
+Data Augmentation は config.py の `augmentation` セクションで設定可能 (詳細は [docs/guides/augmentation.md](docs/guides/augmentation.md) を参照).
 
 ### 5. 結果の確認
 
@@ -292,7 +292,7 @@ curl http://localhost:8000/api/v1/model-info
 | PyTorch / TensorRT | `gpu` (default) | `cpu` | `gpu` |
 | ONNX | `cpu` (自動) | `cpu` | **起動エラー** (ONNX Runtime は CPU numpy 入力のため) |
 
-リクエスト例, レスポンス形式, エラーハンドリングの詳細は [docs/api-server.md](docs/api-server.md) を参照してください.
+リクエスト例, レスポンス形式, エラーハンドリングの詳細は [docs/guides/api-server.md](docs/guides/api-server.md) を参照してください.
 
 ## サポート機能
 

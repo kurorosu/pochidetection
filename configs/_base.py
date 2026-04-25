@@ -50,7 +50,7 @@ infer_debug_save_count = 1
 # 学習 / 推論 両方に適用. False で従来の単純 resize に戻る.
 letterbox = True
 
-# Data Augmentation 設定 (学習時のみ適用, 詳細は docs/augmentation.md を参照)
+# Data Augmentation 設定 (学習時のみ適用, 詳細は docs/guides/augmentation.md を参照)
 augmentation = {
     "enabled": False,  # データ拡張の有効化 (True で transforms の変換を適用)
     "transforms": [
