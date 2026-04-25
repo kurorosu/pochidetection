@@ -1,5 +1,6 @@
 """IDetectionBackend の公開メソッド群を classical test で検証."""
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
 from pochidetection.models import RTDetrModel
+from pochidetection.utils.infer_debug import InferDebugConfig
 
 
 class _StubPipeline(IDetectionPipeline[Any, Any]):
@@ -95,8 +97,7 @@ class TestPredictPhaseTimes:
         _, phase_times = backend.predict(image)
 
         assert "pipeline_inference_gpu_ms" not in phase_times
-        # phase_times は 4 値 (CUDA 時) / 3 値 (CPU 時) のみで,
-        # cvt_color_ms / pipeline_total_ms 等の breakdown を含まない.
+        # 旧 breakdown キーは含まない.
         assert "cvt_color_ms" not in phase_times
         assert "pipeline_total_ms" not in phase_times
 
@@ -109,6 +110,21 @@ class TestPredictPhaseTimes:
         _, phase_times = backend.predict(image)
 
         assert phase_times["pipeline_inference_gpu_ms"] == 7.42
+
+    def test_predict_returns_backend_api_boundary_timings(self) -> None:
+        """predict() が cvtColor + infer_debug と post-pipeline 組み立ての
+        underscore prefix キーを返す.
+        """
+        pipeline = _StubPipeline()
+        backend = _make_backend(pipeline)
+        image = np.zeros((32, 32, 3), dtype=np.uint8)
+
+        _, phase_times = backend.predict(image)
+
+        assert "_api_preprocess_backend_ms" in phase_times
+        assert "_api_postprocess_backend_ms" in phase_times
+        assert phase_times["_api_preprocess_backend_ms"] >= 0.0
+        assert phase_times["_api_postprocess_backend_ms"] >= 0.0
 
 
 class TestPredictThresholdForwarding:
@@ -384,3 +400,85 @@ class TestPyTorchDetectionBackendE2E:
         assert info["input_size"] == (64, 64)
         assert info["backend"] == "pytorch"
         assert info["model_path"] == str(saved_model_dir)
+
+
+class TestPredictInferDebugSave:
+    """predict() の infer_debug 保存動作 (lock 下での counter 管理)."""
+
+    def test_saves_first_n_images_only(self, tmp_path: Path) -> None:
+        """``save_count=2`` で最初の 2 リクエストのみ画像が保存される."""
+        pipeline = _StubPipeline()
+        infer_debug = InferDebugConfig(
+            save_count=2,
+            output_dir=tmp_path,
+            target_hw=(32, 32),
+            letterbox=True,
+        )
+        backend = PyTorchDetectionBackend(
+            pipeline=pipeline,
+            config=_make_config(height=32, width=32),
+            model_path=Path("dummy.pt"),
+            infer_debug=infer_debug,
+        )
+
+        image = np.zeros((48, 64, 3), dtype=np.uint8)
+        for _ in range(5):
+            backend.predict(image, score_threshold=0.1)
+
+        saved = sorted(p.name for p in tmp_path.iterdir() if p.suffix == ".jpg")
+        assert saved == ["infer_0000.jpg", "infer_0001.jpg"]
+
+    def test_no_save_when_infer_debug_disabled(self, tmp_path: Path) -> None:
+        """``infer_debug=None`` で保存処理が発火しない."""
+        pipeline = _StubPipeline()
+        backend = PyTorchDetectionBackend(
+            pipeline=pipeline,
+            config=_make_config(height=32, width=32),
+            model_path=Path("dummy.pt"),
+            infer_debug=None,
+        )
+
+        image = np.zeros((48, 64, 3), dtype=np.uint8)
+        backend.predict(image, score_threshold=0.1)
+
+        assert list(tmp_path.iterdir()) == []
+
+    def test_counter_is_thread_safe(self, tmp_path: Path) -> None:
+        """20 並行リクエストでも counter 超過で重複保存しない.
+
+        lock が無いと複数 thread が同じ index を取得して同じファイル名に
+        上書きしてしまい, 保存数が ``save_count`` を下回るか重複する可能性が
+        あるため, 並行でも保存枚数が厳密に ``save_count`` 枚になることを検証.
+        """
+        pipeline = _StubPipeline()
+        infer_debug = InferDebugConfig(
+            save_count=5,
+            output_dir=tmp_path,
+            target_hw=(32, 32),
+            letterbox=True,
+        )
+        backend = PyTorchDetectionBackend(
+            pipeline=pipeline,
+            config=_make_config(height=32, width=32),
+            model_path=Path("dummy.pt"),
+            infer_debug=infer_debug,
+        )
+
+        image = np.zeros((48, 64, 3), dtype=np.uint8)
+
+        def worker() -> None:
+            backend.predict(image, score_threshold=0.1)
+
+        with ThreadPoolExecutor(max_workers=20) as pool:
+            futures = [pool.submit(worker) for _ in range(20)]
+            for f in as_completed(futures):
+                f.result()
+
+        saved = sorted(p.name for p in tmp_path.iterdir() if p.suffix == ".jpg")
+        assert saved == [
+            "infer_0000.jpg",
+            "infer_0001.jpg",
+            "infer_0002.jpg",
+            "infer_0003.jpg",
+            "infer_0004.jpg",
+        ]

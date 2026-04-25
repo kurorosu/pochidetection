@@ -5,9 +5,6 @@
 
 from pathlib import Path
 
-import torch
-from torchvision.transforms import v2
-
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.inference import SSDLiteOnnxBackend, SsdPyTorchBackend
 
@@ -19,19 +16,14 @@ except ImportError:
     _TRT_AVAILABLE = False
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSDLiteModel
+from pochidetection.orchestration import run_batch_inference
 from pochidetection.pipelines import SsdPipeline
-from pochidetection.pipelines.builder import (
-    PipelineContext,
-    build_pipeline_context,
-    create_backend,
+from pochidetection.pipelines.context import PipelineContext
+from pochidetection.pipelines.spec import (
+    ArchitectureSpec,
+    BackendFactories,
+    build_pipeline_from_spec,
 )
-from pochidetection.pipelines.builder import infer as common_infer
-from pochidetection.pipelines.builder import (
-    resolve_device,
-    resolve_pipeline_mode,
-    setup_cudnn_benchmark,
-)
-from pochidetection.utils import PhasedTimer
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -54,7 +46,7 @@ def infer(
         config_path: 設定ファイルのパス. 指定時は推論結果ディレクトリにコピーする.
         save_crop: True の場合, 検出ボックスのクロップ画像を保存する.
     """
-    common_infer(
+    run_batch_inference(
         config,
         image_dir,
         model_dir,
@@ -96,76 +88,37 @@ def _create_pytorch_backend(
     return SsdPyTorchBackend(model)
 
 
-def _setup_pipeline(
+def build_pipeline(
     config: DetectionConfigDict,
     model_path: Path,
 ) -> PipelineContext:
-    """推論パイプラインの構築.
-
-    Args:
-        config: 設定辞書.
-        model_path: モデルのパス (ディレクトリ, ONNX ファイル, または TensorRT エンジン).
-
-    Returns:
-        構築済みのパイプラインコンテキスト.
-    """
-    threshold = config["infer_score_threshold"]
+    """推論パイプラインの構築 (``ArchitectureSpec`` 経由で共通化)."""
     num_classes = config["num_classes"]
     image_size_cfg = config.get("image_size", {"height": 320, "width": 320})
-    image_size = (image_size_cfg["height"], image_size_cfg["width"])
+    image_size = (int(image_size_cfg["height"]), int(image_size_cfg["width"]))
     nms_iou_threshold = config.get("nms_iou_threshold", 0.5)
 
-    setup_cudnn_benchmark(config)
-
-    backend, precision, use_fp16 = create_backend(
-        model_path,
-        config,
-        create_trt=lambda p: SSDLiteTensorRTBackend(
-            engine_path=p,
-            num_classes=num_classes,
-            image_size=image_size,
-            nms_iou_threshold=nms_iou_threshold,
+    spec = ArchitectureSpec(
+        pipeline_cls=SsdPipeline,
+        backends=BackendFactories(
+            pytorch=lambda p, d, fp16: _create_pytorch_backend(p, d, fp16, config),
+            onnx=lambda p, d: SSDLiteOnnxBackend(
+                model_path=p,
+                num_classes=num_classes,
+                image_size=image_size,
+                nms_iou_threshold=nms_iou_threshold,
+                device=d,
+            ),
+            tensorrt=lambda p: SSDLiteTensorRTBackend(
+                engine_path=p,
+                num_classes=num_classes,
+                image_size=image_size,
+                nms_iou_threshold=nms_iou_threshold,
+            ),
+            trt_available=_TRT_AVAILABLE,
         ),
-        create_onnx=lambda p, d: SSDLiteOnnxBackend(
-            model_path=p,
-            num_classes=num_classes,
-            image_size=image_size,
-            nms_iou_threshold=nms_iou_threshold,
-            device=d,
-        ),
-        create_pytorch=lambda p, d, fp16: _create_pytorch_backend(p, d, fp16, config),
-        trt_available=_TRT_AVAILABLE,
+        build_pipeline_kwargs=lambda cfg, hw, _processor: {"image_size": hw},
+        default_image_size=(320, 320),
     )
-
-    actual_device, runtime_device = resolve_device(model_path, config, backend)
-    pipeline_mode = resolve_pipeline_mode(config.get("pipeline_mode"), model_path)
-
-    transform = v2.Compose(
-        [
-            v2.Resize(image_size),
-            v2.ToImage(),
-            v2.ToDtype(torch.float32, scale=True),
-        ]
-    )
-
-    phased_timer = PhasedTimer(phases=SsdPipeline.PHASES, device=runtime_device)
-    pipeline = SsdPipeline(
-        backend=backend,
-        transform=transform,
-        image_size=image_size,
-        device=runtime_device,
-        threshold=threshold,
-        use_fp16=use_fp16,
-        phased_timer=phased_timer,
-        pipeline_mode=pipeline_mode,
-        letterbox=config.get("letterbox", True),
-    )
-
-    return build_pipeline_context(
-        pipeline=pipeline,
-        phased_timer=phased_timer,
-        config=config,
-        model_path=model_path,
-        actual_device=actual_device,
-        precision=precision,
-    )
+    context = build_pipeline_from_spec(spec, config, model_path)
+    return context

@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from pochidetection.api.constants import MAX_PIXELS
-from pochidetection.api.schemas import DetectionDict, DetectRequest
+from pochidetection.api.schemas import DetectionDict, DetectRequest, DetectResponse
 
 
 def test_detect_request_raw_requires_shape() -> None:
@@ -118,3 +118,28 @@ class TestDetectionDictConfidenceBounds:
                 confidence=value,
                 bbox=[1.0, 2.0, 3.0, 4.0],
             )
+
+
+class TestDetectResponseGpuMetrics:
+    """DetectResponse の GPU メトリクスフィールドのデフォルト / 型を検証."""
+
+    def test_defaults_to_none(self) -> None:
+        """未指定時は 3 フィールドとも None がデフォルト."""
+        res = DetectResponse(detections=[], e2e_time_ms=12.3, backend="pytorch")
+        assert res.gpu_clock_mhz is None
+        assert res.gpu_vram_used_mb is None
+        assert res.gpu_temperature_c is None
+
+    def test_accepts_int_values(self) -> None:
+        """int を指定した場合, そのまま保持される."""
+        res = DetectResponse(
+            detections=[],
+            e2e_time_ms=12.3,
+            backend="pytorch",
+            gpu_clock_mhz=1800,
+            gpu_vram_used_mb=2048,
+            gpu_temperature_c=55,
+        )
+        assert res.gpu_clock_mhz == 1800
+        assert res.gpu_vram_used_mb == 2048
+        assert res.gpu_temperature_c == 55

@@ -40,6 +40,10 @@ def _create_parser() -> argparse.ArgumentParser:
     uv run pochi infer -d rtsp://192.168.1.10/stream                 # RTSP
     uv run pochi infer -d rtsp://... --record                        # RTSP + 録画
 
+  WebAPI サーバー:
+    uv run pochi serve                                        # COCO プリトレイン
+    uv run pochi serve -m work_dirs/20260124_001/best         # 学習済みモデル
+
   エクスポート (入力パスで ONNX / TensorRT を自動判定):
     uv run pochi export -m work_dirs/20260124_001/best                         # フォルダ → ONNX
     uv run pochi export -m work_dirs/20260124_001/best --fp16                  # SSDLite FP16 ONNX
@@ -139,11 +143,12 @@ def _create_parser() -> argparse.ArgumentParser:
         "-m",
         "--model-path",
         type=str,
-        required=True,
+        default=None,
         help=(
             "モデルパス. ディレクトリ (学習済み work_dirs/xxx/best または last) / "
             ".onnx ファイル / .engine ファイル (TensorRT) を指定. "
-            "拡張子から backend を自動選択."
+            "拡張子から backend を自動選択. "
+            "省略時は RT-DETR COCO プリトレインモデルで起動."
         ),
     )
     serve_parser.add_argument(

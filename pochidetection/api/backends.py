@@ -1,21 +1,22 @@
 """検出バックエンド抽象と 3 実装 (PyTorch / ONNX / TensorRT)."""
 
 import importlib.metadata
+import threading
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Literal
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.pipeline import IDetectionPipeline
 from pochidetection.logging import LoggerManager
-from pochidetection.pipelines.builder import (
-    is_onnx_model,
-    is_tensorrt_model,
-    resolve_and_setup_pipeline,
-)
+from pochidetection.pipelines.model_path import is_onnx_model, is_tensorrt_model
+from pochidetection.pipelines.spec import resolve_and_build_pipeline
+from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 
 logger = LoggerManager().get_logger(__name__)
 
@@ -81,6 +82,7 @@ class IDetectionBackend(ABC):
         pipeline: IDetectionPipeline[Any, Any],
         config: DetectionConfigDict,
         model_path: Path,
+        infer_debug: InferDebugConfig | None = None,
     ) -> None:
         """Pipeline と共通メタ情報を保持する.
 
@@ -88,11 +90,17 @@ class IDetectionBackend(ABC):
             pipeline: 構築済みの検出 pipeline.
             config: 検証済みの設定辞書.
             model_path: モデルファイルまたはディレクトリ.
+            infer_debug: preprocess 後画像のデバッグ保存設定. ``None`` で無効.
+                マルチリクエスト並行時の counter は本クラスが ``threading.Lock``
+                で排他制御する.
         """
         self._pipeline = pipeline
         self._config = config
         self._model_path = model_path
         self._class_names: list[str] = list(config.get("class_names") or [])
+        self._infer_debug = infer_debug
+        self._infer_debug_saved = 0
+        self._infer_debug_lock = threading.Lock()
 
     @property
     def pipeline(self) -> IDetectionPipeline[Any, Any]:
@@ -159,9 +167,18 @@ class IDetectionBackend(ABC):
             ``pipeline_inference_gpu_ms`` (CUDA Event 計測の GPU 実時間) も
             追加される. wall-clock との差分が Python 側の待ち時間
             (GIL / asyncio / OS scheduler) の指標となる.
+            Backend 側の API boundary 所要時間は ``_api_preprocess_backend_ms``
+            (cvtColor + infer_debug lock 確認) と ``_api_postprocess_backend_ms``
+            (phase_times / results dict 組み立て) の underscore prefix で返し,
+            router 側で deserialize / response_build と合算して公開キー
+            ``api_preprocess_ms`` / ``api_postprocess_ms`` にする.
         """
+        t_backend_pre_start = time.perf_counter()
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self._maybe_save_infer_debug(rgb)
+        t_pipeline_start = time.perf_counter()
         raw_detections = self._pipeline.run(rgb, threshold=score_threshold)
+        t_backend_post_start = time.perf_counter()
 
         phase_times: dict[str, float] = {}
         pt = self._pipeline.phased_timer
@@ -195,7 +212,39 @@ class IDetectionBackend(ABC):
                     "bbox": [float(v) for v in det.box],
                 }
             )
+        t_backend_post_end = time.perf_counter()
+        phase_times["_api_preprocess_backend_ms"] = (
+            t_pipeline_start - t_backend_pre_start
+        ) * 1000
+        phase_times["_api_postprocess_backend_ms"] = (
+            t_backend_post_end - t_backend_post_start
+        ) * 1000
         return results, phase_times
+
+    def _maybe_save_infer_debug(self, rgb: np.ndarray) -> None:
+        """推論 request 毎に先頭 N 枚の preprocess 後画像を保存する.
+
+        Lock 下で counter を進め, 上限到達後は何もしない. 保存対象と判定された
+        index は lock 外で JPEG 化するため, I/O がロック区間を延ばさない.
+
+        Args:
+            rgb: RGB uint8 画像.
+        """
+        if self._infer_debug is None:
+            return
+
+        with self._infer_debug_lock:
+            if self._infer_debug_saved >= self._infer_debug.save_count:
+                return
+            idx = self._infer_debug_saved
+            self._infer_debug_saved += 1
+
+        save_infer_debug_image(
+            source_image=Image.fromarray(rgb),
+            target_hw=self._infer_debug.target_hw,
+            letterbox=self._infer_debug.letterbox,
+            save_path=self._infer_debug.output_dir / f"infer_{idx:04d}.jpg",
+        )
 
     @abstractmethod
     def close(self) -> None:
@@ -245,14 +294,15 @@ _BACKEND_CLASSES: dict[str, type[_ConcreteBackend]] = {
 
 
 def create_detection_backend(
-    model_path: Path,
+    model_path: Path | None,
     config: DetectionConfigDict,
     config_path: str | None = None,
 ) -> IDetectionBackend:
     """model_path から pipeline を解決し, detection backend を構築する.
 
     Args:
-        model_path: モデルファイルまたはディレクトリ.
+        model_path: モデルファイルまたはディレクトリ. ``None`` の場合は RT-DETR
+            COCO プリトレインモデルにフォールバックし, backend は ``pytorch`` 固定.
         config: ロード済みの設定辞書.
         config_path: 設定ファイルパス. 指定時は推論結果ディレクトリへコピーされる.
 
@@ -262,20 +312,34 @@ def create_detection_backend(
     Raises:
         RuntimeError: パイプライン構築に失敗した場合.
     """
-    backend_name = detect_backend_from_model(model_path)
-    backend_cls = _BACKEND_CLASSES[backend_name]
+    if model_path is None:
+        backend_name = "pytorch"
+        logger.info("Loading RT-DETR COCO pretrained model (backend=pytorch)")
+        resolved = resolve_and_build_pipeline(
+            config=config,
+            model_dir=None,
+            config_path=config_path,
+        )
+    else:
+        backend_name = detect_backend_from_model(model_path)
+        logger.info(f"Loading model: {model_path} (backend={backend_name})")
+        resolved = resolve_and_build_pipeline(
+            config=config,
+            model_dir=str(model_path),
+            config_path=config_path,
+        )
 
-    logger.info(f"Loading model: {model_path} (backend={backend_name})")
-    resolved = resolve_and_setup_pipeline(
-        config=config,
-        model_dir=str(model_path),
-        config_path=config_path,
-    )
+    backend_cls = _BACKEND_CLASSES[backend_name]
     if resolved is None:
         raise RuntimeError(f"モデルロードに失敗しました: {model_path}")
 
+    infer_debug = InferDebugConfig.from_config(
+        resolved.config, resolved.context.saver.output_dir
+    )
+
     return backend_cls(
-        pipeline=resolved.ctx.pipeline,
+        pipeline=resolved.context.pipeline,
         config=resolved.config,
         model_path=resolved.model_path,
+        infer_debug=infer_debug,
     )

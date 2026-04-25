@@ -8,16 +8,15 @@ import sys
 from pathlib import Path
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
-from pochidetection.cli.registry import resolve_infer
+from pochidetection.cli.registry import get_infer_for_arch
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.interfaces.frame_sink import IFrameSink
 from pochidetection.logging import LoggerManager
-from pochidetection.pipelines.builder import (
-    ResolvedPipeline,
-    resolve_and_setup_pipeline,
-)
+from pochidetection.pipelines.context import ResolvedPipeline
+from pochidetection.pipelines.spec import resolve_and_build_pipeline
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
+from pochidetection.utils.infer_debug import InferDebugConfig
 from pochidetection.utils.video import (
     CompositeSink,
     DisplaySink,
@@ -88,7 +87,7 @@ def _run_stream_infer(
     """
     logger = LoggerManager().get_logger(__name__)
 
-    resolved = resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    resolved = resolve_and_build_pipeline(config, model_dir, config_path, logger)
     if resolved is None:
         return
 
@@ -132,6 +131,7 @@ def _run_stream_infer(
                 overlay_fps=True,
                 recording=record,
                 logger=logger,
+                infer_debug=InferDebugConfig.from_config(config, ctx.saver.output_dir),
             )
 
         if record and isinstance(writer, LazyVideoWriter):
@@ -229,11 +229,11 @@ def _run_video_infer(
         logger.error(f"Video file not found: {video_path}")
         return
 
-    resolved = resolve_and_setup_pipeline(config, model_dir, config_path, logger)
+    resolved = resolve_and_build_pipeline(config, model_dir, config_path, logger)
     if resolved is None:
         return
 
-    ctx = resolved.ctx
+    ctx = resolved.context
 
     # 出力パス: 入力と同じディレクトリに _result 付きで出力
     output_path = video_file.parent / f"{video_file.stem}_result.mp4"
@@ -259,6 +259,9 @@ def _run_video_infer(
                 visualizer=ctx.visualizer,
                 interval=interval,
                 logger=logger,
+                infer_debug=InferDebugConfig.from_config(
+                    resolved.config, ctx.saver.output_dir
+                ),
             )
 
     logger.info(f"Output saved to {output_path}")
@@ -306,7 +309,7 @@ def run_infer(args: argparse.Namespace) -> None:
     elif is_video_file(input_path):
         _run_video_infer(config, input_path, args.model_dir, config_path, args.interval)
     else:
-        infer_fn = resolve_infer(config)
+        infer_fn = get_infer_for_arch(config)
         infer_fn(
             config,
             input_path,

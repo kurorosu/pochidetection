@@ -4,6 +4,9 @@
 レスポンスの ``phase_times_ms`` には pipeline 内訳 (preprocess / inference /
 postprocess の ms 値) を返す. CUDA 利用時は ``pipeline_inference_gpu_ms``
 (CUDA Event 計測) も追加され, wall-clock との差分が Python 側待ち時間の指標になる.
+さらに ``api_preprocess_ms`` / ``api_postprocess_ms`` で API boundary
+(deserialize + cvtColor / results 組み立て + DetectResponse 構築) の所要時間も併記し,
+``e2e_time_ms`` と pipeline 3 フェーズの差分を観測可能にする.
 """
 
 import binascii
@@ -12,7 +15,11 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from pochidetection.api.gpu_clock import get_gpu_clock_mhz
+from pochidetection.api.gpu_metrics import (
+    get_gpu_clock_mhz,
+    get_gpu_temperature_c,
+    get_gpu_vram_used_mb,
+)
 from pochidetection.api.log_format import format_inference, format_phase
 from pochidetection.api.schemas import DetectionDict, DetectRequest, DetectResponse
 from pochidetection.api.serializers import IImageSerializer, create_serializer
@@ -88,6 +95,8 @@ async def detect(request: DetectRequest) -> DetectResponse:
             detail="画像処理中にエラーが発生しました",
         ) from e
 
+    t_after_deserialize = time.perf_counter()
+
     try:
         detections, predict_phases = engine.predict(
             image, score_threshold=request.score_threshold
@@ -99,26 +108,48 @@ async def detect(request: DetectRequest) -> DetectResponse:
             detail="推論中にエラーが発生しました",
         ) from e
 
-    elapsed_ms = (time.perf_counter() - t_start) * 1000
+    t_after_predict = time.perf_counter()
+    detection_dicts = [DetectionDict(**d) for d in detections]
+    t_after_response_build = time.perf_counter()
+
+    deserialize_ms = (t_after_deserialize - t_start) * 1000
+    response_build_ms = (t_after_response_build - t_after_predict) * 1000
+    api_preprocess_ms = deserialize_ms + predict_phases.pop(
+        "_api_preprocess_backend_ms", 0.0
+    )
+    api_postprocess_ms = (
+        predict_phases.pop("_api_postprocess_backend_ms", 0.0) + response_build_ms
+    )
+    predict_phases["api_preprocess_ms"] = api_preprocess_ms
+    predict_phases["api_postprocess_ms"] = api_postprocess_ms
+
+    elapsed_ms = (t_after_response_build - t_start) * 1000
 
     phase_times: dict[str, float] = {k: round(v, 3) for k, v in predict_phases.items()}
 
-    # Why: GPU clock は e2e 計測外 (logger.info 直前) で取得し,
-    # pynvml 呼び出し (~数百 us) が e2e_time_ms に乗らないようにする.
+    # Why: GPU メトリクスは e2e 計測外 (logger.info 直前) で取得し,
+    # pynvml 呼び出し (~数百 us x 3) が e2e_time_ms に乗らないようにする.
     clk_mhz = get_gpu_clock_mhz()
+    vram_mb = get_gpu_vram_used_mb()
+    temp_c = get_gpu_temperature_c()
     clk_str = f" clk={clk_mhz}MHz" if clk_mhz is not None else ""
 
     logger.info(
         f"Detection complete: detections={len(detections)} e2e={elapsed_ms:.1f} "
+        f"{format_phase(phase_times, 'api_preprocess_ms', 'api_pre')} "
         f"{format_phase(phase_times, 'pipeline_preprocess_ms', 'pre')} "
         f"{format_inference(phase_times)} "
-        f"{format_phase(phase_times, 'pipeline_postprocess_ms', 'post')}"
+        f"{format_phase(phase_times, 'pipeline_postprocess_ms', 'post')} "
+        f"{format_phase(phase_times, 'api_postprocess_ms', 'api_post')}"
         f"{clk_str} pipeline={engine.pipeline.pipeline_mode}"
     )
 
     return DetectResponse(
-        detections=[DetectionDict(**d) for d in detections],
+        detections=detection_dicts,
         e2e_time_ms=round(elapsed_ms, 3),
         backend=engine.backend_name,
         phase_times_ms=phase_times,
+        gpu_clock_mhz=clk_mhz,
+        gpu_vram_used_mb=vram_mb,
+        gpu_temperature_c=temp_c,
     )

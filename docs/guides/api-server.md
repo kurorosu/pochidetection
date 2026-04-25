@@ -5,6 +5,9 @@ pochidetection 推論 API サーバーにリクエストを送信するクライ
 ## サーバー起動
 
 ```bash
+# COCO プリトレイン (モデル未指定 — RT-DETR PekingU/rtdetr_r18vd を自動取得)
+uv run pochi serve
+
 # 学習済みモデル (PyTorch)
 uv run pochi serve -m work_dirs/20260124_001/best
 
@@ -19,6 +22,8 @@ uv run pochi serve -m work_dirs/20260124_001/best --host 0.0.0.0 --port 9000
 ```
 
 起動時に設定ファイルはモデルパスから自動解決されます. 明示指定する場合は `-c configs/rtdetr_coco.py` を付与してください. 起動直後にダミー画像で warmup 推論が走るため, 1 回目のリクエストから安定したレイテンシで応答します.
+
+`-m` を省略すると `configs/pretrained_rtdetr_coco.py` が自動適用され, RT-DETR COCO プリトレインモデル (80 クラス) で起動します. 学習済みモデルが無い環境でも `pochi serve` 単体で API を試せるため, README の Quick Start や他ツール連携のデモ用途に便利です.
 
 ## raw 形式 (numpy 配列)
 

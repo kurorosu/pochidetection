@@ -9,8 +9,12 @@ from pydantic import BaseModel, Field
 class ServerConfig(BaseModel):
     """推論 API サーバーの起動設定."""
 
-    model_path: Path = Field(
-        description="学習済みモデルのパス (ディレクトリ / .onnx / .engine)"
+    model_path: Path | None = Field(
+        default=None,
+        description=(
+            "学習済みモデルのパス (ディレクトリ / .onnx / .engine). "
+            "None の場合は RT-DETR COCO プリトレインモデルで起動."
+        ),
     )
     config_path: Path | None = Field(
         default=None,

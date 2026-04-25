@@ -214,7 +214,7 @@ class TestRTDetrPipelineMethods:
     """RTDetrPipeline の個別メソッドテスト."""
 
     def test_preprocess_returns_tensors(self) -> None:
-        """preprocess() がテンソル辞書を返すことを確認."""
+        """preprocess() がテンソル辞書 + letterbox params を返すことを確認."""
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
@@ -223,11 +223,12 @@ class TestRTDetrPipelineMethods:
         )
         image = Image.new("RGB", (64, 64))
 
-        inputs = pipeline.preprocess(image)
+        inputs, letterbox_params = pipeline.preprocess(image)
 
         assert isinstance(inputs, dict)
         assert "pixel_values" in inputs
         assert isinstance(inputs["pixel_values"], torch.Tensor)
+        assert letterbox_params is None  # letterbox=False 時は None
 
     def test_preprocess_output_shape(self) -> None:
         """preprocess() の出力テンソル形状を確認."""
@@ -239,7 +240,7 @@ class TestRTDetrPipelineMethods:
         )
         image = Image.new("RGB", (128, 96))
 
-        inputs = pipeline.preprocess(image)
+        inputs, _ = pipeline.preprocess(image)
 
         assert inputs["pixel_values"].shape == (1, 3, 64, 64)
         assert inputs["pixel_values"].dtype == torch.float32
@@ -254,7 +255,7 @@ class TestRTDetrPipelineMethods:
         )
         image = Image.new("RGB", (64, 64), color=(128, 64, 255))
 
-        inputs = pipeline.preprocess(image)
+        inputs, _ = pipeline.preprocess(image)
 
         assert inputs["pixel_values"].min() >= 0.0
         assert inputs["pixel_values"].max() <= 1.0
@@ -447,7 +448,7 @@ class TestRTDetrPipelineMode:
         )
         image = np.random.randint(0, 256, size=(96, 128, 3), dtype=np.uint8)
 
-        inputs = pipeline.preprocess(image)
+        inputs, _ = pipeline.preprocess(image)
 
         assert inputs["pixel_values"].shape == (1, 3, 64, 64)
         assert inputs["pixel_values"].dtype == torch.float32
@@ -478,8 +479,8 @@ class TestRTDetrPipelineMode:
             image_size=DUMMY_IMAGE_SIZE,
         )
 
-        cpu_out = cpu_pipeline.preprocess(image)["pixel_values"]
-        gpu_out = gpu_pipeline.preprocess(image)["pixel_values"]
+        cpu_out = cpu_pipeline.preprocess(image)[0]["pixel_values"]
+        gpu_out = gpu_pipeline.preprocess(image)[0]["pixel_values"]
 
         assert cpu_out.shape == gpu_out.shape
         # PIL/tensor BILINEAR の差は abs=1e-2 (≈ 2.5/255) 以内に収まる
@@ -497,9 +498,9 @@ class TestRTDetrPipelineMode:
         )
         image = np.zeros((96, 128, 3), dtype=np.uint8)
 
-        out1 = pipeline.preprocess(image)["pixel_values"]
+        out1 = pipeline.preprocess(image)[0]["pixel_values"]
         buf_id_1 = id(pipeline._gpu_input_buffer)
-        out2 = pipeline.preprocess(image)["pixel_values"]
+        out2 = pipeline.preprocess(image)[0]["pixel_values"]
         buf_id_2 = id(pipeline._gpu_input_buffer)
 
         assert buf_id_1 == buf_id_2  # 同一インスタンス再利用
@@ -523,7 +524,7 @@ class TestRTDetrPipelineMode:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            inputs = pipeline.preprocess(image)
+            inputs, _ = pipeline.preprocess(image)
 
         assert inputs["pixel_values"].shape == (1, 3, 64, 64)
         assert all("not writable" not in str(w.message) for w in caught)
@@ -543,8 +544,8 @@ class TestRTDetrPipelineLetterbox:
                 letterbox=True,
             )
 
-    def test_preprocess_stores_letterbox_params(self) -> None:
-        """letterbox=True で preprocess 後に _last_letterbox_params が保持される."""
+    def test_preprocess_returns_letterbox_params(self) -> None:
+        """letterbox=True で preprocess が幾何パラメータを戻り値で返す."""
         pipeline = RTDetrPipeline(
             backend=DummyBackend(),
             processor=DummyProcessor(),
@@ -556,14 +557,42 @@ class TestRTDetrPipelineLetterbox:
         # 横長 128x32 → 64x64: scale = min(64/32, 64/128) = 0.5, new=(16,64),
         # pad_vertical = 48 → pad_top = 24, pad_bottom = 24, pad_left = pad_right = 0
         image = Image.new("RGB", (128, 32))
-        pipeline.preprocess(image)
 
-        params = pipeline._last_letterbox_params
+        _, params = pipeline.preprocess(image)
+
         assert params is not None
         assert params.scale == pytest.approx(0.5)
         assert (params.new_h, params.new_w) == (16, 64)
         assert (params.pad_top, params.pad_bottom) == (24, 24)
         assert (params.pad_left, params.pad_right) == (0, 0)
+
+    def test_preprocess_returns_none_params_when_letterbox_disabled(self) -> None:
+        """letterbox=False で preprocess の params 戻り値が None."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            letterbox=False,
+        )
+        image = Image.new("RGB", (128, 32))
+
+        _, params = pipeline.preprocess(image)
+
+        assert params is None
+
+    def test_pipeline_has_no_last_letterbox_params_attribute(self) -> None:
+        """request-scoped 化後は _last_letterbox_params インスタンス属性を持たない."""
+        pipeline = RTDetrPipeline(
+            backend=DummyBackend(),
+            processor=DummyProcessor(),
+            transform=DUMMY_TRANSFORM,
+            device="cpu",
+            image_size=(64, 64),
+            letterbox=True,
+        )
+        # letterbox 幾何パラメータは instance 属性ではなく call stack で扱う.
+        assert not hasattr(pipeline, "_last_letterbox_params")
 
     def test_postprocess_reverses_letterbox_transform(self) -> None:
         """letterbox 経路では processor 出力 (letterbox pixel 座標) が元画像座標に逆変換される.

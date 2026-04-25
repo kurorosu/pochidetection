@@ -433,6 +433,50 @@ class TestProcessFrames:
 
         assert result.processed_frames == 3
 
+    def test_infer_debug_saves_first_n_frames(self, tmp_path: Path) -> None:
+        """``infer_debug`` 指定時に先頭 N フレームのみが ``infer_XXXX.jpg`` で保存される."""
+        from pochidetection.utils.infer_debug import InferDebugConfig
+
+        frames = self._make_frames(5)
+        source = _ListSource(frames)
+        sink = _RecordingSink()
+        pipeline = _DummyPipeline()
+        visualizer = Visualizer()
+        logger = logging.getLogger("test")
+
+        infer_debug = InferDebugConfig(
+            save_count=2,
+            output_dir=tmp_path,
+            target_hw=(32, 32),
+            letterbox=True,
+        )
+        process_frames(
+            source,
+            sink,
+            pipeline,
+            visualizer,
+            logger=logger,
+            infer_debug=infer_debug,
+        )
+
+        saved = sorted(p.name for p in tmp_path.iterdir() if p.suffix == ".jpg")
+        assert saved == ["infer_0000.jpg", "infer_0001.jpg"]
+
+    def test_infer_debug_none_disables_save(self, tmp_path: Path) -> None:
+        """``infer_debug=None`` で保存処理が発火しない."""
+        frames = self._make_frames(3)
+        source = _ListSource(frames)
+        sink = _RecordingSink()
+        pipeline = _DummyPipeline()
+        visualizer = Visualizer()
+        logger = logging.getLogger("test")
+
+        process_frames(
+            source, sink, pipeline, visualizer, logger=logger, infer_debug=None
+        )
+
+        assert list(tmp_path.iterdir()) == []
+
 
 class TestBuildPhaseSummary:
     """_build_phase_summary 関数のテスト."""
