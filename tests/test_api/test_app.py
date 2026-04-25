@@ -1,12 +1,14 @@
 """create_app(None) 経由 (lifespan 無効) で 4 エンドポイントの応答を検証."""
 
 from collections.abc import Iterator
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from pochidetection import __version__
 from pochidetection.api.app import BodySizeLimitMiddleware, create_app
+from pochidetection.api.config import ServerConfig
 
 
 def test_health_unhealthy_when_no_engine() -> None:
@@ -121,3 +123,17 @@ def test_create_app_registers_body_size_middleware() -> None:
     app = create_app(None)
     names = {m.cls.__name__ for m in app.user_middleware}
     assert "BodySizeLimitMiddleware" in names
+
+
+class TestServerConfigModelPath:
+    """ServerConfig.model_path の None 許容 (pretrained 経路) を検証."""
+
+    def test_accepts_none_for_pretrained(self) -> None:
+        """model_path 省略時は None になる (pretrained フォールバック用)."""
+        cfg = ServerConfig()
+        assert cfg.model_path is None
+
+    def test_accepts_explicit_path(self) -> None:
+        """明示パス指定時はその Path 値を保持する."""
+        cfg = ServerConfig(model_path=Path("work_dirs/dummy/best"))
+        assert cfg.model_path == Path("work_dirs/dummy/best")

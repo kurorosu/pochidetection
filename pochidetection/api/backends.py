@@ -294,14 +294,15 @@ _BACKEND_CLASSES: dict[str, type[_ConcreteBackend]] = {
 
 
 def create_detection_backend(
-    model_path: Path,
+    model_path: Path | None,
     config: DetectionConfigDict,
     config_path: str | None = None,
 ) -> IDetectionBackend:
     """model_path から pipeline を解決し, detection backend を構築する.
 
     Args:
-        model_path: モデルファイルまたはディレクトリ.
+        model_path: モデルファイルまたはディレクトリ. ``None`` の場合は RT-DETR
+            COCO プリトレインモデルにフォールバックし, backend は ``pytorch`` 固定.
         config: ロード済みの設定辞書.
         config_path: 設定ファイルパス. 指定時は推論結果ディレクトリへコピーされる.
 
@@ -311,15 +312,24 @@ def create_detection_backend(
     Raises:
         RuntimeError: パイプライン構築に失敗した場合.
     """
-    backend_name = detect_backend_from_model(model_path)
-    backend_cls = _BACKEND_CLASSES[backend_name]
+    if model_path is None:
+        backend_name = "pytorch"
+        logger.info("Loading RT-DETR COCO pretrained model (backend=pytorch)")
+        resolved = resolve_and_build_pipeline(
+            config=config,
+            model_dir=None,
+            config_path=config_path,
+        )
+    else:
+        backend_name = detect_backend_from_model(model_path)
+        logger.info(f"Loading model: {model_path} (backend={backend_name})")
+        resolved = resolve_and_build_pipeline(
+            config=config,
+            model_dir=str(model_path),
+            config_path=config_path,
+        )
 
-    logger.info(f"Loading model: {model_path} (backend={backend_name})")
-    resolved = resolve_and_build_pipeline(
-        config=config,
-        model_dir=str(model_path),
-        config_path=config_path,
-    )
+    backend_cls = _BACKEND_CLASSES[backend_name]
     if resolved is None:
         raise RuntimeError(f"モデルロードに失敗しました: {model_path}")
 

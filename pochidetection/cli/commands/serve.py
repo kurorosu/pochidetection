@@ -93,10 +93,15 @@ def run_serve(args: argparse.Namespace) -> None:
     """
     logger.info("=== pochidetection serve mode ===")
 
-    model_path = Path(args.model_path)
-    if not model_path.exists():
-        logger.error(f"Model not found: {model_path}")
-        return
+    model_path: Path | None
+    if args.model_path is None:
+        logger.info("No model path specified — using RT-DETR COCO pretrained model")
+        model_path = None
+    else:
+        model_path = Path(args.model_path)
+        if not model_path.exists():
+            logger.error(f"Model not found: {model_path}")
+            return
 
     server_config = ServerConfig(
         model_path=model_path,

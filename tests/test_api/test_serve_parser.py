@@ -1,7 +1,5 @@
 """serve サブコマンドが parser に登録されていることを検証."""
 
-import pytest
-
 from pochidetection.cli.parser import _create_parser
 
 
@@ -16,11 +14,12 @@ def test_serve_subcommand_registered() -> None:
     assert args.config is None
 
 
-def test_serve_requires_model_path() -> None:
-    """-m が必須."""
+def test_serve_allows_omitting_model_path() -> None:
+    """-m 省略時は model_path が None (pretrained 経路)."""
     parser = _create_parser()
-    with pytest.raises(SystemExit):
-        parser.parse_args(["serve"])
+    args = parser.parse_args(["serve"])
+    assert args.command == "serve"
+    assert args.model_path is None
 
 
 def test_serve_accepts_host_port_config() -> None:
