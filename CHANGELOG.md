@@ -9,7 +9,8 @@
 - 推論時 preprocess 後画像のデバッグ保存を追加. top-level `infer_debug_save_count` (既定 1) で制御し, CLI / 動画 / カメラ / WebAPI の全経路で先頭 N 枚を `{output_dir}/infer_debug/` へ保存. ([#577](https://github.com/kurorosu/pochidetection/pull/577))
 - `DetectResponse` に GPU メトリクス 3 フィールド (`gpu_clock_mhz` / `gpu_vram_used_mb` / `gpu_temperature_c`) を追加. `api/gpu_clock.py` を `api/gpu_metrics.py` にリネームし, VRAM 使用量 / 温度取得関数を新設して handle をキャッシュ共有. ([#586](https://github.com/kurorosu/pochidetection/pull/586))
 - `POST /api/v1/detect` の `phase_times_ms` に API boundary 計測キー `api_preprocess_ms` (deserialize + cvtColor) / `api_postprocess_ms` (results 組み立て + DetectResponse 構築) を追加. 全フェーズ合計が `e2e_time_ms` と概ね一致する. INFO ログにも `api_pre` / `api_post` を併記. ([#589](https://github.com/kurorosu/pochidetection/pull/589))
-- `pochi serve` の `-m` を省略可能化し, モデル未指定時に RT-DETR COCO プリトレインモデルで起動できるように (`pochi infer` と同等の体験). 学習済みモデル無しの環境で API 動作確認 / 他ツール連携デモが即座に行える. ((NA.))
+- `pochi serve` の `-m` を省略可能化し, モデル未指定時に RT-DETR COCO プリトレインモデルで起動できるように (`pochi infer` と同等の体験). 学習済みモデル無しの環境で API 動作確認 / 他ツール連携デモが即座に行える. ([#590](https://github.com/kurorosu/pochidetection/pull/590))
+- `POST /api/v1/detect` の bbox が letterbox 逆変換を経た元画像座標系で返ることを `@pytest.mark.slow` で検証. 1280x720 入力で max(x2/y2) が target_hw を超えることを assert し, 逆変換欠落の回帰を検知する. ((NA.))
 
 ### Changed
 - Pipeline の letterbox 幾何パラメータ (`_last_letterbox_params`) をインスタンス属性から preprocess 戻り値経由の request-scoped 受け渡しに変更し, 同一 pipeline を複数 thread から並行呼出しても bbox 逆変換が混線しないようにした. ([#576](https://github.com/kurorosu/pochidetection/pull/576))
