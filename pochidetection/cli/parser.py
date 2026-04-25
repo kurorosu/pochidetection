@@ -44,6 +44,10 @@ def _create_parser() -> argparse.ArgumentParser:
     uv run pochi serve                                        # COCO プリトレイン
     uv run pochi serve -m work_dirs/20260124_001/best         # 学習済みモデル
 
+  デモモデル一括生成 (RT-DETR COCO プリトレイン → ONNX → TRT FP16 engine):
+    uv run pochi prepare-demo                                        # 既定 640x640
+    uv run pochi prepare-demo --input-size 800 1280                  # 解像度指定
+
   エクスポート (入力パスで ONNX / TensorRT を自動判定):
     uv run pochi export -m work_dirs/20260124_001/best                         # フォルダ → ONNX
     uv run pochi export -m work_dirs/20260124_001/best --fp16                  # SSDLite FP16 ONNX
@@ -178,6 +182,20 @@ def _create_parser() -> argparse.ArgumentParser:
             "preprocess の経路. PyTorch / TensorRT は default 'gpu' (uint8 H2D + "
             "GPU normalize), ONNX は default 'cpu'. ONNX で 'gpu' 明示時は起動エラー"
         ),
+    )
+
+    # デモモデル一括生成コマンド (RT-DETR プリトレイン → TRT FP16 engine)
+    prepare_demo_parser = subparsers.add_parser(
+        "prepare-demo",
+        help="RT-DETR COCO プリトレインから TRT FP16 engine を一括生成",
+    )
+    prepare_demo_parser.add_argument(
+        "--input-size",
+        nargs=2,
+        type=int,
+        default=[640, 640],
+        metavar=("HEIGHT", "WIDTH"),
+        help="入力画像サイズ (default: 640 640)",
     )
 
     # エクスポートコマンド (フォルダ → ONNX, .onnx → TensorRT を自動判定)

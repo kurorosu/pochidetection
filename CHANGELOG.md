@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- 無し
+- `pochi prepare-demo` サブコマンドを追加. RT-DETR COCO プリトレイン (`PekingU/rtdetr_r50vd`) のダウンロード → ONNX エクスポート → TensorRT FP16 engine ビルドを 1 コマンドで実行し, `pochi serve -m work_dirs/<run>/best/model_fp16.engine` で WebAPI を即起動できる成果物を生成. TensorRT 必須 (未インストール時は副作用ゼロで早期 exit). ((NA.))
 
 ### Changed
 - 無し
