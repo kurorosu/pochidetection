@@ -253,6 +253,9 @@ INT8 キャリブレーション画像は config の `infer_image_dir` から取
 FastAPI + uvicorn ベースの推論 API サーバーを起動し, base64 エンコードされた画像を POST して検出結果 (bbox, class, confidence) を取得できます.
 
 ```bash
+# COCO プリトレイン (モデル未指定 — RT-DETR PekingU/rtdetr_r18vd を自動取得)
+uv run pochi serve
+
 # PyTorch モデル (default: --pipeline gpu)
 uv run pochi serve -m work_dirs/20260124_001/best
 
@@ -267,6 +270,8 @@ uv run pochi serve -m work_dirs/20260124_001/best --pipeline cpu
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/model-info
 ```
+
+`-m` 省略時は RT-DETR COCO プリトレインモデルで起動するため, 学習済みモデルが無い環境でも API の動作確認や他ツール連携のデモを即座に試せます.
 
 主なエンドポイント:
 

@@ -14,6 +14,7 @@ from pochidetection.api.config import ServerConfig
 from pochidetection.api.constants import MAX_BODY_SIZE
 from pochidetection.api.routers import health, inference
 from pochidetection.api.state import get_engine, set_engine
+from pochidetection.core.coco_classes import PRETRAINED_CONFIG_PATH
 from pochidetection.logging import LoggerManager
 from pochidetection.utils.config_loader import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
@@ -92,11 +93,20 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
 
 def build_engine(server_config: ServerConfig) -> IDetectionBackend:
     """Load config and build the backend for the given server config."""
-    config_path = resolve_config_path(
-        config=str(server_config.config_path) if server_config.config_path else None,
-        model_dir=str(server_config.model_path),
-        default_config=DEFAULT_CONFIG,
-    )
+    if server_config.model_path is None:
+        # PRETRAINED 経路: resolve_and_build_pipeline 側で PRETRAINED_CONFIG_PATH を
+        # 強制ロードするため, ここでは pretrained 用 config_path を素通しする.
+        # Why: --pipeline 指定値は pretrained 経路では下流で再ロードされ無効化される
+        # (既存挙動踏襲. pochi infer pretrained 経路と同じ).
+        config_path = PRETRAINED_CONFIG_PATH
+    else:
+        config_path = resolve_config_path(
+            config=(
+                str(server_config.config_path) if server_config.config_path else None
+            ),
+            model_dir=str(server_config.model_path),
+            default_config=DEFAULT_CONFIG,
+        )
     logger.info(f"Loading config: {config_path}")
 
     config = ConfigLoader.load(config_path)
