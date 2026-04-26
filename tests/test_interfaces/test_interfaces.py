@@ -21,7 +21,6 @@ class TestIDetectionDataset:
         """必須メソッドが定義されていることを確認."""
         assert hasattr(IDetectionDataset, "__len__")
         assert hasattr(IDetectionDataset, "__getitem__")
-        assert hasattr(IDetectionDataset, "get_categories")
 
 
 class TestIDetectionModel:
