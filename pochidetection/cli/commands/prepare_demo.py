@@ -126,11 +126,11 @@ def run_prepare_demo(args: argparse.Namespace) -> None:
     engine_path = best_dir / "model_fp16.engine"
     logger.info("Building TensorRT FP16 engine...")
     # TRT availability は冒頭で確認済み.
-    from pochidetection.tensorrt.export import export_trt
+    from pochidetection.tensorrt import TensorRTExporter
 
-    export_trt(
-        onnx_path_str=str(onnx_path),
-        output_path_str=None,
+    TensorRTExporter().export(
+        onnx_path=onnx_path,
+        output_path=engine_path,
         input_size=(height, width),
         use_fp16=True,
     )

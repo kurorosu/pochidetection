@@ -12,7 +12,9 @@
 - `scripts/rtdetr/train.py` の `processor_holder = []` リスト共有パターンを解消. model 構築を `_setup_training` 直下に移し, processor を `dataset_factory` のクロージャで参照する形に変更. SSD 系と同じ `partial(...)` 流儀に統一. ([#608](https://github.com/kurorosu/pochidetection/pull/608))
 - 3 アーキ (RT-DETR / SSDLite / SSD300) の `_create_pytorch_backend` から `device → eval → FP16 → backend ラップ` の共通定型を `pochidetection/inference/builder.py::build_pytorch_backend` に集約. 各スクリプトはモデル構築のみを担当. ([#609](https://github.com/kurorosu/pochidetection/pull/609))
 - SSD300 と SSDLite の `train.py` を `pochidetection/training/ssd.py::train_ssd` に集約. 各スクリプトはモデルクラスとアーキ名のラベルを渡すだけの 22 行に縮小 (元 84 行). ([#610](https://github.com/kurorosu/pochidetection/pull/610))
-- F1ConfidencePlotter / PRCurvePlotter で 4 箇所に散らばっていた precision/scores の `-1 → NaN` 置換を `pochidetection/visualization/plotters/precision_utils.py::replace_invalid_with_nan` に集約. F1 plotter 側の冗長な mask 再計算も解消. ((NA.))
+- F1ConfidencePlotter / PRCurvePlotter で 4 箇所に散らばっていた precision/scores の `-1 → NaN` 置換を `pochidetection/visualization/plotters/precision_utils.py::replace_invalid_with_nan` に集約. F1 plotter 側の冗長な mask 再計算も解消. ([#612](https://github.com/kurorosu/pochidetection/pull/612))
+- `api/backends.py::create_detection_backend` のシグネチャから dead pass-through だった `config_path` 引数を削除し, config 解決と pretrained 経路の特例処理を `api/app.py::build_engine` 側に集約. WebAPI 経路で `resolve_and_build_pipeline` には常に `config_path=None` を渡す形で意味論を明示. ([#613](https://github.com/kurorosu/pochidetection/pull/613))
+- `tensorrt/export.py::export_trt()` ラッパーを削除し, 呼び出し側 (`cli/commands/export.py` / `prepare_demo.py`) で直接 `TensorRTExporter().export()` を呼ぶ形に変更. ラッパーが追加していたログは exporter 側と完全重複していたため移植不要. デフォルト出力パス生成と TRT エクスポート失敗時の `sys.exit` を CLI レイヤに整理. ((NA.))
 
 ### Fixed
 - 無し
