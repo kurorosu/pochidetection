@@ -6,7 +6,11 @@
 from pathlib import Path
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.inference import SSDLiteOnnxBackend, SsdPyTorchBackend
+from pochidetection.inference import (
+    SSDLiteOnnxBackend,
+    SsdPyTorchBackend,
+    build_pytorch_backend,
+)
 
 try:
     from pochidetection.inference import SSDLiteTensorRTBackend
@@ -79,13 +83,8 @@ def _create_pytorch_backend(
 
     model = SSDLiteModel(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
     model.load(model_path)
-    model.to(device)
-    model.eval()
 
-    if use_fp16:
-        model.half()
-
-    return SsdPyTorchBackend(model)
+    return build_pytorch_backend(model, SsdPyTorchBackend, device, use_fp16)
 
 
 def build_pipeline(

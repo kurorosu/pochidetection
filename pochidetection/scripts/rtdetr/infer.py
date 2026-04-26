@@ -10,7 +10,11 @@ from torchvision.transforms import v2
 from transformers import RTDetrImageProcessor
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.inference import RTDetrOnnxBackend, RTDetrPyTorchBackend
+from pochidetection.inference import (
+    RTDetrOnnxBackend,
+    RTDetrPyTorchBackend,
+    build_pytorch_backend,
+)
 
 try:
     from pochidetection.inference import RTDetrTensorRTBackend
@@ -177,10 +181,5 @@ def _create_pytorch_backend(
         model = RTDetrModel(model_name=model_name, local_files_only=local_files_only)
     else:
         model = RTDetrModel(str(model_path))
-    model.to(device)
-    model.eval()
 
-    if use_fp16:
-        model.half()
-
-    return RTDetrPyTorchBackend(model)
+    return build_pytorch_backend(model, RTDetrPyTorchBackend, device, use_fp16)
