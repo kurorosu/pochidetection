@@ -296,15 +296,18 @@ _BACKEND_CLASSES: dict[str, type[_ConcreteBackend]] = {
 def create_detection_backend(
     model_path: Path | None,
     config: DetectionConfigDict,
-    config_path: str | None = None,
 ) -> IDetectionBackend:
     """model_path から pipeline を解決し, detection backend を構築する.
+
+    config / model_path の解決は呼び出し側 (例: ``app.build_engine``) で完結
+    させる前提で, 本関数は解決済みの ``DetectionConfigDict`` をそのまま使う.
+    Inference 結果ディレクトリへの設定コピーは API 経路では行わないため,
+    ``config_path`` 引数は受け取らない.
 
     Args:
         model_path: モデルファイルまたはディレクトリ. ``None`` の場合は RT-DETR
             COCO プリトレインモデルにフォールバックし, backend は ``pytorch`` 固定.
         config: ロード済みの設定辞書.
-        config_path: 設定ファイルパス. 指定時は推論結果ディレクトリへコピーされる.
 
     Returns:
         構築済みのバックエンド.
@@ -318,7 +321,7 @@ def create_detection_backend(
         resolved = resolve_and_build_pipeline(
             config=config,
             model_dir=None,
-            config_path=config_path,
+            config_path=None,
         )
     else:
         backend_name = detect_backend_from_model(model_path)
@@ -326,7 +329,7 @@ def create_detection_backend(
         resolved = resolve_and_build_pipeline(
             config=config,
             model_dir=str(model_path),
-            config_path=config_path,
+            config_path=None,
         )
 
     backend_cls = _BACKEND_CLASSES[backend_name]
