@@ -94,10 +94,8 @@ def apply_letterbox(
 ) -> Image.Image: ...
 
 
-# Why: pre-commit isolated venv では PIL / torch の型が解決できず両 overload が
-# Any 重複扱いになる. uv 環境の mypy では正しく型解決される. #623 完了後削除.
 @overload
-def apply_letterbox(  # type: ignore[overload-cannot-match]
+def apply_letterbox(
     image: torch.Tensor,
     params: LetterboxParams,
     pad_value: int = 0,

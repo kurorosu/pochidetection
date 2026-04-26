@@ -22,7 +22,8 @@
 - `core/letterbox.py::apply_letterbox` を `@overload` 化し PIL/Tensor 入出力の型推論を呼び出し側で正しく解決. ([#626](https://github.com/kurorosu/pochidetection/pull/626))
 - `training/loop.py` の `DatasetFactory` を `Callable[..., Dataset[DatasetSampleDict]]` に正確化し, `partial(XxxDataset, ...)` の covariance 不整合を解消. ([#627](https://github.com/kurorosu/pochidetection/pull/627))
 - `RTDetrPipeline.processor` の型を `RTDetrImageProcessor` から `RTDetrPostProcessor` Protocol に切り替え, テスト用 dummy processor の structural subtype 不整合を解消. ([#628](https://github.com/kurorosu/pochidetection/pull/628))
-- 個別 mypy エラー 30 件を一掃 (Optional ガード / `cast` / `cv2.VideoWriter_fourcc` の `# type: ignore[attr-defined]` 等). `uv run mypy .` 0 件達成. ((NA.))
+- 個別 mypy エラー 30 件を一掃 (Optional ガード / `cast` / `cv2.VideoWriter_fourcc` の `# type: ignore[attr-defined]` 等). `uv run mypy .` 0 件達成. ([#629](https://github.com/kurorosu/pochidetection/pull/629))
+- pre-commit の mypy hook を `mirrors-mypy` から `local` + `uv run mypy` に切替. isolated venv の依存欠落問題を解消し commit 時にも全件型チェックが効くように. `core/letterbox.py` の `# type: ignore[overload-cannot-match]` 暫定 workaround も削除. ((NA.))
 
 ### Fixed
 - 無し
