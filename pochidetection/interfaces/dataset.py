@@ -1,7 +1,7 @@
 """物体検出データセットのインターフェース."""
 
 from abc import ABC, abstractmethod
-from typing import Any, TypedDict
+from typing import TypedDict
 
 import torch
 
@@ -46,20 +46,3 @@ class IDetectionDataset(ABC):
             - labels: ターゲット辞書 (boxes, class_labels を含む)
         """
         pass
-
-    @abstractmethod
-    def get_categories(self) -> list[dict[str, Any]]:
-        """カテゴリ情報を取得.
-
-        Returns:
-            カテゴリ情報のリスト. 各要素は {"id": int, "name": str} の形式.
-        """
-        pass
-
-    @abstractmethod
-    def get_num_classes(self) -> int:
-        """クラス数を返す."""
-
-    @abstractmethod
-    def get_category_names(self) -> list[str]:
-        """カテゴリ名のリストを返す (index が class_id に対応)."""

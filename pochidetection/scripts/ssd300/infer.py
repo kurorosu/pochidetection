@@ -4,9 +4,10 @@
 """
 
 from pathlib import Path
+from typing import NoReturn
 
 from pochidetection.configs.schemas import DetectionConfigDict
-from pochidetection.inference import SsdPyTorchBackend
+from pochidetection.inference import SsdPyTorchBackend, build_pytorch_backend
 from pochidetection.logging import LoggerManager
 from pochidetection.models import SSD300Model
 from pochidetection.orchestration import run_batch_inference
@@ -53,13 +54,13 @@ def infer(
 # ---------------------------------------------------------------------------
 
 
-def _unsupported_trt(model_path: Path) -> SsdPyTorchBackend:
+def _unsupported_trt(model_path: Path) -> NoReturn:
     """SSD300 は TensorRT バックエンド未対応."""
     msg = "SSD300 TensorRT backend is not supported"
     raise NotImplementedError(msg)
 
 
-def _unsupported_onnx(model_path: Path, device: str) -> SsdPyTorchBackend:
+def _unsupported_onnx(model_path: Path, device: str) -> NoReturn:
     """SSD300 は ONNX バックエンド未対応."""
     msg = "SSD300 ONNX backend is not supported"
     raise NotImplementedError(msg)
@@ -84,13 +85,8 @@ def _create_pytorch_backend(
 
     model = SSD300Model(num_classes=num_classes, nms_iou_threshold=nms_iou_threshold)
     model.load(model_path)
-    model.to(device)
-    model.eval()
 
-    if use_fp16:
-        model.half()
-
-    return SsdPyTorchBackend(model)
+    return build_pytorch_backend(model, SsdPyTorchBackend, device, use_fp16)
 
 
 def build_pipeline(

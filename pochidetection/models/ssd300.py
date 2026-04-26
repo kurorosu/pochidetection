@@ -1,5 +1,7 @@
 """SSD300 VGG16 物体検出モデル."""
 
+from typing import cast
+
 from torchvision.models import VGG16_Weights
 from torchvision.models.detection import ssd300_vgg16
 from torchvision.models.detection.ssd import SSD
@@ -32,8 +34,9 @@ class SSD300Model(SSDModelBase):
     ) -> SSD:
         """Torchvision の ssd300_vgg16 を生成する."""
         weights_backbone = VGG16_Weights.DEFAULT if pretrained else None
-        return ssd300_vgg16(
+        model = ssd300_vgg16(
             weights_backbone=weights_backbone,
             num_classes=num_classes,
             nms_thresh=nms_iou_threshold,
         )
+        return cast(SSD, model)

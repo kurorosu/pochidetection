@@ -1,7 +1,7 @@
 """RT-DETR物体検出モデル."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import torch
 from transformers import RTDetrForObjectDetection, RTDetrImageProcessor
@@ -160,4 +160,4 @@ class RTDetrModel(IDetectionModel):
         Returns:
             transformersのRTDetrForObjectDetectionインスタンス.
         """
-        return self._model
+        return cast(RTDetrForObjectDetection, self._model)

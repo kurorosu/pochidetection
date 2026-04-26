@@ -10,6 +10,7 @@
 """
 
 from dataclasses import dataclass
+from typing import overload
 
 import torch
 from PIL import Image
@@ -85,6 +86,22 @@ def compute_letterbox_params(
     )
 
 
+@overload
+def apply_letterbox(
+    image: Image.Image,
+    params: LetterboxParams,
+    pad_value: int = 0,
+) -> Image.Image: ...
+
+
+@overload
+def apply_letterbox(
+    image: torch.Tensor,
+    params: LetterboxParams,
+    pad_value: int = 0,
+) -> torch.Tensor: ...
+
+
 def apply_letterbox(
     image: Image.Image | torch.Tensor,
     params: LetterboxParams,
@@ -104,8 +121,10 @@ def apply_letterbox(
         入力と同じ型の画像. サイズは ``(new_h + pad_vertical, new_w + pad_horizontal)``
         = target_hw.
     """
+    # v2.functional.resize は PIL/Tensor 多態だが torchvision stub では
+    # Tensor only に見える. 公開 signature は overload で型保証済み.
     resized = v2.functional.resize(
-        image,
+        image,  # type: ignore[arg-type]
         [params.new_h, params.new_w],
         interpolation=v2.InterpolationMode.BILINEAR,
         antialias=True,

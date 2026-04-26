@@ -1,6 +1,8 @@
 """SSDLite MobileNetV3 物体検出モデル."""
 
-from torchvision.models import MobileNet_V3_Large_Weights
+from typing import cast
+
+from torchvision.models import MobileNet_V3_Large_Weights  # type: ignore[attr-defined]
 from torchvision.models.detection import ssdlite320_mobilenet_v3_large
 from torchvision.models.detection.ssd import SSD
 
@@ -36,8 +38,9 @@ class SSDLiteModel(SSDModelBase):
     ) -> SSD:
         """Torchvision の ssdlite320_mobilenet_v3_large を生成する."""
         weights_backbone = MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
-        return ssdlite320_mobilenet_v3_large(
+        model = ssdlite320_mobilenet_v3_large(
             weights_backbone=weights_backbone,
             num_classes=num_classes,
             nms_thresh=nms_iou_threshold,
         )
+        return cast(SSD, model)

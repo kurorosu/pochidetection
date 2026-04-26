@@ -51,30 +51,31 @@ class LoggerManager:
     """
 
     _instance: LoggerManager | None = None
+    _loggers: dict[str, logging.Logger]
+    _default_level: LogLevel
+    _format_string: str
+    _plain_format_string: str
+    _date_format: str
+    _log_colors: dict[str, str]
 
     def __new__(cls) -> LoggerManager:
-        """シングルトンパターンの実装."""
+        """シングルトンインスタンスを生成し, 初回のみ属性を初期化する."""
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
+            instance = super().__new__(cls)
+            instance._loggers = {}
+            instance._default_level = LogLevel.INFO
+            instance._format_string = (
+                "%(asctime)s|%(log_color)s%(levelname)-5.5s%(reset)s|"
+                "%(module)-18s|%(lineno)03d| %(message)s"
+            )
+            instance._plain_format_string = (
+                "%(asctime)s|%(levelname)-5.5s|"
+                "%(module)-18s|%(lineno)03d| %(message)s"
+            )
+            instance._date_format = LOG_DATE_FORMAT
+            instance._log_colors = LOG_COLORS
+            cls._instance = instance
         return cls._instance
-
-    def __init__(self) -> None:
-        """LoggerManagerを初期化."""
-        if hasattr(self, "_initialized"):
-            return
-
-        self._loggers: dict[str, logging.Logger] = {}
-        self._default_level = LogLevel.INFO
-        self._format_string = (
-            "%(asctime)s|%(log_color)s%(levelname)-5.5s%(reset)s|"
-            "%(module)-18s|%(lineno)03d| %(message)s"
-        )
-        self._plain_format_string = (
-            "%(asctime)s|%(levelname)-5.5s|" "%(module)-18s|%(lineno)03d| %(message)s"
-        )
-        self._date_format = LOG_DATE_FORMAT
-        self._log_colors = LOG_COLORS
-        self._initialized = True
 
     def get_logger(self, name: str, level: LogLevel | None = None) -> logging.Logger:
         """指定された名前のロガーを取得または作成.
@@ -134,6 +135,7 @@ class LoggerManager:
         """
         handler = logging.StreamHandler()
 
+        formatter: logging.Formatter
         if COLORLOG_AVAILABLE:
             formatter = colorlog.ColoredFormatter(
                 self._format_string,

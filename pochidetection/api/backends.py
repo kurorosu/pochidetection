@@ -5,7 +5,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 import cv2
 import numpy as np
@@ -19,6 +19,13 @@ from pochidetection.pipelines.spec import resolve_and_build_pipeline
 from pochidetection.utils.infer_debug import InferDebugConfig, save_infer_debug_image
 
 logger = LoggerManager().get_logger(__name__)
+
+BackendName = Literal["pytorch", "onnx", "tensorrt"]
+"""サポートする backend 名の Literal 型.
+
+``detect_backend_from_model`` の戻り値と ``_BACKEND_CLASSES`` のキーで共有し,
+新 backend 追加時の同期点を Literal の更新 1 箇所に集約する.
+"""
 
 
 def _safe_version(package: str) -> str | None:
@@ -49,9 +56,7 @@ def get_available_backends() -> list[str]:
     return available
 
 
-def detect_backend_from_model(
-    model_path: Path,
-) -> Literal["pytorch", "onnx", "tensorrt"]:
+def detect_backend_from_model(model_path: Path) -> BackendName:
     """モデルパスの拡張子からバックエンド種別を推論する.
 
     Args:
@@ -286,25 +291,33 @@ class TrtDetectionBackend(_ConcreteBackend):
     backend_name = "tensorrt"
 
 
-_BACKEND_CLASSES: dict[str, type[_ConcreteBackend]] = {
+_BACKEND_CLASSES: dict[BackendName, type[_ConcreteBackend]] = {
     "pytorch": PyTorchDetectionBackend,
     "onnx": OnnxDetectionBackend,
     "tensorrt": TrtDetectionBackend,
 }
 
+assert set(_BACKEND_CLASSES.keys()) == set(get_args(BackendName)), (
+    "_BACKEND_CLASSES のキーが BackendName Literal と一致していません. "
+    "新 backend 追加時は両者を同時に更新してください."
+)
+
 
 def create_detection_backend(
     model_path: Path | None,
     config: DetectionConfigDict,
-    config_path: str | None = None,
 ) -> IDetectionBackend:
     """model_path から pipeline を解決し, detection backend を構築する.
+
+    config / model_path の解決は呼び出し側 (例: ``app.build_engine``) で完結
+    させる前提で, 本関数は解決済みの ``DetectionConfigDict`` をそのまま使う.
+    Inference 結果ディレクトリへの設定コピーは API 経路では行わないため,
+    ``config_path`` 引数は受け取らない.
 
     Args:
         model_path: モデルファイルまたはディレクトリ. ``None`` の場合は RT-DETR
             COCO プリトレインモデルにフォールバックし, backend は ``pytorch`` 固定.
         config: ロード済みの設定辞書.
-        config_path: 設定ファイルパス. 指定時は推論結果ディレクトリへコピーされる.
 
     Returns:
         構築済みのバックエンド.
@@ -312,13 +325,14 @@ def create_detection_backend(
     Raises:
         RuntimeError: パイプライン構築に失敗した場合.
     """
+    backend_name: BackendName
     if model_path is None:
         backend_name = "pytorch"
         logger.info("Loading RT-DETR COCO pretrained model (backend=pytorch)")
         resolved = resolve_and_build_pipeline(
             config=config,
             model_dir=None,
-            config_path=config_path,
+            config_path=None,
         )
     else:
         backend_name = detect_backend_from_model(model_path)
@@ -326,7 +340,7 @@ def create_detection_backend(
         resolved = resolve_and_build_pipeline(
             config=config,
             model_dir=str(model_path),
-            config_path=config_path,
+            config_path=None,
         )
 
     backend_cls = _BACKEND_CLASSES[backend_name]

@@ -6,8 +6,11 @@ from pathlib import Path
 
 from pochidetection.cli.parser import DEFAULT_CONFIG
 from pochidetection.configs.schemas import DetectionConfigDict
+from pochidetection.logging import LoggerManager
 from pochidetection.utils import ConfigLoader
 from pochidetection.utils.config_resolver import resolve_config_path
+
+logger = LoggerManager().get_logger(__name__)
 
 
 def _run_trt_export(args: argparse.Namespace, config: DetectionConfigDict) -> None:
@@ -42,20 +45,36 @@ def _run_trt_export(args: argparse.Namespace, config: DetectionConfigDict) -> No
         )
 
     # Why: TensorRT エクスポートは export サブコマンド時のみ必要.
-    from pochidetection.tensorrt.export import export_trt
+    from pochidetection.tensorrt import TensorRTExporter
 
-    export_trt(
-        args.model_path,
-        args.output,
-        input_size_trt,
-        args.min_batch,
-        args.opt_batch,
-        args.max_batch,
-        args.fp16,
-        args.int8,
-        int8_calibrator,
-        args.build_memory,
-    )
+    onnx_path = Path(args.model_path)
+    if args.output is None:
+        if args.int8:
+            engine_name = "model_int8.engine"
+        elif args.fp16:
+            engine_name = "model_fp16.engine"
+        else:
+            engine_name = "model_fp32.engine"
+        output_path = onnx_path.parent / engine_name
+    else:
+        output_path = Path(args.output)
+
+    try:
+        TensorRTExporter().export(
+            onnx_path=onnx_path,
+            output_path=output_path,
+            input_size=input_size_trt,
+            min_batch=args.min_batch,
+            opt_batch=args.opt_batch,
+            max_batch=args.max_batch,
+            use_fp16=args.fp16,
+            use_int8=args.int8,
+            int8_calibrator=int8_calibrator,
+            build_memory=args.build_memory,
+        )
+    except (OSError, RuntimeError) as e:
+        logger.error(f"TensorRTエクスポートに失敗しました: {e}")
+        sys.exit(1)
 
 
 def _run_onnx_export(args: argparse.Namespace, config: DetectionConfigDict) -> None:

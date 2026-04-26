@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pochidetection"
-version = "0.18.0"
+version = "0.19.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -81,6 +81,17 @@ follow_untyped_imports = true
 module = "torchvision.*"
 ignore_missing_imports = true
 follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "onnxruntime",
+    "onnxruntime.*",
+    "plotly",
+    "plotly.*",
+    "pynvml",
+    "tensorrt",
+]
+ignore_missing_imports = true
 
 [tool.pydocstyle]
 convention = "google"

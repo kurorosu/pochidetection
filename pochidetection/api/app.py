@@ -92,12 +92,16 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
 
 
 def build_engine(server_config: ServerConfig) -> IDetectionBackend:
-    """Load config and build the backend for the given server config."""
+    """Load config and build the backend for the given server config.
+
+    config path 解決と ``ConfigLoader.load`` を本関数で完結させ,
+    ``create_detection_backend`` には解決済みの ``DetectionConfigDict`` のみを渡す.
+    pretrained 経路 (``model_path is None``) では ``PRETRAINED_CONFIG_PATH`` を
+    そのままロードする (--pipeline 指定値は pretrained 経路では下流の
+    ``resolve_and_build_pipeline`` 側で再ロードされ無効化される.
+    既存挙動踏襲. ``pochi infer`` pretrained 経路と同じ).
+    """
     if server_config.model_path is None:
-        # PRETRAINED 経路: resolve_and_build_pipeline 側で PRETRAINED_CONFIG_PATH を
-        # 強制ロードするため, ここでは pretrained 用 config_path を素通しする.
-        # Why: --pipeline 指定値は pretrained 経路では下流で再ロードされ無効化される
-        # (既存挙動踏襲. pochi infer pretrained 経路と同じ).
         config_path = PRETRAINED_CONFIG_PATH
     else:
         config_path = resolve_config_path(
@@ -117,7 +121,6 @@ def build_engine(server_config: ServerConfig) -> IDetectionBackend:
     return create_detection_backend(
         model_path=server_config.model_path,
         config=config,
-        config_path=config_path,
     )
 
 
@@ -179,7 +182,9 @@ def create_app(server_config: ServerConfig | None = None) -> FastAPI:
     )
 
     # body サイズ上限 middleware (413 Payload Too Large).
-    app.add_middleware(BodySizeLimitMiddleware, max_body_size=MAX_BODY_SIZE)
+    # Why: starlette の `_MiddlewareFactory` Protocol が ASGI callable を要求するが,
+    # BaseHTTPMiddleware ベースのミドルウェアは class signature が異なる.
+    app.add_middleware(BodySizeLimitMiddleware, max_body_size=MAX_BODY_SIZE)  # type: ignore[arg-type]
 
     app.include_router(health.router)
     app.include_router(inference.router)

@@ -117,9 +117,12 @@ def restore_bn_states(model: nn.Module, states: dict[str, torch.Tensor]) -> None
     """
     for name, module in model.named_modules():
         if isinstance(module, (nn.BatchNorm2d, nn.BatchNorm1d, nn.SyncBatchNorm)):
-            if f"{name}.running_mean" in states:
+            if module.running_mean is not None and f"{name}.running_mean" in states:
                 module.running_mean.copy_(states[f"{name}.running_mean"])
-            if f"{name}.running_var" in states:
+            if module.running_var is not None and f"{name}.running_var" in states:
                 module.running_var.copy_(states[f"{name}.running_var"])
-            if f"{name}.num_batches_tracked" in states:
+            if (
+                module.num_batches_tracked is not None
+                and f"{name}.num_batches_tracked" in states
+            ):
                 module.num_batches_tracked.copy_(states[f"{name}.num_batches_tracked"])

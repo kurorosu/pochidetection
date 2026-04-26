@@ -4,10 +4,10 @@ transformersのRT-DETRをCOCO形式データセットでファインチューニ
 """
 
 import logging
+from functools import partial
 from typing import Any
 
 import torch
-from transformers import RTDetrImageProcessor
 
 from pochidetection.configs.schemas import DetectionConfigDict
 from pochidetection.datasets import CocoDetectionDataset
@@ -53,26 +53,24 @@ def _setup_training(
     Returns:
         構築済みの学習コンテキスト.
     """
-    # processor はモデル構築後に取得する必要があるため, リストで共有する
-    processor_holder: list[RTDetrImageProcessor] = []
+    # RT-DETR は processor をモデル構築時に確定するため, 先に model を組み
+    # processor を dataset_factory のクロージャで参照する.
+    image_size = config["image_size"]
+    model = RTDetrModel(
+        config["model_name"],
+        num_classes=config["num_classes"],
+        image_size=image_size,
+    )
 
-    def model_factory(cfg: DetectionConfigDict) -> IDetectionModel:
-        model = RTDetrModel(
-            cfg["model_name"],
-            num_classes=cfg["num_classes"],
-            image_size=cfg["image_size"],
-        )
-        processor_holder.append(model.processor)
+    def model_factory(_cfg: DetectionConfigDict) -> IDetectionModel:
         return model
 
-    def dataset_factory(path: Any) -> Any:
-        image_size = config["image_size"]
-        return CocoDetectionDataset(
-            path,
-            processor=processor_holder[0],
-            letterbox=config.get("letterbox", True),
-            image_size=(image_size["height"], image_size["width"]),
-        )
+    dataset_factory = partial(
+        CocoDetectionDataset,
+        processor=model.processor,
+        letterbox=config.get("letterbox", True),
+        image_size=(image_size["height"], image_size["width"]),
+    )
 
     return setup_training(
         config=config,
@@ -115,10 +113,12 @@ def _validate(
             outputs = model.model(pixel_values=pixel_values, labels=labels)
             val_loss += outputs.loss.item()
 
+            # Why: target_sizes=None は HF API 上は許容されるが stub で
+            # `TensorType | list[tuple[Any, ...]]` 必須に見える.
             results = processor.post_process_object_detection(
                 outputs,
                 threshold=ctx.train_score_threshold,
-                target_sizes=None,
+                target_sizes=None,  # type: ignore[arg-type]
             )
 
             for i, result in enumerate(results):

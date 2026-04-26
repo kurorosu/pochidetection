@@ -6,13 +6,12 @@
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 from pochidetection.configs.schemas import DetectionConfigDict
+from pochidetection.pipelines.context import PipelineContext
 
-BuildPipelineFn = Callable[[DetectionConfigDict, Path], Any]
+BuildPipelineFn = Callable[[DetectionConfigDict, Path], PipelineContext]
 """パイプライン構築コールバックの型.
 
 (config, model_path) を受け取り PipelineContext を返す.
-戻り値は循環インポート回避のため Any としている.
 """

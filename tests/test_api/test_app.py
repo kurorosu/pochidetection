@@ -56,7 +56,7 @@ def test_model_info_returns_503_when_no_engine() -> None:
 def _build_echo_app(max_body_size: int) -> FastAPI:
     """body サイズ上限 middleware のみを載せた最小 echo app."""
     app = FastAPI()
-    app.add_middleware(BodySizeLimitMiddleware, max_body_size=max_body_size)
+    app.add_middleware(BodySizeLimitMiddleware, max_body_size=max_body_size)  # type: ignore[arg-type]
 
     @app.post("/echo")
     async def echo(payload: dict) -> dict:  # type: ignore[type-arg]
@@ -91,7 +91,7 @@ def test_body_size_limit_rejects_invalid_content_length() -> None:
     with TestClient(app) as client:
         res = client.post(
             "/echo",
-            data=b"{}",
+            data=b"{}",  # type: ignore[arg-type]
             headers={
                 "content-type": "application/json",
                 "content-length": "not-a-number",
@@ -112,7 +112,7 @@ def test_body_size_limit_streaming_exceeds_limit() -> None:
     with TestClient(app) as client:
         res = client.post(
             "/echo",
-            data=gen(),
+            data=gen(),  # type: ignore[arg-type]
             headers={"content-type": "application/json"},
         )
     assert res.status_code == 413
@@ -121,7 +121,7 @@ def test_body_size_limit_streaming_exceeds_limit() -> None:
 def test_create_app_registers_body_size_middleware() -> None:
     """create_app() で BodySizeLimitMiddleware が登録されていることを確認."""
     app = create_app(None)
-    names = {m.cls.__name__ for m in app.user_middleware}
+    names = {m.cls.__name__ for m in app.user_middleware}  # type: ignore[attr-defined]
     assert "BodySizeLimitMiddleware" in names
 
 
