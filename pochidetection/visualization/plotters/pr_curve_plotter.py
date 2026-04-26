@@ -11,6 +11,9 @@ from pochidetection.visualization.plotters.constants import (
     LEGEND_CONFIG,
     render_side_by_side_html,
 )
+from pochidetection.visualization.plotters.precision_utils import (
+    replace_invalid_with_nan,
+)
 
 
 class PRCurvePlotter(IReportPlotter):
@@ -88,11 +91,8 @@ class PRCurvePlotter(IReportPlotter):
         # precision: (T, R, K, A, M) -> IoU=iou_threshold_idx, area=all(0), maxDets=100(2)
         # 全クラスの平均を計算
         precision_slice = self._precision[self._iou_threshold_idx, :, :, 0, 2]
-        # 無効値(-1)を除外して平均
-        valid_mask = precision_slice >= 0
-        precision_mean = torch.where(
-            valid_mask, precision_slice, torch.full_like(precision_slice, float("nan"))
-        ).nanmean(dim=1)
+        # 無効値(-1)を NaN に置換してから平均
+        precision_mean = replace_invalid_with_nan(precision_slice).nanmean(dim=1)
 
         recall_values = self.RECALL_THRESHOLDS.numpy()
         precision_values = precision_mean.numpy()
@@ -149,11 +149,7 @@ class PRCurvePlotter(IReportPlotter):
                 continue
 
             # 無効値(-1)を NaN に置換して描画から除外
-            precision_values = torch.where(
-                precision_slice >= 0,
-                precision_slice,
-                torch.full_like(precision_slice, float("nan")),
-            ).numpy()
+            precision_values = replace_invalid_with_nan(precision_slice).numpy()
 
             fig.add_trace(
                 go.Scatter(
