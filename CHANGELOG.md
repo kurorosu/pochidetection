@@ -14,7 +14,8 @@
 - SSD300 と SSDLite の `train.py` を `pochidetection/training/ssd.py::train_ssd` に集約. 各スクリプトはモデルクラスとアーキ名のラベルを渡すだけの 22 行に縮小 (元 84 行). ([#610](https://github.com/kurorosu/pochidetection/pull/610))
 - F1ConfidencePlotter / PRCurvePlotter で 4 箇所に散らばっていた precision/scores の `-1 → NaN` 置換を `pochidetection/visualization/plotters/precision_utils.py::replace_invalid_with_nan` に集約. F1 plotter 側の冗長な mask 再計算も解消. ([#612](https://github.com/kurorosu/pochidetection/pull/612))
 - `api/backends.py::create_detection_backend` のシグネチャから dead pass-through だった `config_path` 引数を削除し, config 解決と pretrained 経路の特例処理を `api/app.py::build_engine` 側に集約. WebAPI 経路で `resolve_and_build_pipeline` には常に `config_path=None` を渡す形で意味論を明示. ([#613](https://github.com/kurorosu/pochidetection/pull/613))
-- `tensorrt/export.py::export_trt()` ラッパーを削除し, 呼び出し側 (`cli/commands/export.py` / `prepare_demo.py`) で直接 `TensorRTExporter().export()` を呼ぶ形に変更. ラッパーが追加していたログは exporter 側と完全重複していたため移植不要. デフォルト出力パス生成と TRT エクスポート失敗時の `sys.exit` を CLI レイヤに整理. ((NA.))
+- `tensorrt/export.py::export_trt()` ラッパーを削除し, 呼び出し側 (`cli/commands/export.py` / `prepare_demo.py`) で直接 `TensorRTExporter().export()` を呼ぶ形に変更. ラッパーが追加していたログは exporter 側と完全重複していたため移植不要. デフォルト出力パス生成と TRT エクスポート失敗時の `sys.exit` を CLI レイヤに整理. ([#614](https://github.com/kurorosu/pochidetection/pull/614))
+- `LoggerManager` の `_initialized` フラグ防御を廃止. インスタンス属性の初期化を `__init__` から `__new__` の Singleton 生成枝に集約し, `__init__` 自体を削除. クラスレベルの type annotation で mypy 整合も維持. ((NA.))
 
 ### Fixed
 - 無し
