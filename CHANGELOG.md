@@ -10,7 +10,8 @@
 
 ### Changed
 - `scripts/rtdetr/train.py` の `processor_holder = []` リスト共有パターンを解消. model 構築を `_setup_training` 直下に移し, processor を `dataset_factory` のクロージャで参照する形に変更. SSD 系と同じ `partial(...)` 流儀に統一. ([#608](https://github.com/kurorosu/pochidetection/pull/608))
-- 3 アーキ (RT-DETR / SSDLite / SSD300) の `_create_pytorch_backend` から `device → eval → FP16 → backend ラップ` の共通定型を `pochidetection/inference/builder.py::build_pytorch_backend` に集約. 各スクリプトはモデル構築のみを担当. ((NA.))
+- 3 アーキ (RT-DETR / SSDLite / SSD300) の `_create_pytorch_backend` から `device → eval → FP16 → backend ラップ` の共通定型を `pochidetection/inference/builder.py::build_pytorch_backend` に集約. 各スクリプトはモデル構築のみを担当. ([#609](https://github.com/kurorosu/pochidetection/pull/609))
+- SSD300 と SSDLite の `train.py` を `pochidetection/training/ssd.py::train_ssd` に集約. 各スクリプトはモデルクラスとアーキ名のラベルを渡すだけの 22 行に縮小 (元 84 行). ((NA.))
 
 ### Fixed
 - 無し
