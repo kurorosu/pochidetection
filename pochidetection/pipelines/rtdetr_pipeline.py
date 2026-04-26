@@ -1,13 +1,12 @@
 """E2E 推論パイプライン."""
 
-from typing import Literal
+from typing import Any, Literal, Protocol
 
 import numpy as np
 import torch
 import torchvision
 from PIL import Image
 from torchvision.transforms import v2
-from transformers import RTDetrImageProcessor
 
 from pochidetection.core.detection import Detection, OutputWrapper
 from pochidetection.core.letterbox import (
@@ -20,6 +19,25 @@ from pochidetection.interfaces.backend import IInferenceBackend
 from pochidetection.interfaces.pipeline import IDetectionPipeline, ImageInput
 from pochidetection.utils import PhasedTimer
 from pochidetection.utils.device import is_fp16_available
+
+
+class RTDetrPostProcessor(Protocol):
+    """RT-DETR 後処理 protocol.
+
+    `RTDetrPipeline` が依存する HF processor の唯一のメソッドを表す.
+    Why: 本物の `RTDetrImageProcessor` を直接型注釈すると, テスト用 dummy
+    processor (HF の重い依存を避けるため自前実装) が structural subtype として
+    通らない. 必要なメソッドだけを Protocol で表現する.
+    """
+
+    def post_process_object_detection(
+        self,
+        outputs: Any,
+        target_sizes: Any,
+        threshold: float,
+    ) -> list[dict[str, Any]]:
+        """検出結果を target_sizes 座標系に変換し threshold で filter する."""
+        ...
 
 
 class RTDetrPipeline(
@@ -58,7 +76,7 @@ class RTDetrPipeline(
     def __init__(
         self,
         backend: IInferenceBackend[tuple[torch.Tensor, torch.Tensor]],
-        processor: RTDetrImageProcessor,
+        processor: RTDetrPostProcessor,
         transform: v2.Compose,
         device: str = "cuda",
         threshold: float = 0.5,
