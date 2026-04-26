@@ -20,7 +20,8 @@
 - `scripts/ssd300/infer.py` の `_unsupported_trt` / `_unsupported_onnx` の戻り値型を `SsdPyTorchBackend` から `NoReturn` に変更. 「常に raise する」意図を型として明示し, 呼び出し側 (`BackendFactories`) は `NoReturn` の bottom 性質により無修正で互換. ([#624](https://github.com/kurorosu/pochidetection/pull/624))
 - `pyproject.toml` の mypy overrides に `onnxruntime` / `plotly` / `pynvml` / `tensorrt` を追加し, stub 不在系の `import-untyped` を一括 ignore. ([#625](https://github.com/kurorosu/pochidetection/pull/625))
 - `core/letterbox.py::apply_letterbox` を `@overload` 化し PIL/Tensor 入出力の型推論を呼び出し側で正しく解決. ([#626](https://github.com/kurorosu/pochidetection/pull/626))
-- `training/loop.py` の `DatasetFactory` を `Callable[..., Dataset[DatasetSampleDict]]` に正確化し, `partial(XxxDataset, ...)` の covariance 不整合を解消. ((NA.))
+- `training/loop.py` の `DatasetFactory` を `Callable[..., Dataset[DatasetSampleDict]]` に正確化し, `partial(XxxDataset, ...)` の covariance 不整合を解消. ([#627](https://github.com/kurorosu/pochidetection/pull/627))
+- `RTDetrPipeline.processor` の型を `RTDetrImageProcessor` から `RTDetrPostProcessor` Protocol に切り替え, テスト用 dummy processor の structural subtype 不整合を解消. ((NA.))
 
 ### Fixed
 - 無し
