@@ -1,5 +1,6 @@
 """推論バックエンドモジュール."""
 
+from pochidetection.inference.builder import build_pytorch_backend
 from pochidetection.inference.rtdetr.onnx_backend import RTDetrOnnxBackend
 from pochidetection.inference.rtdetr.pytorch_backend import RTDetrPyTorchBackend
 from pochidetection.inference.ssd.pytorch_backend import SsdPyTorchBackend
@@ -10,6 +11,7 @@ __all__ = [
     "RTDetrPyTorchBackend",
     "SSDLiteOnnxBackend",
     "SsdPyTorchBackend",
+    "build_pytorch_backend",
 ]
 
 try:
