@@ -32,7 +32,7 @@ class TestSaveBnStates:
         original_mean = states["0.running_mean"].clone()
 
         # モデルの running_mean を変更
-        model[0].running_mean.fill_(999.0)  # type: ignore[union-attr]
+        model[0].running_mean.fill_(999.0)  # type: ignore[union-attr, operator]
 
         # 保存された値は変わらない
         assert torch.equal(states["0.running_mean"], original_mean)
@@ -74,7 +74,7 @@ class TestRestoreBnStates:
         model.train()
         model(torch.randn(2, 3, 4, 4))
 
-        original_mean = model[0].running_mean.clone()  # type: ignore[union-attr]
+        original_mean = model[0].running_mean.clone()  # type: ignore[union-attr, operator]
         restore_bn_states(model, {})
 
         # 変更されない
@@ -98,8 +98,8 @@ class TestBnStatesRoundTrip:
             model(torch.randn(4, 3, 8, 8))
 
         # 学習後の BN 統計を記録
-        trained_mean = model[1].running_mean.clone()  # type: ignore[union-attr]
-        trained_var = model[1].running_var.clone()  # type: ignore[union-attr]
+        trained_mean = model[1].running_mean.clone()  # type: ignore[union-attr, operator]
+        trained_var = model[1].running_var.clone()  # type: ignore[union-attr, operator]
 
         # validation フェーズ: 退避 → train() forward → 復元
         bn_states = save_bn_states(model)

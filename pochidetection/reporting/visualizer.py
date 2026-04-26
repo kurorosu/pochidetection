@@ -81,6 +81,7 @@ class Visualizer:
         font_size = max(12, int(base_size / self._FONT_SIZE_DIVISOR))
 
         # フォント設定
+        font: ImageFont.ImageFont | ImageFont.FreeTypeFont
         try:
             font = ImageFont.truetype("arial.ttf", font_size)
         except OSError:

@@ -336,7 +336,7 @@ class VideoWriter(IFrameSink):
             fps: フレームレート.
             frame_size: フレームサイズ (width, height).
         """
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
         self._writer = cv2.VideoWriter(str(path), fourcc, fps, frame_size)
 
     def write(self, frame: np.ndarray) -> None:
@@ -414,7 +414,7 @@ class LazyVideoWriter(IFrameSink):
             self._estimated_fps = len(self._buffer) / elapsed if elapsed > 0 else 30.0
 
             h, w = self._buffer[0].shape[:2]
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
             self._writer = cv2.VideoWriter(
                 str(self._path), fourcc, self._estimated_fps, (w, h)
             )
@@ -445,7 +445,7 @@ class LazyVideoWriter(IFrameSink):
             elapsed = time.monotonic() - self._warmup_start
             self._estimated_fps = len(self._buffer) / elapsed if elapsed > 0 else 30.0
             h, w = self._buffer[0].shape[:2]
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
             self._writer = cv2.VideoWriter(
                 str(self._path), fourcc, self._estimated_fps, (w, h)
             )

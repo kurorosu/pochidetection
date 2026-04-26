@@ -50,7 +50,7 @@ def generate_anchors(
     grid_sizes = [list(f.shape[-2:]) for f in features.values()]
 
     anchor_generator: DefaultBoxGenerator = dummy_model.anchor_generator
-    dboxes = anchor_generator._grid_default_boxes(grid_sizes, image_size)
+    dboxes = anchor_generator._grid_default_boxes(grid_sizes, list(image_size))
 
     # cxcywh 正規化座標 → xyxy ピクセル座標
     x_y_size = torch.tensor([w, h], dtype=dboxes.dtype)
