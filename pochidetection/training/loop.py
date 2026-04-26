@@ -20,6 +20,7 @@ from pochidetection.configs.schemas import AugmentationConfig, DetectionConfigDi
 from pochidetection.core import DetectionCollator
 from pochidetection.datasets.augmentation import build_augmentation
 from pochidetection.datasets.base_coco_dataset import BaseCocoDataset
+from pochidetection.interfaces.dataset import DatasetSampleDict
 from pochidetection.interfaces.model import IDetectionModel
 from pochidetection.logging import LoggerManager
 from pochidetection.pipelines.runtime import configure_cudnn_benchmark
@@ -43,8 +44,8 @@ class TrainingContext(NamedTuple):
     """学習コンテキスト (アーキテクチャ共通)."""
 
     model: IDetectionModel
-    train_loader: DataLoader[dict[str, Any]]
-    val_loader: DataLoader[dict[str, Any]]
+    train_loader: DataLoader[DatasetSampleDict]
+    val_loader: DataLoader[DatasetSampleDict]
     optimizer: torch.optim.Optimizer
     scheduler: torch.optim.lr_scheduler.LRScheduler | None
     map_metric: MeanAveragePrecision
@@ -55,12 +56,16 @@ class TrainingContext(NamedTuple):
     train_score_threshold: float
 
 
-DatasetFactory = Callable[[Path], Dataset[dict[str, Any]]]
+# Why: `partial(XxxDataset, ...)` を渡せるよう `Callable[..., Dataset]` に緩める.
+# 実呼び出しは `dataset_factory(train_dir)` で第 1 引数 Path のみ. partial の
+# __call__ は `(*args: Any, **kwargs: Any) -> T` のため `Callable[[Path], ...]` と
+# は invariance により不一致になる.
+DatasetFactory = Callable[..., Dataset[DatasetSampleDict]]
 ModelFactory = Callable[[DetectionConfigDict], IDetectionModel]
 
 
 def _apply_augmentation_to_dataset(
-    dataset: Dataset[dict[str, Any]],
+    dataset: Dataset[DatasetSampleDict],
     augmentation: v2.Compose,
 ) -> None:
     """データセットに augmentation を適用する.
@@ -76,7 +81,7 @@ def _apply_augmentation_to_dataset(
 
 
 def _apply_debug_save_to_dataset(
-    dataset: Dataset[dict[str, Any]],
+    dataset: Dataset[DatasetSampleDict],
     debug_save_count: int,
     debug_save_dir: Path,
     logger: logging.Logger | None = None,
@@ -204,7 +209,7 @@ def build_data_loaders(
     config: DetectionConfigDict,
     dataset_factory: DatasetFactory,
     logger: logging.Logger,
-) -> tuple[DataLoader[dict[str, Any]], DataLoader[dict[str, Any]]]:
+) -> tuple[DataLoader[DatasetSampleDict], DataLoader[DatasetSampleDict]]:
     """学習・検証用データローダーを構築.
 
     Args:
