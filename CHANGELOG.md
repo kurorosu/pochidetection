@@ -24,7 +24,8 @@
 - `RTDetrPipeline.processor` の型を `RTDetrImageProcessor` から `RTDetrPostProcessor` Protocol に切り替え, テスト用 dummy processor の structural subtype 不整合を解消. ([#628](https://github.com/kurorosu/pochidetection/pull/628))
 - 個別 mypy エラー 30 件を一掃 (Optional ガード / `cast` / `cv2.VideoWriter_fourcc` の `# type: ignore[attr-defined]` 等). `uv run mypy .` 0 件達成. ([#629](https://github.com/kurorosu/pochidetection/pull/629))
 - pre-commit の mypy hook を `mirrors-mypy` から `local` + `uv run mypy` に切替. isolated venv の依存欠落問題を解消し commit 時にも全件型チェックが効くように. `core/letterbox.py` の `# type: ignore[overload-cannot-match]` 暫定 workaround も削除. ([#630](https://github.com/kurorosu/pochidetection/pull/630))
-- `core/types.py::BuildPipelineFn` の戻り値型を `Any` から `PipelineContext` に具体化し, `build_pipeline()` 戻り値の型推論を有効化. ((NA.))
+- `core/types.py::BuildPipelineFn` の戻り値型を `Any` から `PipelineContext` に具体化し, `build_pipeline()` 戻り値の型推論を有効化. ([#631](https://github.com/kurorosu/pochidetection/pull/631))
+- `api/backends.py` に `BackendName = Literal["pytorch", "onnx", "tensorrt"]` Type alias を導入し, `detect_backend_from_model` 戻り値型と `_BACKEND_CLASSES` キー型を一元化. `get_args(BackendName)` でキー網羅を起動時 assert 検証. ((NA.))
 
 ### Fixed
 - 無し
