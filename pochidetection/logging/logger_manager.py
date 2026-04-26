@@ -135,6 +135,7 @@ class LoggerManager:
         """
         handler = logging.StreamHandler()
 
+        formatter: logging.Formatter
         if COLORLOG_AVAILABLE:
             formatter = colorlog.ColoredFormatter(
                 self._format_string,
