@@ -2,11 +2,13 @@
 
 本モジュールは同じ設定項目を 2 系統で表現する. 役割と使い分けは以下に従う.
 
-``DetectionConfig`` (Pydantic BaseModel)
+``DetectionConfig`` (Pydantic discriminated union)
     **System boundary のバリデーター**. 外部から入ってきた設定値 (Python config
-    ファイルや dict) を runtime で検証し, 不正値を早期に弾く責務を持つ. 利用箇所は
-    ``ConfigLoader.load()`` の内部 (validation 用) に限定する. 関数シグネチャや
-    ダウンストリームで引き回さないこと.
+    ファイルや dict) を runtime で検証し, 不正値を早期に弾く責務を持つ.
+    ``architecture`` を discriminator として ``RTDetrConfig`` /
+    ``SSDLiteConfig`` / ``SSD300Config`` のいずれか 1 variant にディスパッチ
+    する. 利用箇所は ``ConfigLoader.load()`` の内部 (validation 用) に限定し,
+    関数シグネチャやダウンストリームで引き回さない.
 
 ``DetectionConfigDict`` (TypedDict)
     **内部で流通する設定値の型**. ``ConfigLoader.load()`` は Pydantic 検証後に
@@ -20,8 +22,7 @@
     - 検証済み設定を消費する層 (関数シグネチャ全般) → ``DetectionConfigDict``
 """
 
-import warnings
-from typing import Any, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 from pydantic import (
     BaseModel,
@@ -29,9 +30,27 @@ from pydantic import (
     Field,
     PositiveFloat,
     PositiveInt,
+    TypeAdapter,
     field_validator,
     model_validator,
 )
+
+__all__ = [
+    "AugmentTransformConfig",
+    "AugmentTransformDict",
+    "AugmentationConfig",
+    "AugmentationDict",
+    "BaseDetectionConfig",
+    "DetectionConfig",
+    "DetectionConfigAdapter",
+    "DetectionConfigDict",
+    "ImageSizeConfig",
+    "ImageSizeDict",
+    "RTDetrConfig",
+    "SSD300Config",
+    "SSDLiteConfig",
+    "normalize_architecture",
+]
 
 
 class AugmentTransformDict(TypedDict, total=False):
@@ -60,15 +79,19 @@ class DetectionConfigDict(TypedDict, total=False):
 
     ``ConfigLoader.load()`` の戻り値型として用い, CLI / API / pipelines /
     training など検証後の設定を受け取るすべての関数シグネチャはこの型を採用する.
-    ランタイムのバリデーションは ``DetectionConfig`` (Pydantic) が ``ConfigLoader``
-    内部で行い, この TypedDict は mypy による静的型チェック (キー名の typo 検出,
-    値の型検査) を目的とする.
+    ランタイムのバリデーションは ``DetectionConfig`` (discriminated union) が
+    ``ConfigLoader`` 内部で行い, この TypedDict は mypy による静的型チェック
+    (キー名の typo 検出, 値の型検査) を目的とする.
+
+    architecture 別の分岐があっても流通形式は単一 dict に揃え, 下流関数の
+    シグネチャ展開を抑える. RT-DETR 専用キー (``model_name`` など) は SSD 系
+    では Pydantic 検証で弾かれるため, ここに居ても dict 上には現れない.
 
     ``total=False`` により全キーが型システム上オプショナルとなるが,
-    Pydantic バリデーション済みのため実行時は全キーが存在する.
+    Pydantic バリデーション済みのため実行時は variant 必須キーが必ず存在する.
 
     See Also:
-        ``DetectionConfig``: 対応する Pydantic モデル.
+        ``DetectionConfig``: 対応する Pydantic discriminated union.
             ``ConfigLoader.load()`` 内部で runtime validation に使う.
     """
 
@@ -155,25 +178,36 @@ class ImageSizeConfig(BaseModel):
     width: PositiveInt = 640
 
 
-class DetectionConfig(BaseModel):
-    """物体検出設定の Pydantic スキーマ (system boundary validator).
+_ARCHITECTURE_ALIASES: dict[str, str] = {
+    "rtdetr": "RTDetr",
+    "ssd300": "SSD300",
+    "ssdlite": "SSDLite",
+}
 
-    外部から入ってきた設定値 (Python config ファイルや dict) を runtime で検証する
-    目的で使う. 利用箇所は ``ConfigLoader.load()`` の内部 (バリデーション用) に
-    限定し, 関数シグネチャやダウンストリームに引き回してはならない. 検証後は
-    ``model_dump()`` で ``DetectionConfigDict`` に変換して流通させる.
 
-    See Also:
-        ``DetectionConfigDict``: 対応する TypedDict.
-            検証後の設定値を関数シグネチャで流通させる際に使う.
+def normalize_architecture(value: str) -> str:
+    """Normalize architecture 値を正規ラベル (RTDetr / SSD300 / SSDLite) に揃える.
+
+    Args:
+        value: ユーザ入力の architecture 文字列 (case-insensitive).
+
+    Returns:
+        正規化済みのラベル. 未知ラベルはそのまま返し, Pydantic 側で
+        ``Literal`` 検証エラーとして弾かせる.
+    """
+    return _ARCHITECTURE_ALIASES.get(value.lower(), value)
+
+
+class BaseDetectionConfig(BaseModel):
+    """全アーキテクチャ共通の物体検出設定.
+
+    architecture 固有のフィールドはサブクラスが追加する. 本クラス自体を直接
+    バリデーションには使わず, ``DetectionConfig`` (discriminated union) 経由で
+    各 variant に dispatch される.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    architecture: Literal["RTDetr", "SSD300", "SSDLite"] = "RTDetr"
-    model_name: str = Field(default="PekingU/rtdetr_r50vd", min_length=1)
-    pretrained: bool = True
-    local_files_only: bool = False
     image_size: ImageSizeConfig = Field(default_factory=ImageSizeConfig)
 
     data_root: str = Field(min_length=1)
@@ -263,20 +297,6 @@ class DetectionConfig(BaseModel):
             )
         return v
 
-    @field_validator("architecture", mode="before")
-    @classmethod
-    def normalize_architecture(cls, v: str) -> str:
-        """Architecture を case-insensitive に正規化."""
-        mapping = {
-            "rtdetr": "RTDetr",
-            "ssd300": "SSD300",
-            "ssdlite": "SSDLite",
-        }
-        normalized = mapping.get(v.lower())
-        if normalized is None:
-            return v
-        return normalized
-
     @field_validator("early_stopping_patience", mode="before")
     @classmethod
     def normalize_early_stopping_patience(cls, v: int | None) -> int | None:
@@ -286,7 +306,7 @@ class DetectionConfig(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_class_names(self) -> "DetectionConfig":
+    def validate_class_names(self) -> "BaseDetectionConfig":
         """class_names と num_classes の整合性を検証."""
         if self.class_names is not None and len(self.class_names) != self.num_classes:
             raise ValueError(
@@ -294,27 +314,57 @@ class DetectionConfig(BaseModel):
             )
         return self
 
-    @model_validator(mode="after")
-    def warn_ssd_ignored_fields(self) -> "DetectionConfig":
-        """Warn about config fields ignored by SSD variants."""
-        if self.architecture not in ("SSDLite", "SSD300"):
-            return self
 
-        ignored: list[str] = []
-        if self.model_name != "PekingU/rtdetr_r50vd":
-            ignored.append("model_name")
+class RTDetrConfig(BaseDetectionConfig):
+    """RT-DETR 用設定.
 
-        if not self.pretrained:
-            ignored.append("pretrained")
+    ``model_name`` / ``pretrained`` / ``local_files_only`` の HF 系フィールドは
+    本 variant のみが受け付ける.
+    """
 
-        if self.local_files_only:
-            ignored.append("local_files_only")
+    architecture: Literal["RTDetr"] = "RTDetr"
+    model_name: str = Field(default="PekingU/rtdetr_r50vd", min_length=1)
+    pretrained: bool = True
+    local_files_only: bool = False
 
-        for name in ignored:
-            warnings.warn(
-                f"{self.architecture} では '{name}' は無視されます.",
-                UserWarning,
-                stacklevel=2,
-            )
 
-        return self
+class SSDLiteConfig(BaseDetectionConfig):
+    """SSDLite (MobileNetV3) 用設定.
+
+    HF 系フィールド (``model_name`` 等) は持たない. 指定された場合は
+    ``extra="forbid"`` により ``ValidationError`` を送出する.
+    """
+
+    architecture: Literal["SSDLite"]
+
+
+class SSD300Config(BaseDetectionConfig):
+    """SSD300 (VGG16) 用設定.
+
+    HF 系フィールド (``model_name`` 等) は持たない. 指定された場合は
+    ``extra="forbid"`` により ``ValidationError`` を送出する.
+    """
+
+    architecture: Literal["SSD300"]
+
+
+DetectionConfig = Annotated[
+    RTDetrConfig | SSDLiteConfig | SSD300Config,
+    Field(discriminator="architecture"),
+]
+"""architecture をキーにした discriminated union.
+
+``ConfigLoader.load()`` 内部で ``DetectionConfigAdapter.validate_python`` 経由で
+バリデーションする. 直接 ``DetectionConfig.model_validate`` のような呼び出しは
+できない (型エイリアスのため). サブクラスを直接バリデーションすることも可能.
+"""
+
+DetectionConfigAdapter: TypeAdapter[RTDetrConfig | SSDLiteConfig | SSD300Config] = (
+    TypeAdapter(DetectionConfig)
+)
+"""``DetectionConfig`` の TypeAdapter.
+
+``Annotated[Union, Field(discriminator=...)]`` は型エイリアスのため
+``model_validate`` を持たない. ``ConfigLoader`` はこの adapter 経由で
+``validate_python`` を呼び出す.
+"""

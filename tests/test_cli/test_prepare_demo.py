@@ -37,10 +37,10 @@ class TestBuildDemoConfig:
 
     def test_validates_against_pydantic_schema(self) -> None:
         """ConfigLoader が validate する Pydantic schema (extra=forbid) を通る."""
-        from pochidetection.configs.schemas import DetectionConfig
+        from pochidetection.configs.schemas import DetectionConfigAdapter
 
         config = build_demo_config({"height": 640, "width": 640})
-        DetectionConfig.model_validate(config)
+        DetectionConfigAdapter.validate_python(config)
 
 
 class TestTensorrtAbsentExit:

@@ -9,7 +9,7 @@
 - 無し
 
 ### Changed
-- 無し
+- `DetectionConfig` を architecture 別 discriminated union (`RTDetrConfig` / `SSDLiteConfig` / `SSD300Config`) に分離. SSD 系で `model_name` 等を指定すると警告ではなく `ValidationError` で弾く. ((NA.))
 
 ### Fixed
 - 無し

@@ -317,7 +317,8 @@ class TestRunInferValidation:
         """画像ディレクトリ未指定時に SystemExit が発生することを確認する."""
         config_file = tmp_path / "config.py"
         config_file.write_text(
-            'data_root = "data"\nnum_classes = 4\n', encoding="utf-8"
+            'architecture = "RTDetr"\ndata_root = "data"\nnum_classes = 4\n',
+            encoding="utf-8",
         )
 
         parser = _create_parser()
