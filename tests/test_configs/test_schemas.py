@@ -65,7 +65,7 @@ class TestDetectionConfigEarlyStopping:
         with pytest.raises(Exception):
             DetectionConfig(
                 **REQUIRED_FIELDS,
-                early_stopping_metric="invalid",
+                early_stopping_metric="invalid",  # type: ignore[arg-type]
             )
 
     def test_negative_min_delta_raises_error(self) -> None:
@@ -102,13 +102,13 @@ class TestArchitectureNormalization:
         self, input_value: str, expected: str
     ) -> None:
         """大文字小文字を問わず正規化されることを確認."""
-        config = DetectionConfig(**REQUIRED_FIELDS, architecture=input_value)
+        config = DetectionConfig(**REQUIRED_FIELDS, architecture=input_value)  # type: ignore[arg-type]
         assert config.architecture == expected
 
     def test_invalid_architecture_raises_error(self) -> None:
         """無効な architecture で ValidationError."""
         with pytest.raises(Exception):
-            DetectionConfig(**REQUIRED_FIELDS, architecture="InvalidArch")
+            DetectionConfig(**REQUIRED_FIELDS, architecture="InvalidArch")  # type: ignore[arg-type]
 
 
 class TestSSDLiteIgnoredFieldWarnings:

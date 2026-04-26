@@ -7,6 +7,7 @@ from typing import Iterator
 import cv2
 import numpy as np
 import pytest
+from PIL import Image
 
 from pochidetection.core.detection import Detection
 from pochidetection.interfaces.frame_sink import IFrameSink
@@ -28,7 +29,7 @@ from pochidetection.utils.video import (
 
 def _create_test_video(path: Path, num_frames: int = 10) -> None:
     """テスト用の動画ファイルを生成する."""
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
     writer = cv2.VideoWriter(str(path), fourcc, 30.0, (64, 48))
     for i in range(num_frames):
         frame = np.full((48, 64, 3), i * 25, dtype=np.uint8)
@@ -338,7 +339,7 @@ class _DummyPipeline(IDetectionPipeline[np.ndarray, list[Detection]]):
 
     def run(
         self,
-        image: np.ndarray | None = None,
+        image: Image.Image | np.ndarray,
         *,
         threshold: float | None = None,
     ) -> list[Detection]:

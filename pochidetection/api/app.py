@@ -182,7 +182,9 @@ def create_app(server_config: ServerConfig | None = None) -> FastAPI:
     )
 
     # body サイズ上限 middleware (413 Payload Too Large).
-    app.add_middleware(BodySizeLimitMiddleware, max_body_size=MAX_BODY_SIZE)
+    # Why: starlette の `_MiddlewareFactory` Protocol が ASGI callable を要求するが,
+    # BaseHTTPMiddleware ベースのミドルウェアは class signature が異なる.
+    app.add_middleware(BodySizeLimitMiddleware, max_body_size=MAX_BODY_SIZE)  # type: ignore[arg-type]
 
     app.include_router(health.router)
     app.include_router(inference.router)

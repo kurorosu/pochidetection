@@ -106,7 +106,8 @@ class TestVisualizerDraw:
         """load_default(size=) でフォントサイズが維持されることを確認."""
         font_size = 20
         font = ImageFont.load_default(size=font_size)
-
+        # Why: stub では `FreeTypeFont | ImageFont` だが size 指定時は FreeTypeFont.
+        assert isinstance(font, ImageFont.FreeTypeFont)
         assert font.size == font_size
 
 

@@ -4,6 +4,7 @@ import copy
 import logging
 import warnings
 from pathlib import Path
+from typing import cast
 
 import torch
 import torch.nn as nn
@@ -30,8 +31,9 @@ class _SSDLiteExportWrapper(nn.Module):
             ssd_model: torchvision の SSD モデルインスタンス.
         """
         super().__init__()
-        self.backbone = ssd_model.backbone
-        self.head = ssd_model.head
+        # Why: nn.Module.__getattr__ は `Tensor | Module` union を返すため cast.
+        self.backbone = cast(nn.Module, ssd_model.backbone)
+        self.head = cast(nn.Module, ssd_model.head)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Backbone + head の forward.
@@ -48,9 +50,11 @@ class _SSDLiteExportWrapper(nn.Module):
             bbox_regression: (B, num_anchors, 4).
         """
         x = (x - 0.5) / 0.5
-        features = self.backbone(x)
+        # Why: backbone / head の戻り値は Tensor の OrderedDict だが Module の
+        # __call__ シグネチャでは Tensor 推論される.
+        features: dict[str, torch.Tensor] = self.backbone(x)
         features_list = list(features.values())
-        head_out = self.head(features_list)
+        head_out: dict[str, torch.Tensor] = self.head(features_list)
         return head_out["cls_logits"], head_out["bbox_regression"]
 
 

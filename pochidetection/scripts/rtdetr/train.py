@@ -113,10 +113,12 @@ def _validate(
             outputs = model.model(pixel_values=pixel_values, labels=labels)
             val_loss += outputs.loss.item()
 
+            # Why: target_sizes=None は HF API 上は許容されるが stub で
+            # `TensorType | list[tuple[Any, ...]]` 必須に見える.
             results = processor.post_process_object_detection(
                 outputs,
                 threshold=ctx.train_score_threshold,
-                target_sizes=None,
+                target_sizes=None,  # type: ignore[arg-type]
             )
 
             for i, result in enumerate(results):
