@@ -82,6 +82,17 @@ module = "torchvision.*"
 ignore_missing_imports = true
 follow_untyped_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+    "onnxruntime",
+    "onnxruntime.*",
+    "plotly",
+    "plotly.*",
+    "pynvml",
+    "tensorrt",
+]
+ignore_missing_imports = true
+
 [tool.pydocstyle]
 convention = "google"
 

@@ -17,7 +17,8 @@
 - `tensorrt/export.py::export_trt()` ラッパーを削除し, 呼び出し側 (`cli/commands/export.py` / `prepare_demo.py`) で直接 `TensorRTExporter().export()` を呼ぶ形に変更. ラッパーが追加していたログは exporter 側と完全重複していたため移植不要. デフォルト出力パス生成と TRT エクスポート失敗時の `sys.exit` を CLI レイヤに整理. ([#614](https://github.com/kurorosu/pochidetection/pull/614))
 - `LoggerManager` の `_initialized` フラグ防御を廃止. インスタンス属性の初期化を `__init__` から `__new__` の Singleton 生成枝に集約し, `__init__` 自体を削除. クラスレベルの type annotation で mypy 整合も維持. ([#616](https://github.com/kurorosu/pochidetection/pull/616))
 - `LoggerManager._create_handler` の `formatter` ローカル変数に `logging.Formatter` の型注釈を追加し, `colorlog` 有無の分岐で `ColoredFormatter` / `Formatter` のいずれを代入しても mypy 不整合エラーが出ないよう整理. 動作変更なし. ([#617](https://github.com/kurorosu/pochidetection/pull/617))
-- `scripts/ssd300/infer.py` の `_unsupported_trt` / `_unsupported_onnx` の戻り値型を `SsdPyTorchBackend` から `NoReturn` に変更. 「常に raise する」意図を型として明示し, 呼び出し側 (`BackendFactories`) は `NoReturn` の bottom 性質により無修正で互換. ((NA.))
+- `scripts/ssd300/infer.py` の `_unsupported_trt` / `_unsupported_onnx` の戻り値型を `SsdPyTorchBackend` から `NoReturn` に変更. 「常に raise する」意図を型として明示し, 呼び出し側 (`BackendFactories`) は `NoReturn` の bottom 性質により無修正で互換. ([#624](https://github.com/kurorosu/pochidetection/pull/624))
+- `pyproject.toml` の `[[tool.mypy.overrides]]` に `onnxruntime` / `plotly` (+ `.*`) / `pynvml` / `tensorrt` を追加し, サードパーティ stub 不在による `import-untyped` エラーを一括 ignore. `uv run mypy .` のエラー件数 102 件 → 75 件. ((NA.))
 
 ### Fixed
 - 無し
