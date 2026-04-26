@@ -16,7 +16,8 @@
 - `api/backends.py::create_detection_backend` のシグネチャから dead pass-through だった `config_path` 引数を削除し, config 解決と pretrained 経路の特例処理を `api/app.py::build_engine` 側に集約. WebAPI 経路で `resolve_and_build_pipeline` には常に `config_path=None` を渡す形で意味論を明示. ([#613](https://github.com/kurorosu/pochidetection/pull/613))
 - `tensorrt/export.py::export_trt()` ラッパーを削除し, 呼び出し側 (`cli/commands/export.py` / `prepare_demo.py`) で直接 `TensorRTExporter().export()` を呼ぶ形に変更. ラッパーが追加していたログは exporter 側と完全重複していたため移植不要. デフォルト出力パス生成と TRT エクスポート失敗時の `sys.exit` を CLI レイヤに整理. ([#614](https://github.com/kurorosu/pochidetection/pull/614))
 - `LoggerManager` の `_initialized` フラグ防御を廃止. インスタンス属性の初期化を `__init__` から `__new__` の Singleton 生成枝に集約し, `__init__` 自体を削除. クラスレベルの type annotation で mypy 整合も維持. ([#616](https://github.com/kurorosu/pochidetection/pull/616))
-- `LoggerManager._create_handler` の `formatter` ローカル変数に `logging.Formatter` の型注釈を追加し, `colorlog` 有無の分岐で `ColoredFormatter` / `Formatter` のいずれを代入しても mypy 不整合エラーが出ないよう整理. 動作変更なし. ((NA.))
+- `LoggerManager._create_handler` の `formatter` ローカル変数に `logging.Formatter` の型注釈を追加し, `colorlog` 有無の分岐で `ColoredFormatter` / `Formatter` のいずれを代入しても mypy 不整合エラーが出ないよう整理. 動作変更なし. ([#617](https://github.com/kurorosu/pochidetection/pull/617))
+- `scripts/ssd300/infer.py` の `_unsupported_trt` / `_unsupported_onnx` の戻り値型を `SsdPyTorchBackend` から `NoReturn` に変更. 「常に raise する」意図を型として明示し, 呼び出し側 (`BackendFactories`) は `NoReturn` の bottom 性質により無修正で互換. ((NA.))
 
 ### Fixed
 - 無し
