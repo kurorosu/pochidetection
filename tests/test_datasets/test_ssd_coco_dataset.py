@@ -168,24 +168,6 @@ class TestSsdCocoDataset:
         assert boxes.shape == (0, 4)
         assert class_labels.shape == (0,)
 
-    def test_get_categories(
-        self, sample_dataset_dir: Path, image_size: ImageSizeDict
-    ) -> None:
-        """get_categories が正しいカテゴリ情報を返すことを確認."""
-        dataset = SsdCocoDataset(sample_dataset_dir, image_size)
-        categories = dataset.get_categories()
-
-        assert len(categories) == 2
-        assert categories[0]["name"] == "cat"
-        assert categories[1]["name"] == "dog"
-
-    def test_get_num_classes(
-        self, sample_dataset_dir: Path, image_size: ImageSizeDict
-    ) -> None:
-        """get_num_classes が正しいクラス数を返すことを確認."""
-        dataset = SsdCocoDataset(sample_dataset_dir, image_size)
-        assert dataset.get_num_classes() == 2
-
     def test_pixel_values_are_zero_one_range(
         self, sample_dataset_dir: Path, image_size: ImageSizeDict
     ) -> None:
@@ -200,14 +182,6 @@ class TestSsdCocoDataset:
         pixel_values = sample["pixel_values"]
         assert pixel_values.min() >= 0.0
         assert pixel_values.max() <= 1.0
-
-    def test_get_category_names(
-        self, sample_dataset_dir: Path, image_size: ImageSizeDict
-    ) -> None:
-        """get_category_names が正しいカテゴリ名を返すことを確認."""
-        dataset = SsdCocoDataset(sample_dataset_dir, image_size)
-        names = dataset.get_category_names()
-        assert names == ["cat", "dog"]
 
     def test_annotation_file_not_found(
         self, tmp_path: Path, image_size: ImageSizeDict

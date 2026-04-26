@@ -165,33 +165,6 @@ class TestCocoDetectionDataset:
         assert boxes.shape == (0, 4)
         assert labels.shape == (0,)
 
-    def test_get_categories(
-        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor
-    ) -> None:
-        """get_categoriesが正しいカテゴリ情報を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
-        categories = dataset.get_categories()
-
-        assert len(categories) == 2
-        assert categories[0]["name"] == "cat"
-        assert categories[1]["name"] == "dog"
-
-    def test_get_num_classes(
-        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor
-    ) -> None:
-        """get_num_classesが正しいクラス数を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
-        assert dataset.get_num_classes() == 2
-
-    def test_get_category_names(
-        self, sample_dataset_dir: Path, processor: RTDetrImageProcessor
-    ) -> None:
-        """get_category_namesが正しいカテゴリ名を返すことを確認."""
-        dataset = CocoDetectionDataset(sample_dataset_dir, processor)
-        names = dataset.get_category_names()
-
-        assert names == ["cat", "dog"]
-
     def test_annotation_file_not_found(
         self, tmp_path: Path, processor: RTDetrImageProcessor
     ) -> None:

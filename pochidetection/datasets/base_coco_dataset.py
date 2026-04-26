@@ -29,7 +29,6 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         _annotation_file: アノテーションファイルのパス.
         _images: 画像情報のリスト.
         _annotations: アノテーション情報 (image_id でグループ化).
-        _categories: カテゴリ情報のリスト (背景クラスを除く).
         _category_id_to_idx: カテゴリ ID から連続インデックスへのマッピング.
     """
 
@@ -56,8 +55,8 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
         self._debug_saved: int = 0
         self._root = Path(root)
         self._annotation_file = self._find_annotation_file(annotation_file)
-        images, annotations_by_id, self._categories = self._load_annotations()
-        self._category_id_to_idx = build_category_id_to_idx(self._categories)
+        images, annotations_by_id, categories = self._load_annotations()
+        self._category_id_to_idx = build_category_id_to_idx(categories)
         self._images = images
         # __getitem__() 毎回のフィルタリングを避けるため, 初期化時に一括実行する.
         self._annotations = self._filter_annotations(annotations_by_id)
@@ -254,30 +253,6 @@ class BaseCocoDataset(Dataset[DatasetSampleDict], IDetectionDataset):
             pixel_values と labels を含む辞書.
         """
         pass
-
-    def get_categories(self) -> list[dict[str, Any]]:
-        """カテゴリ情報を取得.
-
-        Returns:
-            カテゴリ情報のリスト. 各要素は {"id": int, "name": str} の形式.
-        """
-        return self._categories
-
-    def get_num_classes(self) -> int:
-        """クラス数を取得.
-
-        Returns:
-            クラス数.
-        """
-        return len(self._categories)
-
-    def get_category_names(self) -> list[str]:
-        """カテゴリ名のリストを取得.
-
-        Returns:
-            カテゴリ名のリスト (連続インデックス順).
-        """
-        return [cat["name"] for cat in self._categories]
 
     @property
     def debug_save_count(self) -> int:
