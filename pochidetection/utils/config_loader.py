@@ -12,7 +12,11 @@ from typing import Any, cast
 
 from pydantic import ValidationError
 
-from pochidetection.configs.schemas import DetectionConfig, DetectionConfigDict
+from pochidetection.configs.schemas import (
+    DetectionConfigAdapter,
+    DetectionConfigDict,
+    normalize_architecture,
+)
 
 _BASE_CONFIG_NAME = "_base.py"
 
@@ -55,8 +59,12 @@ class ConfigLoader:
             'PekingU/rtdetr_r50vd_coco_o365'
         """
         raw_config = cls._load_file(config_path)
+        if isinstance(raw_config.get("architecture"), str):
+            raw_config["architecture"] = normalize_architecture(
+                raw_config["architecture"]
+            )
         try:
-            validated = DetectionConfig.model_validate(raw_config)
+            validated = DetectionConfigAdapter.validate_python(raw_config)
         except ValidationError as error:
             error.add_note(f"設定ファイルのバリデーションに失敗しました: {config_path}")
             raise

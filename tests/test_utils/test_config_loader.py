@@ -60,6 +60,7 @@ class TestConfigLoader:
         """型が不正な場合にエラーが発生することを確認."""
         config_file = tmp_path / "type_config.py"
         config_file.write_text(
+            'architecture = "RTDetr"\n'
             'data_root = "data"\n'
             'num_classes = "two"\n'  # intであるべき
             'train_split = "train"\n'
@@ -71,10 +72,10 @@ class TestConfigLoader:
             ConfigLoader.load(str(config_file))
 
     def test_load_config_applies_defaults(self, tmp_path: Path) -> None:
-        """デフォルト値が適用されることを確認."""
+        """architecture 以外のデフォルト値が適用されることを確認."""
         config_file = tmp_path / "minimal_config.py"
         config_file.write_text(
-            'data_root = "data"\n' "num_classes = 2\n",
+            'architecture = "RTDetr"\n' 'data_root = "data"\n' "num_classes = 2\n",
             encoding="utf-8",
         )
 
@@ -96,11 +97,25 @@ class TestConfigLoader:
         assert config["lr_scheduler"] is None
         assert config["lr_scheduler_params"] is None
 
+    def test_load_config_missing_architecture(self, tmp_path: Path) -> None:
+        """architecture 未指定で discriminator missing エラーが発生することを確認."""
+        config_file = tmp_path / "no_arch_config.py"
+        config_file.write_text(
+            'data_root = "data"\n' "num_classes = 2\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValidationError, match="architecture"):
+            ConfigLoader.load(str(config_file))
+
     def test_load_config_rejects_unknown_key(self, tmp_path: Path) -> None:
         """未知キーがある場合にエラーが発生することを確認."""
         config_file = tmp_path / "unknown_key_config.py"
         config_file.write_text(
-            'data_root = "data"\n' "num_classes = 2\n" "unknown_setting = True\n",
+            'architecture = "RTDetr"\n'
+            'data_root = "data"\n'
+            "num_classes = 2\n"
+            "unknown_setting = True\n",
             encoding="utf-8",
         )
 
@@ -111,7 +126,10 @@ class TestConfigLoader:
         """class_names と num_classes が不整合な場合にエラーが発生することを確認."""
         config_file = tmp_path / "class_names_config.py"
         config_file.write_text(
-            'data_root = "data"\n' "num_classes = 2\n" 'class_names = ["dog"]\n',
+            'architecture = "RTDetr"\n'
+            'data_root = "data"\n'
+            "num_classes = 2\n"
+            'class_names = ["dog"]\n',
             encoding="utf-8",
         )
 
@@ -124,6 +142,7 @@ class TestConfigLoader:
         """score_threshold に 0.0 を設定できることを確認."""
         config_file = tmp_path / "zero_threshold_config.py"
         config_file.write_text(
+            'architecture = "RTDetr"\n'
             'data_root = "data"\n'
             "num_classes = 2\n"
             "train_score_threshold = 0.0\n"
@@ -139,6 +158,7 @@ class TestConfigLoader:
         """lr_scheduler を設定できることを確認."""
         config_file = tmp_path / "scheduler_config.py"
         config_file.write_text(
+            'architecture = "RTDetr"\n'
             'data_root = "data"\n'
             "num_classes = 2\n"
             'lr_scheduler = "CosineAnnealingLR"\n'
@@ -163,6 +183,7 @@ class TestConfigLoader:
         """_base.py が存在する場合にマージされることを確認."""
         base_file = tmp_path / "_base.py"
         base_file.write_text(
+            'architecture = "RTDetr"\n'
             'data_root = "data"\n'
             "num_classes = 2\n"
             'train_split = "train"\n'
@@ -185,6 +206,7 @@ class TestConfigLoader:
         """個別設定がベース設定を上書きすることを確認."""
         base_file = tmp_path / "_base.py"
         base_file.write_text(
+            'architecture = "RTDetr"\n'
             'data_root = "data"\n'
             "num_classes = 2\n"
             "batch_size = 4\n"

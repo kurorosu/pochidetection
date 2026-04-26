@@ -6,6 +6,7 @@
 """
 
 # モデル設定
+architecture = "RTDetr"
 model_name = "PekingU/rtdetr_r18vd"
 local_files_only = False  # True にするとキャッシュ済みモデルのみ使用 (オフライン対応)
 
