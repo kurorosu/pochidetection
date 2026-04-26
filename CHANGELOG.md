@@ -6,10 +6,10 @@
 ## [Unreleased]
 
 ### Added
-- `pochi prepare-demo` サブコマンドを追加. RT-DETR COCO プリトレイン (`PekingU/rtdetr_r50vd`) のダウンロード → ONNX エクスポート → TensorRT FP16 engine ビルドを 1 コマンドで実行し, `pochi serve -m work_dirs/<run>/best/model_fp16.engine` で WebAPI を即起動できる成果物を生成. TensorRT 必須 (未インストール時は副作用ゼロで早期 exit). ((NA.))
+- `pochi prepare-demo` サブコマンドを追加. RT-DETR COCO プリトレイン (`PekingU/rtdetr_r50vd`) のダウンロード → ONNX エクスポート → TensorRT FP16 engine ビルドを 1 コマンドで実行し, `pochi serve -m work_dirs/<run>/best/model_fp16.engine` で WebAPI を即起動できる成果物を生成. TensorRT 必須 (未インストール時は副作用ゼロで早期 exit). ([#594](https://github.com/kurorosu/pochidetection/pull/594))
 
 ### Changed
-- 無し
+- `scripts/rtdetr/train.py` の `processor_holder = []` リスト共有パターンを解消. model 構築を `_setup_training` 直下に移し, processor を `dataset_factory` のクロージャで参照する形に変更. SSD 系と同じ `partial(...)` 流儀に統一. ((NA.))
 
 ### Fixed
 - 無し
