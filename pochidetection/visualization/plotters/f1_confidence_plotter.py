@@ -11,6 +11,9 @@ from pochidetection.visualization.plotters.constants import (
     LEGEND_CONFIG,
     render_side_by_side_html,
 )
+from pochidetection.visualization.plotters.precision_utils import (
+    replace_invalid_with_nan,
+)
 
 
 class F1ConfidencePlotter(IReportPlotter):
@@ -106,14 +109,10 @@ class F1ConfidencePlotter(IReportPlotter):
         precision_slice = self._precision[self._iou_threshold_idx, :, :, 0, 2]
         scores_slice = self._scores[self._iou_threshold_idx, :, :, 0, 2]
 
-        # 無効値 (-1) を NaN に置換
+        # 無効値 (-1) を NaN に置換 (precision の mask を scores にも同位置で適用)
         valid_mask = precision_slice >= 0
-        precision_clean = torch.where(
-            valid_mask, precision_slice, torch.full_like(precision_slice, float("nan"))
-        )
-        scores_clean = torch.where(
-            valid_mask, scores_slice, torch.full_like(scores_slice, float("nan"))
-        )
+        precision_clean = replace_invalid_with_nan(precision_slice, valid_mask)
+        scores_clean = replace_invalid_with_nan(scores_slice, valid_mask)
 
         # F1 計算: (R, K)
         f1, _ = self._compute_f1(precision_clean)
@@ -188,18 +187,10 @@ class F1ConfidencePlotter(IReportPlotter):
             if (precision_slice < 0).all():
                 continue
 
-            # 無効値を NaN に置換
+            # 無効値を NaN に置換 (precision の mask を scores にも同位置で適用)
             valid_mask = precision_slice >= 0
-            precision_clean = torch.where(
-                precision_slice >= 0,
-                precision_slice,
-                torch.full_like(precision_slice, float("nan")),
-            )
-            scores_clean = torch.where(
-                valid_mask,
-                scores_slice,
-                torch.full_like(scores_slice, float("nan")),
-            )
+            precision_clean = replace_invalid_with_nan(precision_slice, valid_mask)
+            scores_clean = replace_invalid_with_nan(scores_slice, valid_mask)
 
             # F1 計算: (R,)
             f1, _ = self._compute_f1(precision_clean)
